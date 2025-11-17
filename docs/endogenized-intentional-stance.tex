@@ -1,0 +1,190 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath,amssymb,graphicx,bm}
+\usepackage[a4paper,margin=1in]{geometry}
+
+\title{\textbf{The Endogenized Intentional Stance:\\
+A Predictive–Compression Formalization of Agent Discovery}}
+\author{Author Name\\AE Studio\\\texttt{author@aestudio.org}}
+\date{November 2025}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We formalize an \emph{Endogenized Intentional Stance (EIS)}: a behavioral–informational procedure for discovering agents and goals directly from raw observation streams without pre-specified entities or sensors.  EIS extends the pragmatic–predictive view of Dennett (1987) and recent stochastic formalizations (McGregor et al., 2025) by replacing the assumption of a given world model with a learned latent dynamics that simultaneously grounds environment, action, and purpose.  Agency emerges where a soft-optimal (goal-rational) prior over latent interventions reduces description length relative to a purely mechanistic baseline.  Intentionality thus becomes an empirical, compression-based property of dynamics rather than an anthropomorphic stance.  We derive sufficient conditions for intentional gain, outline a hierarchical aggregation scheme, and connect the resulting constructs to known information-theoretic quantities: predictive mutual information, control entropy, and value gradients under bounded rationality.
+\end{abstract}
+
+\section{Introduction}
+
+Attributing beliefs and desires to a system can dramatically simplify behavioral prediction.  Dennett’s \emph{intentional stance} treats such attributions as modeling conveniences, vindicated when they increase predictive success at low cognitive cost.  McGregor et al. (2025) showed that any stochastic process may, in principle, admit a normative–epistemic interpretation.  Yet both perspectives presuppose a \emph{world model} defining what could be believed or desired.  We here remove that presupposition: given only an observation sequence $\{o_t\}_{t=1}^T$, we ask where goal-directed explanations yield better compression than purely mechanistic ones.  The resulting procedure endogenizes world, agent, and goal in a single generative model.
+
+\section{Predictive world modeling}
+
+Let $\theta$ parameterize a predictive latent dynamics
+\begin{equation}
+p_\theta(o_{1:T},z_{1:T})=
+\prod_{t} p_\theta(o_t\mid z_t)\,p_\theta(z_t\mid z_{t-1}),
+\label{eq:latent}
+\end{equation}
+with hidden variables $z_t\in\mathbb R^d$ learned by maximizing
+\[
+\mathcal{L}_0(\theta,\phi)
+=\sum_t \mathbb E_{q_\phi(z_t\mid o_{\le t})}
+[\log p_\theta(o_t\mid z_t)]-\beta\,D_{\mathrm{KL}}(q_\phi\Vert p_\theta).
+\]
+No partition into sensors, actuators, or entities is assumed.
+
+\section{Intentional prior and compression gain}
+
+We augment~(\ref{eq:latent}) with discrete latent impulses
+$a_t\in\mathcal A$ acting as candidate interventions in $z$:
+\begin{equation}
+p(o,z,a)=
+\prod_t p(o_t\mid z_t)\,p(z_{t+1}\mid z_t,a_t)\,p(a_t).
+\end{equation}
+The \emph{intentional stance} introduces a soft-optimal prior
+\begin{equation}
+p_\beta(a_t\mid z_t)
+\propto \exp[\beta\,r_\psi(z_t,a_t)],
+\label{eq:soft}
+\end{equation}
+where $r_\psi$ is a learned reward density and $\beta>0$ an inverse-temperature.
+This converts the purely generative dynamics into a bounded-rational control process.
+
+Let $\mathcal{L}_\mathrm{I}$ denote the log evidence of the intentional model and
+$\mathcal{L}_\mathrm{M}$ that of a baseline with uniform $p(a_t)$.
+The \emph{intentional gain}
+\begin{equation}
+\Delta\mathcal L
+=\mathcal{L}_\mathrm{I}-\mathcal{L}_\mathrm{M}
+-\lambda\,\mathrm{DL}(r_\psi)
+\label{eq:gain}
+\end{equation}
+measures the code-length reduction due to goal-directed explanation.
+A subsystem $C$ is declared \emph{intentional} when $\Delta\mathcal L_C>0$,
+signifying that rationality assumptions compress its trajectory.
+
+\section{Emergent entities}
+
+We seek subsets of latent coordinates $C\subseteq z$ for which $\Delta\mathcal L_C$ is maximized subject to sparse coupling with the remainder.
+Operationally, we minimize
+\begin{equation}
+\mathcal{J}(C)=
+I(z'_{C};z'_{\neg C}\mid a_C)
+-\alpha\,\Delta\mathcal L_C,
+\end{equation}
+where $I(\cdot;\cdot\mid\cdot)$ is conditional mutual information.
+Local minima define dynamically quasi-autonomous modules whose behavior is efficiently summarized by~(\ref{eq:soft}).
+These modules constitute \emph{endogenously discovered agents}.
+
+\section{Hierarchical aggregation}
+
+Given intentional modules $\{C_i\}$ with latent values $z^{(i)}_t$,
+construct an abstract state $\bar z_t=f(\{z^{(i)}_t\})$ and abstract actions $\bar a_t=g(\{a^{(i)}_t\})$.
+Reapplying~(\ref{eq:soft}) in the compressed space yields higher-level intentional priors
+$p_\beta(\bar a_t\mid\bar z_t)\!\propto\!\exp[\beta\,\bar r(\bar z_t,\bar a_t)]$.
+Hierarchies thus emerge recursively where joint intentional gain exceeds the sum of constituent gains.
+This realizes Dennett’s \emph{multi-level stance}: agents within agents, unified by shared compression criteria.
+
+\section{Cooperative structure}
+
+For modules $i,j$ define an empirical \emph{cooperativity index}
+\begin{equation}
+\kappa_{ij}
+=\frac{\Delta V^{(i)}( \text{do}(a^{(j)}) )}
+      {\mathrm{cost}^{(i)}},
+\label{eq:kappa}
+\end{equation}
+where $\Delta V^{(i)}$ is the change in expected cumulative reward
+$V^{(i)}(z)=\mathbb E[\sum_t r_\psi^{(i)}(z_t,a_t)]$
+under counterfactual manipulation of $a^{(j)}$.
+Edges with $\kappa_{ij}>1$ define cooperative clusters;
+$\kappa_{ij}<0$ indicates competition.
+These relations permit percolation analyses analogous to those used in evolutionary models of cooperation
+(Hamilton, 1964).
+
+\section{Relation to information principles}
+
+The intentional prior~(\ref{eq:soft}) connects to known information-theoretic quantities:
+let $I_{\mathrm{pred}}=I(z_t;z_{t+1})$ and
+$I_{\mathrm{ctrl}}=I(a_t;z_{t+1})$.
+Expected log evidence decomposes as
+\begin{equation}
+\mathbb E[\log p(o)]\approx
+I_{\mathrm{pred}}+I_{\mathrm{ctrl}}
+-\beta H(z_t)-\gamma S,
+\end{equation}
+with $S=-\mathbb E[\log p(o_{t+1}\mid z_t)]$ the residual surprise
+and coefficients $(\beta,\gamma)$ reflecting memory and uncertainty costs
+(Friston, 2010; Tishby et al., 2000).
+Hence intentional gain~(\ref{eq:gain}) corresponds to an information-bottleneck advantage achieved by positing latent goals.
+
+\section{Determinacy and uniqueness}
+
+Following McGregor et al. (2025),
+multiple normative–epistemic interpretations can coexist for stochastic processes.
+EIS refines this by assigning quantitative preference
+\[
+P(\text{interpretation})\propto
+\exp[\Delta\mathcal L],
+\]
+so that interpretations form an energy landscape whose minima represent the simplest rationalizations.
+Deterministic subsystems yield unique minima;
+chaotic or noisy ones support degenerate stances.
+
+\section{Discussion}
+
+EIS reinterprets Dennett’s intentional stance as a model-selection principle.
+Whereas classic formulations required an observer’s external world model,
+EIS internalizes it by training a predictive generative model directly from data.
+Intentionality becomes an empirical regularity—regions of the dynamics for which
+rational-goal assumptions save bits.
+This extends bounded-rational control to settings lacking predefined agents or utilities,
+aligning with information-theoretic frameworks of adaptation
+(Friston et al., 2010; Tishby et al., 2000)
+and with normative–epistemic mappings in stochastic processes
+(McGregor et al., 2025).
+
+\section{Conclusion}
+
+The Endogenized Intentional Stance provides a unified,
+data-driven criterion for the emergence of agency and purpose.
+An observer need not know what is sensed or controlled;
+the system’s own predictive structure reveals where such attributions
+improve compression.
+Hierarchies and cooperation follow naturally from
+additivity of intentional gain.
+This formulation renders the intentional stance measurable,
+bridging philosophical pragmatism and information physics.
+
+\begin{thebibliography}{9}
+
+\bibitem{Dennett1987}
+D.~C.~Dennett.
+\newblock \emph{The Intentional Stance}.
+\newblock MIT Press, 1987.
+
+\bibitem{Friston2010}
+K.~Friston.
+\newblock The free-energy principle: a unified brain theory?
+\newblock \emph{Nature Reviews Neuroscience}, 11(2):127–138, 2010.
+
+\bibitem{Hamilton1964}
+W.~D.~Hamilton.
+\newblock The genetical evolution of social behaviour.
+\newblock \emph{Journal of Theoretical Biology}, 7(1):1–16, 1964.
+
+\bibitem{Tishby2000}
+N.~Tishby, F.~C.~Pereira, and W.~Bialek.
+\newblock The information bottleneck method.
+\newblock \emph{arXiv:physics/0004057}, 2000.
+
+\bibitem{McGregor2025}
+S.~McGregor, et al.
+\newblock Formalising the intentional stance I: Attributing goals and beliefs to stochastic processes.
+\newblock \emph{arXiv:2405.16490v2}, 2025.
+
+\end{thebibliography}
+
+\end{document}
+
