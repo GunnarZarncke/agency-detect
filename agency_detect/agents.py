@@ -9,7 +9,7 @@ Factory agents manage production and equipment maintenance.
 """
 
 import numpy as np
-from config import SimulationConfig
+from .config import SimulationConfig
 
 
 class IndependentAgent:

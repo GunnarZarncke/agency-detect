@@ -10,7 +10,7 @@ import warnings
 from collections import Counter
 from math import log
 from sklearn.metrics import mutual_info_score
-from config import DetectionConfig
+from .config import DetectionConfig
 
 
 def conditional_mutual_info_discrete(X, Y, Z, alpha=None):

@@ -13,8 +13,8 @@ from itertools import combinations
 from sklearn.metrics import mutual_info_score
 from sklearn.cluster import AgglomerativeClustering
 
-from config import DetectionConfig
-from markov_blanket import MarkovBlanketValidator
+from .config import DetectionConfig
+from .markov_blanket import MarkovBlanketValidator
 
 
 def lagmax_mi(x, y, max_lag=None):
