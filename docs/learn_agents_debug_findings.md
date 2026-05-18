@@ -128,10 +128,37 @@ Environment OK (oracle separability)
 
 ---
 
+## MI-guided latent refinement (follow-up)
+
+Implemented `refine_model_with_mi()` in `learn_agents.py`:
+
+1. Lagged-MI agglomerative clustering → variable labels (`mi_cluster_variable_labels`)
+2. Hungarian match MI clusters to slots using overlap with mean assignment
+3. Fine-tune with KL alignment loss + recon/pred (`RefineConfig`, default 20–25 epochs)
+
+**8 agents** (seed=1, T=4000, 50 pretrain + 25 refine epochs, no adaptation):
+
+| Metric | Baseline slots | + MI refine |
+|--------|----------------|-------------|
+| Pre-UAD Recall@30 | 0.25 | **1.00** |
+| Post-UAD recall@30 | 0.00 | **1.00** |
+| Post-UAD precision@30 | 0.00 | **0.86** |
+| Majority agent frac (top-20) | 0.59 | **0.77** |
+
+**3 agents** (with decoys): MI refine did not help (Recall@30 stays ~0.33) because raw MI merges agents in this regime; refinement inherits that coarse partition.
+
+```bash
+.venv/bin/python scripts/evaluate_latent_candidates_with_uad.py \
+  --num-agents 8 --mi-refine --refine-epochs 25 --no-adapt-blankets \
+  --output-json results/candidate_uad_eval_8agents_mi_refine.json
+```
+
+---
+
 ## Recommendations
 
 1. **Do not use variable names** in classification or validation; keep names/metadata for scoring only.
-2. **Use MI clustering as a baseline and initializer** — at 8 agents it already solves partition discovery; latent training should refine or compress, not rediscover from scratch.
+2. **Use MI clustering as a baseline and initializer** — at 8 agents it already solves partition discovery; latent training should refine or compress, not rediscover from scratch. **MI refine implements this.**
 3. **Improve slot→agent alignment** (MI-guided init, cluster-aware losses, fewer slots, coarse-to-fine: MI partitions → latent refinement).
 4. **Keep MDL (or similar) in candidate adaptation** — avoid ε-only shrink without a complexity term.
 5. **Report candidate metrics** — Recall@K, mapping purity, post-UAD precision/recall, `strict_count` — not `var_acc` alone.

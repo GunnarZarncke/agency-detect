@@ -31,9 +31,11 @@ from agency_detect.config import DetectionConfig
 from agency_detect.markov_blanket import MarkovBlanketValidator
 from learn_agents.learn_agents import (
     ModelConfig,
+    RefineConfig,
     TraceSimulationConfig,
     TrainConfig,
     encode_trace,
+    refine_model_with_mi,
     simulate_known_agent_trace,
     train_model,
 )
@@ -74,6 +76,10 @@ def parse_args() -> argparse.Namespace:
         help="Local search objective: violation only (epsilon) or violation + MDL penalty (mdl).",
     )
     p.add_argument("--mdl-lambda", type=float, default=0.15)
+    p.add_argument("--mi-refine", action="store_true", help="MI-partition-guided refinement after pretraining.")
+    p.add_argument("--refine-epochs", type=int, default=20)
+    p.add_argument("--refine-lr", type=float, default=1e-4)
+    p.add_argument("--lambda-align", type=float, default=2.0)
     p.add_argument("--adapt-top-n", type=int, default=30)
     p.add_argument("--search-steps", type=int, default=8)
     p.add_argument("--frontier-size", type=int, default=8)
@@ -478,6 +484,16 @@ def main() -> None:
 
     print("=== Step 1: Train latent model and generate candidates ===")
     model, history = train_model(trace, model_cfg, train_cfg)
+    refine_meta = None
+    if args.mi_refine:
+        print("=== Step 1b: MI-guided latent refinement ===")
+        refine_cfg = RefineConfig(
+            epochs=args.refine_epochs,
+            lr=args.refine_lr,
+            lambda_align=args.lambda_align,
+            device=args.device,
+        )
+        model, refine_meta = refine_model_with_mi(model, trace, args.num_agents, refine_cfg)
     latent = encode_trace(model, trace)
     candidates = generate_latent_candidates(latent, max_pairs=args.max_pairs)
     avg_assign = latent["assign"].mean(axis=0)
@@ -599,6 +615,10 @@ def main() -> None:
             "sim_cfg": asdict(sim_cfg),
             "model_cfg": asdict(model_cfg),
             "train_cfg": asdict(train_cfg),
+            "mi_refine": args.mi_refine,
+            "refine_epochs": args.refine_epochs,
+            "refine_lr": args.refine_lr,
+            "lambda_align": args.lambda_align,
             "max_pairs": args.max_pairs,
             "adapt_blankets": args.adapt_blankets,
             "adapt_objective": args.adapt_objective,
@@ -615,6 +635,14 @@ def main() -> None:
         "metrics": metrics,
         "mapping_diagnostics": mapping_diag,
         "top_candidates": top_candidates,
+        "refine_meta": (
+            {
+                "cluster_to_slot": {str(k): int(v) for k, v in refine_meta["cluster_to_slot"].items()},
+                "refine_history": refine_meta["history"],
+            }
+            if refine_meta is not None
+            else None
+        ),
     }
 
     if args.output_json:

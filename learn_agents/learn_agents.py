@@ -43,6 +43,27 @@ class TrainConfig:
     warmup_epochs: int = 5
 
 
+@dataclass
+class RefineConfig:
+    """MI-partition-guided refinement after initial slot-attention training."""
+
+    epochs: int = 20
+    batch_size: int = 128
+    lr: float = 1e-4
+    weight_decay: float = 1e-5
+    grad_clip: float = 1.0
+    device: Optional[str] = None
+    lambda_align: float = 2.0
+    lambda_recon: float = 1.0
+    lambda_pred: float = 1.0
+    lambda_sparse: float = 1e-3
+    mi_bins: int = 8
+    mi_max_lag: int = 3
+    freeze_var_encoder: bool = True
+    freeze_dynamics: bool = True
+    target_smoothing: float = 0.05
+
+
 class WindowTraceDataset(Dataset):
     def __init__(self, trace: np.ndarray, window: int, horizon: int = 1, normalize: bool = True):
         if trace.ndim != 2:
@@ -305,6 +326,226 @@ class AgencyRegularizer(nn.Module):
         memory = self.memory_score_loss(out["slots"], out["pred_slots"], prev_slots)
         blanket = self.epsilon_blanket_loss(out["slots"], out["pred_slots"], epsilon)
         return {"control": control, "memory": memory, "epsilon_blanket": blanket}
+
+
+def discretize_trace_columns(trace: np.ndarray, bins: int = 8) -> np.ndarray:
+    """Per-column quantile discretization for MI clustering."""
+    if bins < 2:
+        raise ValueError("bins must be >= 2")
+    t_len, n_vars = trace.shape
+    out = np.zeros((t_len, n_vars), dtype=np.int64)
+    quantiles = np.linspace(0, 1, bins + 1)
+    for j in range(n_vars):
+        edges = np.quantile(trace[:, j], quantiles)
+        edges = np.maximum.accumulate(edges)
+        edges[0] -= 1e-9
+        edges[-1] += 1e-9
+        out[:, j] = np.clip(np.digitize(trace[:, j], edges[1:-1], right=False), 0, bins - 1)
+    return out
+
+
+def mi_cluster_variable_labels(
+    trace: np.ndarray,
+    num_clusters: int,
+    bins: int = 8,
+    max_lag: int = 3,
+) -> np.ndarray:
+    """
+    Agglomerative clustering on lagged MI between raw variables.
+    Returns integer labels [N] in 0..num_clusters-1 for active variables;
+    inactive (zero variance) variables get label -1.
+    """
+    from agency_detect.detection import build_similarity_matrix
+    from sklearn.cluster import AgglomerativeClustering
+
+    disc = discretize_trace_columns(trace, bins=bins)
+    n_vars = disc.shape[1]
+    var_variance = trace.var(axis=0)
+    active_idx = np.where(var_variance > 0.0)[0]
+    if len(active_idx) < 2:
+        return np.full(n_vars, -1, dtype=np.int64)
+
+    data_active = disc[:, active_idx].astype(np.float64)
+    _sim, dist = build_similarity_matrix(data_active, max_lag=max_lag)
+    n_clust = min(num_clusters, len(active_idx))
+    labels_active = AgglomerativeClustering(
+        n_clusters=n_clust, metric="precomputed", linkage="complete"
+    ).fit_predict(dist)
+
+    labels = np.full(n_vars, -1, dtype=np.int64)
+    for local_i, lbl in enumerate(labels_active):
+        labels[int(active_idx[local_i])] = int(lbl)
+    return labels
+
+
+def match_mi_clusters_to_slots(
+    labels: np.ndarray,
+    avg_assign: np.ndarray,
+) -> Dict[int, int]:
+    """Hungarian match MI clusters to slots using overlap with mean assignment."""
+    from scipy.optimize import linear_sum_assignment
+
+    valid = labels >= 0
+    if not np.any(valid):
+        return {}
+
+    clusters = np.unique(labels[valid])
+    cluster_vecs = np.zeros((len(clusters), labels.shape[0]), dtype=np.float64)
+    for i, c in enumerate(clusters):
+        cluster_vecs[i, labels == c] = 1.0
+        cluster_vecs[i] /= cluster_vecs[i].sum() + 1e-9
+
+    k_slots = avg_assign.shape[0]
+    cost = np.zeros((len(clusters), k_slots), dtype=np.float64)
+    for i in range(len(clusters)):
+        for k in range(k_slots):
+            cost[i, k] = -float(np.dot(cluster_vecs[i], avg_assign[k]))
+
+    row, col = linear_sum_assignment(cost)
+    return {int(clusters[int(row[i])]): int(col[i]) for i in range(len(row))}
+
+
+def build_mi_alignment_target(
+    labels: np.ndarray,
+    num_slots: int,
+    cluster_to_slot: Dict[int, int],
+    smoothing: float = 0.05,
+) -> np.ndarray:
+    """
+    Soft slot assignment target [K, N] from MI partition.
+    Each active variable assigns mass to its matched slot; unused slots get smoothing.
+    """
+    n_vars = labels.shape[0]
+    target = np.full((num_slots, n_vars), smoothing / max(num_slots, 1), dtype=np.float32)
+    for cluster_id, slot_id in cluster_to_slot.items():
+        mask = labels == cluster_id
+        if np.any(mask):
+            target[slot_id, mask] = 1.0
+    col_sum = target.sum(axis=0, keepdims=True)
+    target = target / (col_sum + 1e-8)
+    return target
+
+
+def alignment_loss(assign: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    """KL(assign || target) for assign, target shaped [B, K, N] (softmax over slots)."""
+    a = assign.clamp(min=1e-8)
+    t = target.clamp(min=1e-8)
+    return (a * (a.log() - t.log())).sum(dim=(1, 2)).mean()
+
+
+@torch.no_grad()
+def _mean_assignment(model: AgencyLatentModel, trace: np.ndarray, batch_size: int = 256) -> np.ndarray:
+    latent = encode_trace(model, trace, batch_size=batch_size)
+    return latent["assign"].mean(axis=0)
+
+
+def refine_model_with_mi(
+    model: AgencyLatentModel,
+    trace: np.ndarray,
+    num_agents: int,
+    refine_cfg: Optional[RefineConfig] = None,
+) -> Tuple[AgencyLatentModel, Dict[str, Any]]:
+    """
+    Refine a trained model so slot assignments align with an MI variable partition.
+
+    Coarse-to-fine: lagged-MI clustering proposes agent-level groups; refinement
+    fine-tunes (primarily slot attention) to match that partition while keeping
+    reconstruction/prediction losses.
+    """
+    if refine_cfg is None:
+        refine_cfg = RefineConfig()
+
+    device = choose_device(refine_cfg.device)
+    model = model.to(device)
+    labels = mi_cluster_variable_labels(
+        trace, num_clusters=num_agents, bins=refine_cfg.mi_bins, max_lag=refine_cfg.mi_max_lag
+    )
+    avg_assign = _mean_assignment(model, trace, batch_size=refine_cfg.batch_size)
+    cluster_to_slot = match_mi_clusters_to_slots(labels, avg_assign)
+    if not cluster_to_slot:
+        raise RuntimeError("MI clustering produced no valid clusters for refinement")
+
+    target_np = build_mi_alignment_target(
+        labels, model.cfg.num_slots, cluster_to_slot, smoothing=refine_cfg.target_smoothing
+    )
+    target_t = torch.from_numpy(target_np).to(device)
+
+    if refine_cfg.freeze_var_encoder:
+        for p in model.var_encoder.parameters():
+            p.requires_grad = False
+    if refine_cfg.freeze_dynamics:
+        for p in model.dynamics.parameters():
+            p.requires_grad = False
+        model.dynamics.edge_logits.requires_grad = True
+
+    params = [p for p in model.parameters() if p.requires_grad]
+    opt = torch.optim.AdamW(params, lr=refine_cfg.lr, weight_decay=refine_cfg.weight_decay)
+
+    ds = WindowTraceDataset(trace, model.cfg.window, model.cfg.horizon)
+    dl = DataLoader(ds, batch_size=refine_cfg.batch_size, shuffle=True, drop_last=True)
+
+    history: Dict[str, list] = {
+        "loss": [],
+        "recon": [],
+        "pred": [],
+        "align": [],
+        "sparse": [],
+    }
+
+    n_active = int(np.sum(labels >= 0))
+    print(
+        f"MI refine: {len(cluster_to_slot)} clusters -> slots, "
+        f"{n_active}/{len(labels)} vars labeled, target smoothing={refine_cfg.target_smoothing}"
+    )
+
+    for epoch in range(refine_cfg.epochs):
+        model.train()
+        sums = {k: 0.0 for k in history}
+        count = 0
+        for batch in dl:
+            x_window = batch["x_window"].to(device)
+            x_now = batch["x_now"].to(device)
+            x_next = batch["x_next"].to(device)
+
+            out = model(x_window)
+            recon = F.mse_loss(out["x_now_hat"], x_now)
+            pred = F.mse_loss(out["x_next_hat"], x_next)
+            sparse = out["adjacency"].mean()
+            tgt = target_t.unsqueeze(0).expand(out["assign"].shape[0], -1, -1)
+            align = alignment_loss(out["assign"], tgt)
+            loss = (
+                refine_cfg.lambda_recon * recon
+                + refine_cfg.lambda_pred * pred
+                + refine_cfg.lambda_align * align
+                + refine_cfg.lambda_sparse * sparse
+            )
+
+            opt.zero_grad(set_to_none=True)
+            loss.backward()
+            if refine_cfg.grad_clip is not None and refine_cfg.grad_clip > 0:
+                nn.utils.clip_grad_norm_(params, refine_cfg.grad_clip)
+            opt.step()
+
+            bsz = len(x_window)
+            for key, val in [("loss", loss), ("recon", recon), ("pred", pred), ("align", align), ("sparse", sparse)]:
+                sums[key] += float(val.detach().cpu()) * bsz
+            count += bsz
+
+        for k in history:
+            history[k].append(sums[k] / max(count, 1))
+        print(
+            f"refine {epoch + 1:03d}/{refine_cfg.epochs}: "
+            f"loss={history['loss'][-1]:.4g} recon={history['recon'][-1]:.4g} "
+            f"pred={history['pred'][-1]:.4g} align={history['align'][-1]:.4g}"
+        )
+
+    meta = {
+        "mi_labels": labels,
+        "cluster_to_slot": cluster_to_slot,
+        "target": target_np,
+        "history": history,
+    }
+    return model, meta
 
 
 def choose_device(device: Optional[str] = None) -> torch.device:
