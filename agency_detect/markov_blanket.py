@@ -119,11 +119,28 @@ def classify_variables(cluster_vars, all_vars, data, trace):
     n_env = len(env_vars)
     
     if n_env == 0:
-        # No environment variables - classify based on variable names and patterns
-        sensors = [var for var in cluster_vars if 'sensor' in var]
-        actions = [var for var in cluster_vars if 'action' in var]
+        # No external variables: classify from within-cluster lagged and synchronous MI only.
+        future_mi = np.zeros(n_vars)
+        if len(data) > 1:
+            for i, var_idx in enumerate(cluster_indices):
+                for j, other_idx in enumerate(cluster_indices):
+                    if i != j:
+                        future_mi[i] += mutual_info_score(data[:-1, var_idx], data[1:, other_idx])
+        sync_mi = np.zeros(n_vars)
+        for i, var_idx in enumerate(cluster_indices):
+            for j, other_idx in enumerate(cluster_indices):
+                if i != j:
+                    sync_mi[i] += mutual_info_score(data[:, var_idx], data[:, other_idx])
+        future_threshold = np.percentile(future_mi, DetectionConfig.FUTURE_MI_PERCENTILE) if n_vars > 1 else 0
+        sync_threshold = np.percentile(sync_mi, DetectionConfig.ENV_MI_PERCENTILE) if n_vars > 1 else 0
+        sensors, actions = [], []
+        for i, var in enumerate(cluster_vars):
+            if future_mi[i] > future_threshold:
+                actions.append(var)
+            elif sync_mi[i] > sync_threshold:
+                sensors.append(var)
         internal = [var for var in cluster_vars if var not in sensors and var not in actions]
-        print(f"No env vars - Name-based classification: S={sensors}, A={actions}, I={internal}")
+        print(f"No env vars - MI classification: S={sensors}, A={actions}, I={internal}")
         return {'S': sensors, 'A': actions, 'I': internal}
     
     # Compute MI between cluster variables and environment
@@ -151,33 +168,17 @@ def classify_variables(cluster_vars, all_vars, data, trace):
     print(f"Future MI: {list(zip(cluster_vars, future_mi))}")
     print(f"Env threshold: {env_threshold}, Future threshold: {future_threshold}")
     
-    # Also use variable names as hints
     sensors = []
     actions = []
-    
+
     for i, var in enumerate(cluster_vars):
         print(f"Processing {var}: env_mi={env_mi[i]:.3f}, future_mi={future_mi[i]:.3f}")
-        # Strong hint from variable names
-        if 'sensor' in var:
+        if env_mi[i] > env_threshold:
             sensors.append(var)
-            print(f"  -> Added to sensors (name hint)")
-        elif 'action' in var:
+            print(f"  -> Added to sensors (env MI threshold)")
+        elif future_mi[i] > future_threshold:
             actions.append(var)
-            print(f"  -> Added to actions (name hint)")
-        # Memory variables should be internal, not sensors
-        elif 'mem' in var:
-            print(f"  -> Will be internal (memory)")
-        # Environment variables that are sensors
-        elif var.startswith('env_') and env_mi[i] > env_threshold:
-            sensors.append(var)
-            print(f"  -> Added to sensors (env variable with high MI)")
-        # Statistical classification for others
-        elif env_mi[i] > env_threshold:
-            sensors.append(var)
-            print(f"  -> Added to sensors (MI threshold)")
-        elif future_mi[i] > future_threshold and var not in sensors:
-            actions.append(var)
-            print(f"  -> Added to actions (future MI)")
+            print(f"  -> Added to actions (future MI threshold)")
         else:
             print(f"  -> Will be internal")
     
