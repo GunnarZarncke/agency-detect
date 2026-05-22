@@ -155,6 +155,40 @@ Implemented `refine_model_with_mi()` in `learn_agents.py`:
 
 ---
 
+## Agent-count sweep (1–12 agents, clean regime)
+
+**Why 8 agents looked better than 3 in earlier runs:** those runs were not comparable. The strong 8-agent MI-refine result used `decoy_vars=0` (48 vars); many 3-agent runs used `decoy_vars=2` (20 vars) where MI merges agents. With a **fixed clean regime** (`decoy_vars=0`, `copies_per_role=2`, `T=4000`, 50 pretrain + 25 refine epochs, `num_slots = max(4, 3×agents)`), the picture is different.
+
+Script: `scripts/learn_agents_agent_count_sweep.py` → `results/agent_count_sweep.json`
+
+| Agents | Vars | MI recall | Baseline R@30 | Refine R@30 | Refine post prec |
+|--------|------|-----------|---------------|-------------|------------------|
+| 1–4 | 6–24 | 1.00 | **1.00** | 1.00 | high |
+| 5 | 30 | 1.00 | 0.60 | **0.80** | 1.00 |
+| 6 | 36 | 1.00 | 0.50 | **1.00** | 1.00 |
+| 7 | 42 | 1.00 | 0.00 | **0.86** | 0.92 |
+| 8 | 48 | 1.00 | 0.25 | **1.00** | 1.00 |
+| 9 | 54 | 1.00 | 0.11 | **0.89** | 0.96 |
+| 10 | 60 | 1.00 | 0.10 | **0.50** | 0.69 |
+| 11 | 66 | 1.00 | 0.09 | **0.82** | 0.93 |
+| 12 | 72 | 1.00 | 0.08 | **0.67** | 0.78 |
+
+**Breaking points (seed=1):**
+
+- **Raw MI partition:** perfect agent recall at all counts 1–12 (no MI breaking point in this simulator).
+- **Latent baseline (no refine):** Recall@30 drops below 0.5 at **≥7 agents** (chance = 1/K).
+- **MI refine helps meaningfully from ≥5 agents** (first count where refine beats baseline by >0.05).
+- **MI refine stays ≥0.50 through 12 agents** but softens at **10 agents** (0.50) and **12 agents** (0.67) — likely slot/variable ratio pressure (`num_slots = 3×agents` may be tight at scale).
+
+**Interpretation:** The bottleneck is **unsupervised slot discovery without MI init**, not MI separability. Refine transfers the perfect MI partition into slots until ~10–12 agents where alignment + candidate mapping degrade. Decoys are a separate breaking axis (not swept here).
+
+```bash
+.venv/bin/python scripts/learn_agents_agent_count_sweep.py \
+  --min-agents 1 --max-agents 12 --output-json results/agent_count_sweep.json
+```
+
+---
+
 ## Recommendations
 
 1. **Do not use variable names** in classification or validation; keep names/metadata for scoring only.
