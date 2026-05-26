@@ -35,3 +35,9 @@ docs/papers/unsupervised-agent-discovery/build.sh
 ```
 
 LaTeX build artifacts (`*.aux`, `*.log`, etc.) are gitignored. Paper PDFs are tracked in git; regenerate after source changes.
+
+## Paper dependency graph
+
+Arrows point from citing paper to cited paper. [DOT source](paper-dependencies.dot).
+
+![Paper dependencies](paper-dependencies.png)

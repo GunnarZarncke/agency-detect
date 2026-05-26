@@ -1,0 +1,53 @@
+digraph paper_dependencies {
+    rankdir=BT;
+    fontname="Helvetica";
+    node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=10, margin="0.15,0.08"];
+    edge [color="#555555", arrowsize=0.7];
+
+    // Foundation papers
+    UAD  [label="Foundations of\nUnsupervised Agent Discovery", fillcolor="#4A90D9", fontcolor="white"];
+    FEL  [label="Stratification of\nFree-Energy Loops", fillcolor="#4A90D9", fontcolor="white"];
+
+    // Second-tier papers (build directly on foundations)
+    ABC  [label="Attractor Basins of\nCooperation & Privacy", fillcolor="#7BB3E0"];
+    BIQ  [label="Bitwise Intelligence\n(B-IQ)", fillcolor="#7BB3E0"];
+
+    // Third-tier papers
+    ACT  [label="Acausal Trade\nFormalization", fillcolor="#A8D0F0"];
+    APP  [label="Empirical Detection of\nFree-Energy Loops", fillcolor="#A8D0F0"];
+    LHV  [label="Loop-Hub-Value\nModel (LHV)", fillcolor="#A8D0F0"];
+    LHV2 [label="Loop-Hub-Value\nModel v2", fillcolor="#A8D0F0"];
+
+    // Extension / integrative papers
+    PCC  [label="Preference-Conditioned\nCapability", fillcolor="#D4E8C2"];
+    CWU  [label="Construction Without\nUnderstanding", fillcolor="#D4E8C2"];
+    LIT  [label="UAD Literature\nReview", fillcolor="#E8E8E8"];
+    EIS  [label="Endogenized\nIntentional Stance", fillcolor="#F0D9A0"];
+
+    // Edges: citing paper → cited paper
+    ABC -> UAD;
+    BIQ -> UAD;
+    BIQ -> ABC;
+
+    ACT -> UAD;
+    ACT -> ABC;
+
+    APP -> FEL;
+    APP -> ABC;
+
+    LHV  -> FEL;
+    LHV2 -> FEL;
+
+    LIT -> UAD;
+    LIT -> BIQ;
+
+    PCC -> UAD;
+    PCC -> BIQ;
+    PCC -> ABC;
+    PCC -> ACT;
+
+    CWU -> UAD;
+    CWU -> BIQ;
+    CWU -> ABC;
+    CWU -> ACT;
+}
