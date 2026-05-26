@@ -180,11 +180,63 @@ Script: `scripts/learn_agents_agent_count_sweep.py` → `results/agent_count_swe
 - **MI refine helps meaningfully from ≥5 agents** (first count where refine beats baseline by >0.05).
 - **MI refine stays ≥0.50 through 12 agents** but softens at **10 agents** (0.50) and **12 agents** (0.67) — likely slot/variable ratio pressure (`num_slots = 3×agents` may be tight at scale).
 
-**Interpretation:** The bottleneck is **unsupervised slot discovery without MI init**, not MI separability. Refine transfers the perfect MI partition into slots until ~10–12 agents where alignment + candidate mapping degrade. Decoys are a separate breaking axis (not swept here).
+**Interpretation:** The bottleneck is **unsupervised slot discovery without MI init**, not MI separability. Refine transfers the perfect MI partition into slots until ~10–12 agents where alignment + candidate mapping degrade.
 
 ```bash
 .venv/bin/python scripts/learn_agents_agent_count_sweep.py \
   --min-agents 1 --max-agents 12 --output-json results/agent_count_sweep.json
+```
+
+---
+
+## Agent-count sweep with decoys (20% and 70% of variables)
+
+Decoy count scales with agent variables: `decoy_vars = round(f × agent_vars / (1−f))` where `agent_vars = 3 × copies_per_role × num_agents`. Use `--decoy-fraction 0.20` or `0.70`.
+
+Results: `results/agent_count_sweep_decoy20pct.json`, `results/agent_count_sweep_decoy70pct.json`
+
+### 20% decoys
+
+| Agents | Vars | MI recall | Baseline R@30 | Refine R@30 |
+|--------|------|-----------|---------------|-------------|
+| 1 | 8 | 1.00 | 1.00 | 1.00 |
+| 2 | 15 | **0.50** | 1.00 | 1.00 |
+| 3 | 22 | **0.33** | 1.00 | **0.33** |
+| 4 | 30 | **0.00** | 0.75 | 0.50 |
+| 5–7 | 38–52 | 0–0.43 | &lt;0.5 | ~0.29–0.33 |
+| 8 | 60 | 0.38 | 0.12 | **0.38** |
+| 10 | 75 | 0.10 | 0.00 | 0.00 |
+| 12 | 90 | 0.33 | 0.00 | 0.25 |
+
+**Breaking points:** MI recall &lt; 1.0 from **≥2 agents**; refine R@30 &lt; 0.5 from **≥3 agents**; baseline &lt; 0.5 from **≥5 agents**.
+
+MI is the **first** failure mode: decoys pull agglomerative clusters off true agents. Refine cannot exceed MI quality (same ceiling at 8 agents: 0.38). Baseline slots can still look good briefly (3 agents: R@30=1.0) while MI is already broken — **misleading if you only watch latent metrics without checking MI init**.
+
+### 70% decoys
+
+| Agents | Vars | MI recall | Baseline R@30 | Refine R@30 |
+|--------|------|-----------|---------------|-------------|
+| 1 | 20 | 1.00 | 1.00 | 1.00 |
+| 2+ | 40+ | **0.00** | ≈0 | **0.00** |
+
+**Breaking points:** MI and refine both collapse from **≥2 agents**. The trace is mostly decoy/noise; lagged-MI clustering finds no agent structure to transfer.
+
+### Comparison across decoy regimes
+
+| Regime | MI breaks at | Refine useful? | Main limiter |
+|--------|--------------|----------------|--------------|
+| 0% decoys | never (1–12) | yes, through ~12 agents | slot learning without init |
+| 20% decoys | ≥2 agents | only while MI recall &gt; 0 | **MI partition quality** |
+| 70% decoys | ≥2 agents | no | **environment SNR / decoy load** |
+
+This explains the earlier **8 &gt; 3** confusion: `decoy_vars=2` on 3 agents ≈ **25% decoys** (same order as the 20% sweep), where MI recall is already 0.33 and refine cannot recover.
+
+```bash
+.venv/bin/python scripts/learn_agents_agent_count_sweep.py \
+  --decoy-fraction 0.20 --output-json results/agent_count_sweep_decoy20pct.json
+
+.venv/bin/python scripts/learn_agents_agent_count_sweep.py \
+  --decoy-fraction 0.70 --output-json results/agent_count_sweep_decoy70pct.json
 ```
 
 ---
@@ -196,7 +248,8 @@ Script: `scripts/learn_agents_agent_count_sweep.py` → `results/agent_count_swe
 3. **Improve slot→agent alignment** (MI-guided init, cluster-aware losses, fewer slots, coarse-to-fine: MI partitions → latent refinement).
 4. **Keep MDL (or similar) in candidate adaptation** — avoid ε-only shrink without a complexity term.
 5. **Report candidate metrics** — Recall@K, mapping purity, post-UAD precision/recall, `strict_count` — not `var_acc` alone.
-6. **Improve statistical S/A/I discovery** for real data (intervention signatures, persistence floors, null margins vs random partitions) without fixed agent-size priors.
+6. **Monitor MI partition quality before refine** — with ≥20% decoys, MI breaks before latent slots; refine inherits the coarse partition.
+7. **Improve statistical S/A/I discovery** for real data (intervention signatures, persistence floors, null margins vs random partitions) without fixed agent-size priors.
 
 ---
 

@@ -63,7 +63,18 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--epochs", type=int, default=50)
     p.add_argument("--refine-epochs", type=int, default=25)
     p.add_argument("--copies-per-role", type=int, default=2)
-    p.add_argument("--decoy-vars", type=int, default=0)
+    p.add_argument(
+        "--decoy-vars",
+        type=int,
+        default=None,
+        help="Fixed decoy count (ignored if --decoy-fraction is set).",
+    )
+    p.add_argument(
+        "--decoy-fraction",
+        type=float,
+        default=None,
+        help="Fraction of total variables that are decoys: decoy/(agent+decoy).",
+    )
     p.add_argument("--lambda-align", type=float, default=2.0)
     p.add_argument("--top-k", type=int, default=30)
     p.add_argument("--batch-size", type=int, default=128)
@@ -76,6 +87,31 @@ def parse_args() -> argparse.Namespace:
 
 def slots_for_agents(num_agents: int) -> int:
     return max(4, num_agents * 3)
+
+
+def agent_var_count(num_agents: int, copies_per_role: int) -> int:
+    return num_agents * 3 * copies_per_role
+
+
+def decoy_count_from_fraction(num_agents: int, copies_per_role: int, fraction: float) -> int:
+    """decoy_vars such that decoy / (agent_vars + decoy) ≈ fraction."""
+    if fraction <= 0.0:
+        return 0
+    if fraction >= 1.0:
+        raise ValueError("decoy-fraction must be in [0, 1)")
+    agent_vars = agent_var_count(num_agents, copies_per_role)
+    if agent_vars == 0:
+        return 0
+    decoy = int(round(fraction * agent_vars / (1.0 - fraction)))
+    if fraction > 0 and decoy < 1:
+        decoy = 1
+    return decoy
+
+
+def resolve_decoy_vars(num_agents: int, args: argparse.Namespace) -> int:
+    if args.decoy_fraction is not None:
+        return decoy_count_from_fraction(num_agents, args.copies_per_role, args.decoy_fraction)
+    return int(args.decoy_vars or 0)
 
 
 def mi_partition_recall(
@@ -160,12 +196,14 @@ def evaluate_candidates(
 
 
 def run_one(num_agents: int, args: argparse.Namespace) -> Dict[str, Any]:
+    decoy_vars = resolve_decoy_vars(num_agents, args)
+    agent_vars = agent_var_count(num_agents, args.copies_per_role)
     sim_cfg = TraceSimulationConfig(
         seed=args.seed,
         T=args.T,
         num_agents=num_agents,
         copies_per_role=args.copies_per_role,
-        decoy_vars=args.decoy_vars,
+        decoy_vars=decoy_vars,
         process_noise=0.02,
         observation_noise=0.01,
         redundancy_noise=0.0,
@@ -198,7 +236,10 @@ def run_one(num_agents: int, args: argparse.Namespace) -> Dict[str, Any]:
         device=args.device,
     )
 
-    print(f"\n--- num_agents={num_agents} | vars={n_vars} | slots={n_slots} | MI recall={mi_stats['recall']:.2f} ---")
+    print(
+        f"\n--- num_agents={num_agents} | agent_vars={agent_vars} decoys={decoy_vars} "
+        f"({decoy_vars / max(n_vars, 1):.0%} of {n_vars}) | slots={n_slots} | MI recall={mi_stats['recall']:.2f} ---"
+    )
     model, train_hist = train_model(trace, model_cfg, train_cfg)
     baseline = evaluate_candidates(model, trace, metadata, args.top_k)
 
@@ -215,6 +256,9 @@ def run_one(num_agents: int, args: argparse.Namespace) -> Dict[str, Any]:
     row = {
         "num_agents": num_agents,
         "num_vars": n_vars,
+        "agent_vars": agent_vars,
+        "decoy_vars": decoy_vars,
+        "decoy_fraction_actual": float(decoy_vars / max(n_vars, 1)),
         "num_slots": n_slots,
         "vars_per_agent": int(3 * args.copies_per_role),
         "mi_partition": mi_stats,
@@ -264,7 +308,7 @@ def summarize_breaking_points(rows: List[Dict[str, Any]], top_k: int) -> Dict[st
 
 def print_table(rows: List[Dict[str, Any]], top_k: int) -> None:
     hdr = (
-        f"{'K':>3} {'vars':>4} {'slots':>5} | {'MI_R':>5} {'MI_J':>5} | "
+        f"{'K':>3} {'vars':>4} {'dec':>3} {'d%':>4} {'slots':>5} | {'MI_R':>5} {'MI_J':>5} | "
         f"{'B_pre':>5} {'B_post':>6} | {'R_pre':>5} {'R_post':>6} {'R_prec':>6} | {'maj':>5}"
     )
     print("\n" + hdr)
@@ -274,7 +318,8 @@ def print_table(rows: List[Dict[str, Any]], top_k: int) -> None:
         b = r["baseline"]
         rf = r["mi_refine"]
         print(
-            f"{r['num_agents']:>3} {r['num_vars']:>4} {r['num_slots']:>5} | "
+            f"{r['num_agents']:>3} {r['num_vars']:>4} {r['decoy_vars']:>3} "
+            f"{100 * r['decoy_fraction_actual']:>3.0f}% {r['num_slots']:>5} | "
             f"{mi['recall']:>5.2f} {mi['mean_best_jaccard']:>5.2f} | "
             f"{b['pre_recall_at_k']:>5.2f} {b['post_recall_at_k']:>6.2f} | "
             f"{rf['pre_recall_at_k']:>5.2f} {rf['post_recall_at_k']:>6.2f} {rf['post_precision_at_k']:>6.2f} | "
@@ -284,6 +329,8 @@ def print_table(rows: List[Dict[str, Any]], top_k: int) -> None:
 
 def main() -> None:
     args = parse_args()
+    if args.decoy_fraction is None and args.decoy_vars is None:
+        args.decoy_vars = 0
     rows: List[Dict[str, Any]] = []
     for k in range(args.min_agents, args.max_agents + 1):
         rows.append(run_one(k, args))
