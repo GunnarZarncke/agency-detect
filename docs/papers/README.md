@@ -12,8 +12,6 @@ LaTeX sources and built PDFs for each paper. Rebuild with the corresponding `bui
 | Stratification of Free-Energy Loops | [free_energy_loops.tex](free-energy-loops/free_energy_loops.tex) | [PDF](free-energy-loops/free_energy_loops.pdf) | `free-energy-loops/build.sh` |
 | Loop-Hub-Value Model (LHV) | [loop-hub-value-model.tex](loop-hub-value-model/loop-hub-value-model.tex) | — | `loop-hub-value-model/build.sh` |
 | Loop-Hub-Value Model v2 | [loop-hub-value-model2.tex](loop-hub-value-model2/loop-hub-value-model2.tex) | [PDF](loop-hub-value-model2/loop-hub-value-model2.pdf) | `loop-hub-value-model2/build.sh` |
-| Consciousness and Agency on a Shared Neural Backbone | [consciousness_agency_backbone.tex](consciousness-agency-backbone/consciousness_agency_backbone.tex) | [PDF](consciousness-agency-backbone/consciousness_agency_backbone.pdf) | `consciousness-agency-backbone/build.sh` |
-| Consciousness as a Self-Referential Physical Process | [consciousness-self-ref.tex](consciousness-self-ref/consciousness-self-ref.tex) | — | `consciousness-self-ref/build.sh` |
 | Construction Without Understanding | [construction_without_understanding.tex](construction-without-understanding/construction_without_understanding.tex) | [PDF](construction-without-understanding/construction_without_understanding.pdf) | `construction-without-understanding/build.sh` |
 | The Endogenized Intentional Stance | [endogenized-intentional-stance.tex](endogenized-intentional-stance/endogenized-intentional-stance.tex) | [PDF](endogenized-intentional-stance/endogenized-intentional-stance.pdf) | `endogenized-intentional-stance/build.sh` |
 | Preference-Conditioned Capability | [preference-capability.tex](preference-capability/preference-capability.tex) | [PDF](preference-capability/preference-capability.pdf) | `preference-capability/build.sh` |
@@ -26,8 +24,6 @@ docs/papers/acausal-trade-uad-formalization/build.sh
 docs/papers/applications-uad-loops/build.sh
 docs/papers/attractor-basins/build.sh
 docs/papers/bitwise-iq/build.sh
-docs/papers/consciousness-agency-backbone/build.sh
-docs/papers/consciousness-self-ref/build.sh
 docs/papers/construction-without-understanding/build.sh
 docs/papers/endogenized-intentional-stance/build.sh
 docs/papers/free-energy-loops/build.sh
