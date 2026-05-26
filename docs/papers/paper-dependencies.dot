@@ -6,7 +6,6 @@ digraph paper_dependencies {
 
     // Foundation papers
     UAD  [label="Foundations of\nUnsupervised Agent Discovery", fillcolor="#4A90D9", fontcolor="white"];
-    FEL  [label="Stratification of\nFree-Energy Loops", fillcolor="#4A90D9", fontcolor="white"];
 
     // Second-tier papers (build directly on foundations)
     ABC  [label="Attractor Basins of\nCooperation & Privacy", fillcolor="#7BB3E0"];
@@ -15,14 +14,17 @@ digraph paper_dependencies {
     // Third-tier papers
     ACT  [label="Acausal Trade\nFormalization", fillcolor="#A8D0F0"];
     APP  [label="Empirical Detection of\nFree-Energy Loops", fillcolor="#A8D0F0"];
-    LHV  [label="Loop-Hub-Value\nModel (LHV)", fillcolor="#A8D0F0"];
-    LHV2 [label="Loop-Hub-Value\nModel v2", fillcolor="#A8D0F0"];
 
     // Extension / integrative papers
     PCC  [label="Preference-Conditioned\nCapability", fillcolor="#D4E8C2"];
     CWU  [label="Construction Without\nUnderstanding", fillcolor="#D4E8C2"];
     LIT  [label="UAD Literature\nReview", fillcolor="#E8E8E8"];
     EIS  [label="Endogenized\nIntentional Stance", fillcolor="#F0D9A0"];
+
+    // Papers in brain-to-values repo (dashed border)
+    FEL  [label="Stratification of\nFree-Energy Loops\n(brain-to-values)", fillcolor="white", style="rounded,dashed", color="#888888", fontcolor="#666666"];
+    LHV  [label="Loop-Hub-Value\nModel (LHV)\n(brain-to-values)", fillcolor="white", style="rounded,dashed", color="#888888", fontcolor="#666666"];
+    LHV2 [label="Loop-Hub-Value\nModel v2 / LHCV\n(brain-to-values)", fillcolor="white", style="rounded,dashed", color="#888888", fontcolor="#666666"];
 
     // Edges: citing paper → cited paper
     ABC -> UAD;
@@ -32,11 +34,11 @@ digraph paper_dependencies {
     ACT -> UAD;
     ACT -> ABC;
 
-    APP -> FEL;
+    APP -> FEL [style=dashed, color="#999999"];
     APP -> ABC;
 
-    LHV  -> FEL;
-    LHV2 -> FEL;
+    LHV  -> FEL [style=dashed, color="#999999"];
+    LHV2 -> FEL [style=dashed, color="#999999"];
 
     LIT -> UAD;
     LIT -> BIQ;
