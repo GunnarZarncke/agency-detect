@@ -37,6 +37,7 @@ from learn_agents.learn_agents import (
     TrainConfig,
     encode_trace,
     mi_cluster_variable_labels,
+    mi_partition_search,
     refine_model_with_mi,
     simulate_known_agent_trace,
     train_model,
@@ -219,9 +220,10 @@ def run_one(num_agents: int, args: argparse.Namespace) -> Dict[str, Any]:
     n_slots = slots_for_agents(num_agents)
     n_vars = trace.shape[1]
 
-    mi_labels = mi_cluster_variable_labels(trace, num_clusters=num_agents)
+    mi_part = mi_partition_search(trace, fixed_k=None)
     agent_clusters = {int(k): list(v) for k, v in metadata["agent_clusters"].items()}
-    mi_stats = mi_partition_recall(mi_labels, agent_clusters)
+    mi_stats = mi_partition_recall(mi_part.labels, agent_clusters)
+    mi_stats["best_k"] = mi_part.best_k
 
     model_cfg = ModelConfig(
         num_vars=n_vars,
@@ -248,9 +250,10 @@ def run_one(num_agents: int, args: argparse.Namespace) -> Dict[str, Any]:
         epochs=args.refine_epochs,
         lambda_align=args.lambda_align,
         device=args.device,
+        mi_fixed_k=None,
     )
     with redirect_stdout(io.StringIO()):
-        model_ref, refine_meta = refine_model_with_mi(model_ref, trace, num_agents, refine_cfg)
+        model_ref, refine_meta = refine_model_with_mi(model_ref, trace, refine_cfg=refine_cfg)
     refined = evaluate_candidates(model_ref, trace, metadata, args.top_k)
 
     row = {

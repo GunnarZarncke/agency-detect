@@ -77,6 +77,11 @@ def parse_args() -> argparse.Namespace:
     )
     p.add_argument("--mdl-lambda", type=float, default=0.15)
     p.add_argument("--mi-refine", action="store_true", help="MI-partition-guided refinement after pretraining.")
+    p.add_argument(
+        "--mi-fixed-k-agents",
+        action="store_true",
+        help="Use --num-agents as fixed MI cluster count (legacy). Default: search K via MDL.",
+    )
     p.add_argument("--refine-epochs", type=int, default=20)
     p.add_argument("--refine-lr", type=float, default=1e-4)
     p.add_argument("--lambda-align", type=float, default=2.0)
@@ -492,8 +497,9 @@ def main() -> None:
             lr=args.refine_lr,
             lambda_align=args.lambda_align,
             device=args.device,
+            mi_fixed_k=args.num_agents if args.mi_fixed_k_agents else None,
         )
-        model, refine_meta = refine_model_with_mi(model, trace, args.num_agents, refine_cfg)
+        model, refine_meta = refine_model_with_mi(model, trace, refine_cfg=refine_cfg)
     latent = encode_trace(model, trace)
     candidates = generate_latent_candidates(latent, max_pairs=args.max_pairs)
     avg_assign = latent["assign"].mean(axis=0)

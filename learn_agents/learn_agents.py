@@ -59,6 +59,10 @@ class RefineConfig:
     lambda_sparse: float = 1e-3
     mi_bins: int = 8
     mi_max_lag: int = 3
+    mi_k_min: int = 2
+    mi_k_max: Optional[int] = None
+    mi_mdl_lambda: float = 0.02
+    mi_fixed_k: Optional[int] = None
     freeze_var_encoder: bool = True
     freeze_dynamics: bool = True
     target_smoothing: float = 0.05
@@ -378,6 +382,101 @@ def mi_cluster_variable_labels(
     return labels
 
 
+@dataclass
+class MiPartitionResult:
+    labels: np.ndarray
+    best_k: int
+    k_scores: Dict[int, float]
+    mean_within_mi: float
+
+
+def _score_mi_partition(sim: np.ndarray, labels_active: np.ndarray, k: int, mdl_lambda: float) -> tuple[float, float]:
+    """Higher is better: mean within-cluster MI minus MDL penalty."""
+    within_sum = 0.0
+    pairs = 0
+    for c in np.unique(labels_active):
+        idx = np.where(labels_active == c)[0]
+        if len(idx) < 2:
+            continue
+        sub = sim[np.ix_(idx, idx)]
+        within_sum += float(sub.sum() - np.trace(sub))
+        pairs += len(idx) * (len(idx) - 1)
+    mean_within = within_sum / max(pairs, 1)
+    penalty = mdl_lambda * k * math.log(max(len(labels_active), 2))
+    return mean_within - penalty, mean_within
+
+
+def mi_partition_search(
+    trace: np.ndarray,
+    k_min: int = 2,
+    k_max: Optional[int] = None,
+    fixed_k: Optional[int] = None,
+    bins: int = 8,
+    max_lag: int = 3,
+    mdl_lambda: float = 0.02,
+) -> MiPartitionResult:
+    """
+    Search over cluster counts (no assumed agent cardinality).
+    Picks K maximizing mean within-cluster MI minus MDL penalty.
+    """
+    from agency_detect.detection import build_similarity_matrix
+    from sklearn.cluster import AgglomerativeClustering
+
+    disc = discretize_trace_columns(trace, bins=bins)
+    n_vars = disc.shape[1]
+    var_variance = trace.var(axis=0)
+    active_idx = np.where(var_variance > 0.0)[0]
+    n_active = len(active_idx)
+    labels = np.full(n_vars, -1, dtype=np.int64)
+    if n_active < 2:
+        return MiPartitionResult(labels=labels, best_k=0, k_scores={}, mean_within_mi=0.0)
+
+    data_active = disc[:, active_idx].astype(np.float64)
+    sim, dist = build_similarity_matrix(data_active, max_lag=max_lag)
+
+    if fixed_k is not None:
+        k_candidates = [min(max(fixed_k, 1), n_active)]
+    else:
+        if k_max is None:
+            k_max = min(n_active - 1, max(8, n_active // 2))
+        k_max = min(max(k_max, k_min), n_active)
+        k_candidates = list(range(k_min, k_max + 1))
+
+    k_scores: Dict[int, float] = {}
+    best_k = k_candidates[0]
+    best_score = -float("inf")
+    best_within = 0.0
+    best_labels_active: Optional[np.ndarray] = None
+
+    for k in k_candidates:
+        if k < 1:
+            continue
+        if k == 1:
+            labels_active = np.zeros(n_active, dtype=np.int64)
+        else:
+            labels_active = AgglomerativeClustering(
+                n_clusters=k, metric="precomputed", linkage="complete"
+            ).fit_predict(dist)
+        score, mean_within = _score_mi_partition(sim, labels_active, max(k, 1), mdl_lambda)
+        k_scores[int(k)] = float(score)
+        if score > best_score:
+            best_score = score
+            best_k = int(k)
+            best_within = mean_within
+            best_labels_active = labels_active.copy()
+
+    if best_labels_active is not None:
+        for local_i, lbl in enumerate(best_labels_active):
+            labels[int(active_idx[local_i])] = int(lbl)
+
+    return MiPartitionResult(
+        labels=labels,
+        best_k=best_k,
+        k_scores=k_scores,
+        mean_within_mi=float(best_within),
+    )
+
+
 def match_mi_clusters_to_slots(
     labels: np.ndarray,
     avg_assign: np.ndarray,
@@ -402,7 +501,19 @@ def match_mi_clusters_to_slots(
             cost[i, k] = -float(np.dot(cluster_vecs[i], avg_assign[k]))
 
     row, col = linear_sum_assignment(cost)
-    return {int(clusters[int(row[i])]): int(col[i]) for i in range(len(row))}
+    mapping = {int(clusters[int(row[i])]): int(col[i]) for i in range(len(row))}
+
+    # Allow many-to-one when there are more MI clusters than slots.
+    if len(clusters) > k_slots:
+        for c in clusters:
+            if int(c) in mapping:
+                continue
+            vec = np.zeros(labels.shape[0], dtype=np.float64)
+            vec[labels == c] = 1.0
+            vec /= vec.sum() + 1e-9
+            best_slot = int(np.argmax([float(np.dot(vec, avg_assign[k])) for k in range(k_slots)]))
+            mapping[int(c)] = best_slot
+    return mapping
 
 
 def build_mi_alignment_target(
@@ -442,24 +553,34 @@ def _mean_assignment(model: AgencyLatentModel, trace: np.ndarray, batch_size: in
 def refine_model_with_mi(
     model: AgencyLatentModel,
     trace: np.ndarray,
-    num_agents: int,
     refine_cfg: Optional[RefineConfig] = None,
+    num_agents: Optional[int] = None,
 ) -> Tuple[AgencyLatentModel, Dict[str, Any]]:
     """
     Refine a trained model so slot assignments align with an MI variable partition.
 
-    Coarse-to-fine: lagged-MI clustering proposes agent-level groups; refinement
-    fine-tunes (primarily slot attention) to match that partition while keeping
-    reconstruction/prediction losses.
+    Does not assume the true agent count unless mi_fixed_k or num_agents (legacy) is set.
     """
     if refine_cfg is None:
         refine_cfg = RefineConfig()
 
     device = choose_device(refine_cfg.device)
     model = model.to(device)
-    labels = mi_cluster_variable_labels(
-        trace, num_clusters=num_agents, bins=refine_cfg.mi_bins, max_lag=refine_cfg.mi_max_lag
+
+    fixed_k = refine_cfg.mi_fixed_k
+    if fixed_k is None and num_agents is not None:
+        fixed_k = num_agents
+
+    part = mi_partition_search(
+        trace,
+        k_min=refine_cfg.mi_k_min,
+        k_max=refine_cfg.mi_k_max,
+        fixed_k=fixed_k,
+        bins=refine_cfg.mi_bins,
+        max_lag=refine_cfg.mi_max_lag,
+        mdl_lambda=refine_cfg.mi_mdl_lambda,
     )
+    labels = part.labels
     avg_assign = _mean_assignment(model, trace, batch_size=refine_cfg.batch_size)
     cluster_to_slot = match_mi_clusters_to_slots(labels, avg_assign)
     if not cluster_to_slot:
@@ -494,8 +615,8 @@ def refine_model_with_mi(
 
     n_active = int(np.sum(labels >= 0))
     print(
-        f"MI refine: {len(cluster_to_slot)} clusters -> slots, "
-        f"{n_active}/{len(labels)} vars labeled, target smoothing={refine_cfg.target_smoothing}"
+        f"MI refine: K={part.best_k} ({len(cluster_to_slot)} cluster->slot maps), "
+        f"{n_active}/{len(labels)} vars labeled, within_MI={part.mean_within_mi:.3f}"
     )
 
     for epoch in range(refine_cfg.epochs):
@@ -541,6 +662,8 @@ def refine_model_with_mi(
 
     meta = {
         "mi_labels": labels,
+        "mi_best_k": part.best_k,
+        "mi_k_scores": part.k_scores,
         "cluster_to_slot": cluster_to_slot,
         "target": target_np,
         "history": history,
@@ -695,6 +818,9 @@ class TraceSimulationConfig:
     episode_len: int = 900
     episode_gap: int = 300
     seed: int = 0
+    decoy_mode: str = "mixed"  # mixed | noise | confound | ar1
+    decoy_ar1_rho: float = 0.93
+    decoy_confound_weight: float = 1.0
 
 
 @dataclass
@@ -725,6 +851,39 @@ def _episode_mask(cfg: TraceSimulationConfig, rng: np.random.Generator) -> np.nd
     flips = rng.random(mask.shape) < 0.002
     mask[flips] = 1.0 - mask[flips]
     return mask
+
+
+def _decoy_series(
+    cfg: TraceSimulationConfig,
+    j: int,
+    global_confound: np.ndarray,
+    T: int,
+    rng: np.random.Generator,
+) -> tuple[np.ndarray, str]:
+    mode = cfg.decoy_mode.lower()
+    if mode == "mixed":
+        kind = j % 3
+    elif mode == "noise":
+        kind = 2
+    elif mode == "confound":
+        kind = 0
+    elif mode == "ar1":
+        kind = 1
+    else:
+        raise ValueError(f"unknown decoy_mode: {cfg.decoy_mode}")
+
+    w = float(cfg.decoy_confound_weight)
+    rho = float(cfg.decoy_ar1_rho)
+    if kind == 0:
+        values = w * global_confound + cfg.observation_noise * rng.normal(size=T)
+        role = "global_confound_decoy"
+    elif kind == 1:
+        values = _ar1(T, rho=rho, sigma=0.30, rng=rng) + 0.2 * w * global_confound
+        role = "autocorrelated_decoy"
+    else:
+        values = rng.normal(0.0, 1.0, size=T)
+        role = "noise_decoy"
+    return values.astype(np.float32), role
 
 
 def simulate_known_agent_trace(cfg: TraceSimulationConfig = TraceSimulationConfig()) -> SimulationResult:
@@ -803,15 +962,7 @@ def simulate_known_agent_trace(cfg: TraceSimulationConfig = TraceSimulationConfi
                 add_var(f"agent{k}.{role}{r}", k, role, coef * base + mixed + conf + noise)
 
     for j in range(cfg.decoy_vars):
-        if j % 3 == 0:
-            values = global_confound + cfg.observation_noise * rng.normal(size=T)
-            role = "global_confound_decoy"
-        elif j % 3 == 1:
-            values = _ar1(T, rho=0.93, sigma=0.30, rng=rng) + 0.2 * global_confound
-            role = "autocorrelated_decoy"
-        else:
-            values = rng.normal(0.0, 1.0, size=T)
-            role = "noise_decoy"
+        values, role = _decoy_series(cfg, j, global_confound, T, rng)
         add_var(f"decoy{j}.{role}", -1, role, values)
 
     trace = np.stack(columns, axis=1).astype(np.float32)
