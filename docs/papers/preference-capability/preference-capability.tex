@@ -1,0 +1,201 @@
+% !TEX TS-program = pdflatex
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{microtype}
+\usepackage{geometry}
+\geometry{margin=1in}
+\usepackage{natbib}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue,citecolor=teal,urlcolor=magenta}
+\usepackage{graphicx}
+\usepackage{mathtools}
+\usepackage{enumitem}
+
+\title{Preference\textendash Conditioned Capability: From B\textendash IQ to Goal\textendash Realizing LLM Agent Loops}
+\author{Gunnar Zarncke\\AE Studio}
+\date{August 22, 2025}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+\noindent
+Large\textendash language models (LLMs) excel at raw prediction, but deployed agent loops require competence that is conditioned on \emph{what the agent wants}. Building on Unsupervised Agent Discovery (UAD) and the Bitwise Intelligence (B\textendash IQ) metric, we formalize \emph{preference\textendash conditioned} prediction and control and derive a companion measure $\mathrm{B\text{-}IQ}^{\text{want}}$. We show how to infer wants as prior preferences over observations in an active\textendash inference lens, then evaluate systems via alignment ratios $r_{\mathrm{pred}}$ and $r_{\mathrm{ctrl}}$ that compare value\textendash conditioned to raw channels. We argue that natural selection drives these ratios high in biological agents, while contemporary LLM training leaves them low. We propose training and evaluation protocols for LLM agent loops that directly raise $I^{\text{want}}_{\mathrm{pred}}$ and $I^{\text{want}}_{\mathrm{ctrl}}$, and we connect to related work in Inverse RL, RLHF/DPO, control\textendash as\textendash inference, world\textendash model RL, and active inference.\footnote{Information quantities are in nats unless noted.}
+\end{abstract}
+
+\section{Introduction}
+Distinguishing \emph{predicting $P$} from \emph{preferring $P$} is central to alignment discussions. The UAD framework discovers agents as Markov\textendash blanket partitions in raw dynamics and exposes separate information flows for prediction and control \citep{ZarnckeUAD}. B\textendash IQ adds a task\textendash agnostic competence functional combining predictive and control mutual information with cost terms \citep{ZarnckeBIQ}. Yet both quantities are \emph{raw} channels: they measure total prediction and control, not necessarily directed at the agent's goals.
+
+This paper introduces a \emph{preference\textendash conditioned} refinement of these channels and shows how, for LLM agent loops, we can (i) infer \\"wants\\" as prior preferences over future observations and (ii) measure competence at \emph{realizing} those wants. The result sharpens why LLMs, though strong at $I_{\mathrm{pred}}$, often underperform at $I^{\text{want}}_{\mathrm{pred}}$ and $I^{\text{want}}_{\mathrm{ctrl}}$ compared to biological agents.
+
+\paragraph{Contributions}
+\begin{enumerate}[leftmargin=2em]
+  \item Define preference\textendash conditioned channels $I^{\text{want}}_{\mathrm{pred}}$ and $I^{\text{want}}_{\mathrm{ctrl}}$ and the competence score $\mathrm{B\text{-}IQ}^{\text{want}}$.
+  \item Derive inverse\textendash active\textendash inference estimators that recover wants as linear\textendash feature priors over observations from LLM agent trajectories.
+  \item Propose alignment ratios $r_{\mathrm{pred}}, r_{\mathrm{ctrl}}$ and an evaluation protocol for humans vs. LLM agents.
+  \item Discuss training interventions that raise the preference\textendash conditioned channels and relate to CIRL, RLHF/DPO, ReAct/Toolformer/WebGPT, SayCan/PaLM\textendash E, Dreamer, control\textendash as\textendash inference, and active inference.
+\end{enumerate}
+
+\section{Background: UAD and B\textendash IQ}
+\label{sec:background}
+\textbf{UAD.} Given raw variables $\{X_k(t)\}$, UAD clusters an agent $C$ when the blanket test holds
+$ I(I^C_{t+1}; E^C_{t+1} \mid S^C_t, A^C_t) \approx 0 $, then localizes memory by lagged mutual information and infers goals via an information\textendash theoretic Lagrangian \citep{ZarnckeUAD}. UAD also formalizes inter\textendash agent coupling and a cooperativity index that generalizes Hamilton's rule \citep{ZarnckeUAD, ZarnckeAttractors}.
+
+\textbf{B\textendash IQ.} The baseline competence metric is
+\begin{equation}
+\mathrm{B\text{-}IQ} \;=\; I_{\mathrm{pred}} + I_{\mathrm{ctrl}} - \beta\,H(I) - \gamma\,S,
+\end{equation}
+with $I_{\mathrm{pred}}=I(I_t; S_{t+1})$, $I_{\mathrm{ctrl}}=I(A_t; E_{t+1})$, memory cost $H(I)$, and residual surprise $S=\mathbb E[-\log P(S_{t+1}\mid I_t)]$ \citep{ZarnckeBIQ}. Physical bounds follow from sensor/actuator channel capacities.
+
+\section{Preference\textendash Conditioned Channels}
+\label{sec:pc}
+Let an agent's ``wants'' be prior preferences over next observations, encoded as
+\begin{equation}
+\log P_{\mathrm{pref}}(S') \;\propto\; \psi^\top\,\phi(S'),
+\end{equation}
+with features $\phi(\cdot)$ (e.g., pass/fail, constraint violations, reward proxies, human\textendash approval signals) and weights $\psi$ to be inferred.
+
+\paragraph{Value\textendash conditioned prediction} projects the predictive channel onto want\textendash relevant sensory subspaces:
+\begin{equation}
+I^{\text{want}}_{\mathrm{pred}} \;=\; I\big(I_t;\, S'\big[\psi\big]\big),
+\end{equation}
+where $S'[\psi]$ indexes the sufficient statistics of $\phi(S')$.
+
+\paragraph{Value\textendash conditioned control} similarly restricts control to the preferred externals:
+\begin{equation}
+I^{\text{want}}_{\mathrm{ctrl}} \;=\; I\big(A_t;\, E'\big[\psi\big]\big).
+\end{equation}
+
+\paragraph{Preference\textendash conditioned competence} is then
+\begin{equation}
+\mathrm{B\text{-}IQ}^{\text{want}} \;=\; I^{\text{want}}_{\mathrm{pred}} + I^{\text{want}}_{\mathrm{ctrl}} - \beta\,H(I) - \gamma\,S,
+\end{equation}
+with \emph{alignment ratios}
+\begin{equation}
+ r_{\mathrm{pred}} := \frac{I^{\text{want}}_{\mathrm{pred}}}{I_{\mathrm{pred}}}, \qquad r_{\mathrm{ctrl}} := \frac{I^{\text{want}}_{\mathrm{ctrl}}}{I_{\mathrm{ctrl}}}.
+\end{equation}
+
+\section{Inferring Wants via Inverse Active Inference}
+\label{sec:inverse}
+For each action $a$ at time $t$, define a tractable expected free energy (EFE)
+\begin{equation}
+G_t(a) \;=\; \underbrace{\mathbb E_{S'\mid S_t,a}\big[-\log P_{\mathrm{pref}}(S')\big]}_{\text{extrinsic / want term}}\; +\; \underbrace{\mathbb E_{S'\mid S_t,a}\big[-\log P(S'\mid I_t)\big]}_{\text{ambiguity}}\; +\; \mathrm{complexity}(a,I_t)\; -\; \kappa\,\mathrm{InfoGain}(a),
+\end{equation}
+with a softmin policy $\pi(a\mid I_t) \propto \exp\{-G_t(a)\}$. This mirrors UAD's free\textendash energy objective \citep{ZarnckeUAD} and the active\textendash inference literature \citep{Friston2010}.
+
+\paragraph{Trajectory fitting.} Given logged trajectories $(S_t,I_t,a_t,S_{t+1})$, a learned world model $\widehat P(S'\mid S,a)$, and features $\phi(S')$, estimate $\psi$ by maximizing the policy likelihood
+\begin{equation}
+\max_{\psi} \sum_t \log \pi(a_t\mid I_t;\psi) \;=\; \sum_t \Big[-G_t(a_t;\psi) - \log \sum_{a} e^{-G_t(a;\psi)}\Big].
+\end{equation}
+Gradients are $\partial G_t/\partial \psi = -\mathbb E_{S'\mid S_t,a}[\,\phi(S')\,]$. Identifiability improves with diversified choice sets and good $\widehat P$.
+
+\section{Biological Agents vs. LLM Agent Loops}
+\label{sec:bio-vs-llm}
+Biological preferences are genetically and developmentally coupled to fitness\textendash relevant observations and affordances; lifetime learning closes the loop so prediction and control become value\textendash conditioned, pushing $r_{\mathrm{pred}}, r_{\mathrm{ctrl}} \to$ high (modulo mismatch) \citep{ZarnckeUAD, ZarnckeBIQ}. By contrast, LLM pretraining targets text likelihood (inflating $I_{\mathrm{pred}}$ on linguistic signals), while agent\textendash loop wants are external proxies (prompts, reward models, tool checks) with shallow credit assignment, yielding $r_{\mathrm{pred}}, r_{\mathrm{ctrl}}\ll 1$ unless special training is applied.
+
+\section{Implications for LLM Agent Loops}
+\label{sec:implications}
+\paragraph{Training to raise $I^{\text{want}}$ channels.}
+\begin{enumerate}[leftmargin=2em]
+  \item \textbf{Outcome\textendash grounded fine\textendash tuning:} backpropagate through tool outcomes and success checks, not only text; use process supervision to stabilize intermediate predictions.
+  \item \textbf{Persistent preference memory:} learn $\psi$ as a state that persists across episodes (scope/role conditioned), enabling amortized value\textendash conditioning.
+  \item \textbf{Control\textendash as\textendash inference objectives:} adopt goal\textendash conditioned, probabilistic control formulations so policy class inherently aligns prediction with control \citep{Levine2018}.
+  \item \textbf{World\textendash model RL:} couple predictive models to control (e.g., Dreamer family) to explicitly train prediction \emph{for} want\textendash realization \citep{Hafner2019, Hafner2023}.
+  \item \textbf{Human\textendash in\textendash the\textendash loop preference learning:} CIRL, RLHF, DPO to fit $P_{\mathrm{pref}}$, then continue training under outcome signals \citep{HadfieldMenell2016, Christiano2017, Rafailov2023}.
+\end{enumerate}
+
+\paragraph{Evaluation: alignment ratios and B\textendash IQ decomposition.} Report $(I_{\mathrm{pred}}, I_{\mathrm{ctrl}})$, $(I^{\text{want}}_{\mathrm{pred}}, I^{\text{want}}_{\mathrm{ctrl}})$, $r_{\mathrm{pred}}, r_{\mathrm{ctrl}}$, and both $\mathrm{B\text{-}IQ}$ and $\mathrm{B\text{-}IQ}^{\text{want}}$. Include ablations with and without persistent $\psi$.
+
+\paragraph{Safety considerations.} Prefer outcome sensors that are difficult to spoof; audit for \emph{reward hacking} by monitoring discrepancies between raw and value\textendash conditioned channels. Use empowerment and social\textendash influence regularizers cautiously \citep{Klyubin2005, SalgePolani2014, Jaques2019}.
+
+\section{Minimal Experimental Protocol}
+\label{sec:protocol}
+\begin{enumerate}[leftmargin=2em]
+  \item Instrument an LLM agent loop (ReAct/Toolformer/WebGPT\textendash style) with logs of $(S,I,a,S')$ and crisp outcome features $\phi(S')$.
+  \item Fit a lightweight $\widehat P(S'\mid S,a)$ and infer $\psi$ via Sec.~\ref{sec:inverse}. Compute $I^{\text{want}}_{\mathrm{pred}}$, $I^{\text{want}}_{\mathrm{ctrl}}$ with projection onto $\phi$.
+  \item Compare baselines: (i) prompt\textendash only wants, (ii) RLHF\textendash only, (iii) outcome\textendash grounded fine\textendash tuning. Track $r_{\mathrm{pred}}, r_{\mathrm{ctrl}}$ improvements.
+\end{enumerate}
+
+\section{Related Work}
+\label{sec:related}
+\textbf{UAD and B\textendash IQ:} agent discovery, goal inference, cooperation basins, and a blanket\textendash information competence metric \citep{ZarnckeUAD, ZarnckeAttractors, ZarnckeAcausal, ZarnckeBIQ}.\newline
+\textbf{Preference learning and alignment:} CIRL \citep{HadfieldMenell2016}, RLHF \citep{Christiano2017}, DPO \citep{Rafailov2023}.\newline
+\textbf{LLM agents and tools:} ReAct \citep{Yao2023}, Toolformer \citep{Schick2023}, WebGPT \citep{Nakano2021}, SayCan/PaLM\textendash E \citep{Ahn2022, Driess2023}.\newline
+\textbf{World\textendash model RL and control\textendash as\textendash inference:} Dreamer \citep{Hafner2019, Hafner2023}, control\textendash as\textendash inference \citep{Levine2018}.\newline
+\textbf{Active inference:} expected free energy and action selection \citep{Friston2010}.\newline
+\textbf{Information\textendash theoretic foundations:} predictive information and computational mechanics \citep{Bialek2001, ShaliziCrutchfield2001}; empowerment and social influence \citep{Klyubin2005, SalgePolani2014, Jaques2019}.
+
+\section{Conclusion}
+Preference\textendash conditioned capability clarifies why LLMs with impressive raw prediction often fail to realize stable wants in agentic deployments. By inferring and \emph{training for} wants, and by measuring value\textendash conditioned channels directly, we can move LLM agents toward the biological regime where prediction and control serve preferences rather than merely existing alongside them.
+
+\paragraph{Acknowledgments} I thank colleagues for discussions on UAD, B\textendash IQ, and active inference.
+
+\bibliographystyle{plainnat}
+\begin{thebibliography}{99}
+
+\bibitem[Zarncke(2025a)]{ZarnckeUAD}
+Gunnar Zarncke. Foundations of Unsupervised Agent Discovery in Raw Dynamical Systems. AE Studio, 2025.
+
+\bibitem[Zarncke(2025b)]{ZarnckeBIQ}
+Gunnar Zarncke. Bitwise Intelligence: A Blanket--Information Measure of Competence. AE Studio, 2025.
+
+\bibitem[Zarncke(2025c)]{ZarnckeAttractors}
+Gunnar Zarncke. Attractor Basins of Cooperation, Privacy, and Parasite Persistence. AE Studio, 2025.
+
+\bibitem[Zarncke(2025d)]{ZarnckeAcausal}
+Gunnar Zarncke. A Formalization of Acausal Trade on Top of Unsupervised Agent Discovery. AE Studio, 2025.
+
+\bibitem[Friston(2010)]{Friston2010}
+Karl Friston. The free-energy principle: a unified brain theory? \emph{Nature Reviews Neuroscience}, 11(2):127--138, 2010.
+
+\bibitem[Hadfield-Menell et al.(2016)]{HadfieldMenell2016}
+Dylan Hadfield-Menell, Anca Dragan, Pieter Abbeel, and Stuart Russell. Cooperative Inverse Reinforcement Learning. In \emph{NeurIPS}, 2016.
+
+\bibitem[Christiano et al.(2017)]{Christiano2017}
+Paul F. Christiano, Jan Leike, Tom B. Brown, et al. Deep Reinforcement Learning from Human Preferences. In \emph{NeurIPS}, 2017.
+
+\bibitem[Rafailov et al.(2023)]{Rafailov2023}
+Rafael Rafailov, Archit Sharma, Alexei Baevski, et al. Direct Preference Optimization: Your Language Model is Secretly a Reward Model. 2023.
+
+\bibitem[Yao et al.(2023)]{Yao2023}
+Shunyu Yao, Jeffrey Zhao, Dian Yu, et al. ReAct: Synergizing Reasoning and Acting in Language Models. 2023.
+
+\bibitem[Schick et al.(2023)]{Schick2023}
+Timo Schick, Jane Dwivedi-Yu, et al. Toolformer: Language Models Can Teach Themselves to Use Tools. 2023.
+
+\bibitem[Nakano et al.(2021)]{Nakano2021}
+Reiichiro Nakano, Jacob Hilton, Suchir Balaji, et al. WebGPT: Browser-assisted question-answering with human feedback. 2021.
+
+\bibitem[Ahn et al.(2022)]{Ahn2022}
+Michael Ahn, Anthony Brohan, et al. Do As I Can, Not As I Say: Grounding Language in Robotic Affordances. 2022.
+
+\bibitem[Driess et al.(2023)]{Driess2023}
+Danny Driess, et al. PaLM-E: An Embodied Multimodal Language Model. 2023.
+
+\bibitem[Levine(2018)]{Levine2018}
+Sergey Levine. Reinforcement Learning and Control as Probabilistic Inference: Tutorial and Review. 2018.
+
+\bibitem[Hafner et al.(2019)]{Hafner2019}
+Danijar Hafner, Timothy Lillicrap, Ian Fischer, et al. Learning Latent Dynamics for Planning from Pixels (PlaNet/Dreamer). 2019.
+
+\bibitem[Hafner et al.(2023)]{Hafner2023}
+Danijar Hafner, Jurgis Pasukonis, et al. Mastering Diverse Domains through World Models. (DreamerV3), 2023.
+
+\bibitem[Bialek et al.(2001)]{Bialek2001}
+William Bialek, Ilya Nemenman, and Naftali Tishby. Predictability, complexity, and learning. 2001.
+
+\bibitem[Shalizi and Crutchfield(2001)]{ShaliziCrutchfield2001}
+Cosma Rohilla Shalizi and James P. Crutchfield. Computational mechanics: Pattern and prediction, structure and simplicity. \emph{J. Stat. Phys.}, 2001.
+
+\bibitem[Klyubin et al.(2005)]{Klyubin2005}
+Alexander S. Klyubin, Daniel Polani, and Chrystopher L. Nehaniv. Empowerment: A universal agent-centric measure of control. 2005.
+
+\bibitem[Salge and Polani(2014)]{SalgePolani2014}
+Claudio Salge and Daniel Polani. Empowerment as replacement for the three laws of robotics. \emph{Frontiers in Robotics and AI}, 2014.
+
+\bibitem[Jaques et al.(2019)]{Jaques2019}
+Natasha Jaques, et al. Social Influence as Intrinsic Motivation for Multi-Agent Deep RL. In \emph{ICML}, 2019.
+
+\end{thebibliography}
+
+\end{document}

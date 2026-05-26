@@ -1,0 +1,94 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{setspace}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage[hidelinks]{hyperref}
+\setlength{\emergencystretch}{3em}
+
+\title{Prior and Related Work on Unsupervised Agent Discovery}
+\author{Gunnar Zarncke (aintelope)}
+\date{May 2026}
+
+\begin{document}
+\maketitle
+\onehalfspacing
+\sloppy
+
+\section{Framing the Problem}
+
+Unsupervised Agent Discovery (UAD) sits at the intersection of several literatures that have mostly developed separately: formal definitions of agency, Markov blankets and active inference, information-theoretic autonomy, biological individuality, inverse reinforcement learning, predictive-state modeling, object-centric representation learning, and multi-agent interaction analysis. Its distinctive ambition is not merely to score an already given system as more or less agentic, nor to infer a reward function for an already given agent, but to infer from raw or weakly structured dynamical data which subsystems should count as agents, where their boundaries lie, what internal variables carry memory, what objective-like regularities govern behavior, and how subsystems model or influence one another \cite{zarncke2025uad}.
+
+This scope is broader than most existing approaches. Classical reinforcement learning and inverse reinforcement learning usually assume an agent, state space, action space, and reward-feature ontology \cite{ng2000irl,ziebart2008maxent,arora2021survey}. Active-inference and Markov-blanket approaches supply powerful language for organism-environment separation, but often begin with a system boundary already specified or with strong assumptions about stationarity and conditional independence \cite{friston2010free,kirchhoff2018markov,parr2020markov}. Object-centric learning discovers entities, but entities are not necessarily agents \cite{locatello2020slot,kipf2020contrastive}.
+Multi-agent trajectory analysis detects interaction, but influence is not the same as goal-directed agency \cite{schreiber2000te,barnett2009gc,lizier2010transfer}.
+
+\section{Formal Agency and Interpretation}
+
+One line of work defines when a system should be interpreted as an agent. Dennett's intentional stance gives the classical philosophical starting point: a system is treated as an agent when ascribing beliefs and desires improves prediction \cite{dennett1981true}. Orseau, McGill, and Legg formalize a related distinction between agents and devices by comparing behavioral hypotheses \cite{orseau2018agents}. Their framework gives a relative probabilistic notion of agency, but it does not solve the UAD problem because the behavioral interface and candidate system are already given.
+
+Biehl and Virgo provide a closer formal bridge by asking under what conditions a physical system can be interpreted as solving a POMDP \cite{biehl2022pomdp}. Their interpretation map from physical states to belief states, coupled to an optimality condition over actions and rewards, is directly relevant to UAD's goal-inference layer. The limitation is scope: this asks whether a given system can be interpreted as an agent, while UAD asks how to discover the candidate system and boundary in the first place.
+
+Kenton et al.'s causal treatment of agency is one of the closest direct predecessors \cite{kenton2022discovering}. It proposes an algorithmic route to agent discovery from data by testing policy sensitivity to interventions that alter action consequences. This moves beyond interpretation toward discovery, but it does not provide a full raw-trace pipeline for boundary, memory, latent goal, and inter-agent model discovery in one integrated system.
+
+\section{Markov Blankets, Active Inference, and Boundary Discovery}
+
+The Markov-blanket literature supplies a natural mathematical substrate for UAD's boundary-discovery step. In Bayesian networks, a Markov blanket separates a variable set from the rest of the graph. In active inference and Free Energy Principle work, Markov blankets formalize organism-environment separation by asserting conditional independence of internal and external states given sensory and active states \cite{friston2010free,kirchhoff2018markov,parr2020markov,dacosta2021bayesianmechanics}.
+
+This body of work is foundational for UAD because it links boundary, inference, action, and self-organization. However, many FEP applications assume the boundary, whereas UAD treats it as an inference target. A second issue is exactness: real systems rarely exhibit perfect blankets. Approximate blankets are more realistic, especially for hierarchical and social systems with porous boundaries.
+
+Recent work on dynamic Markov blanket detection for macroscopic objects is close to the UAD boundary problem \cite{beck2025dynamic}. These approaches infer object-like macrovariables and boundary variables from microdynamics. However, object discovery is not yet agent discovery: an object may be dynamically coherent without memory, policy, control channels, or objective-like behavior.
+
+\section{Information-Theoretic Agency and Autonomy}
+
+Another major literature defines agency-like properties via information-theoretic quantities. Empowerment captures potential control from actions to future sensations \cite{klyubin2005empowerment}. Predictive information captures temporal structure and modelability \cite{bialek2001predictability}. Transfer entropy and Granger causality quantify directed dependence \cite{schreiber2000te,barnett2009gc}. Related work on semantic information and integrated information addresses meaningful organization and system-level integration \cite{kolchinsky2018semantic,albantakis2023iit4}.
+
+These tools map naturally onto UAD components. Boundary discovery uses conditional independence or conditional mutual information; memory discovery uses lagged predictive information; control uses action-to-environment information flow; and inter-agent modeling uses cross-predictive structure in internal variables. The B-IQ proposal combines predictive information, control information, memory cost, and residual surprise into one competence measure \cite{zarncke2025biq}.
+
+The caution is over-interpretation. Directed influence is not agency by itself \cite{lizier2010transfer}. UAD therefore needs a composite criterion over boundary, memory, action, and objective-like regularity rather than any single information-theoretic statistic.
+
+\section{Biological Individuality and Autopoiesis}
+
+Biological individuality work is relevant because organisms are paradigmatic agents with boundaries that are neither arbitrary nor always sharp. The information theory of individuality frames individuals as dynamically coherent units with informational closure and persistence across scales \cite{krakauer2020individuality}. This helps avoid a simplistic skin-boundary model and supports multiscale agency analysis.
+
+The limitation is algorithmic: much of this literature is conceptual, evolutionary, or comparative rather than a direct inference pipeline from raw time series to discovered boundaries, memories, and goals.
+
+\section{Predictive State Representations and Memory Discovery}
+
+UAD's memory-localization step connects strongly to predictive state representations and computational mechanics. PSRs define state through predictions over future observations rather than hidden ontological variables \cite{littman2001psr}. Computational mechanics defines causal states as equivalence classes of histories with identical predictive consequences \cite{shalizi2001computational}.
+
+This aligns with UAD's view that memory variables should carry unique predictive information about future dynamics conditional on boundary variables. The remaining gap is that PSR and causal-state methods recover predictive structure of a process, not necessarily agentic structure with explicit action boundary, control channel, and objective-like dynamics.
+
+\section{Goal Inference, IRL, and Ontology Import}
+
+Inverse reinforcement learning is the obvious precursor for UAD's goal-inference layer. Classical IRL asks which reward would render observed behavior approximately optimal \cite{ng2000irl}; maximum-entropy IRL provides a stochastic generalization that avoids assuming perfect optimality \cite{ziebart2008maxent}; and modern surveys catalog extensions and open limits \cite{arora2021survey}.
+
+The main UAD challenge is ontology import. Standard IRL assumes an agent, state space, action space, and feature representation. UAD instead treats part of this ontology as latent: which variables count as internal state, sensory input, action, and objective-relevant outcomes is itself inferred.
+
+\section{Object-Centric and Agent-Centric Representation Learning}
+
+Object-centric learning is relevant because agent discovery from raw observations often starts with entity discovery. Slot Attention and related structured world-model approaches provide practical decomposition of high-dimensional observations into persistent factors \cite{locatello2020slot,kipf2020contrastive,goyal2021rim}.
+
+However, object-centric learning usually stops short of agency. It can separate entities without identifying controlled actors, policy structure, memory variables, or objective-like dynamics. Newer agent-centric approaches such as Variational Agent Discovery move closer to UAD's empirical setting but still do not supply a full boundary-memory-goal-interaction stack \cite{variationalagent2025}.
+
+\section{Multi-Agent Interaction and Social Structure Discovery}
+
+Multi-agent systems research contributes tools for interaction, coordination, communication, and role analysis. Directed-information methods identify influence \cite{schreiber2000te,barnett2009gc,lizier2010transfer}. Multi-agent IRL and trajectory models handle interacting decision-makers, but usually with prespecified agents and interfaces \cite{arora2021survey}.
+
+UAD's inter-agent modeling criterion is stricter: whether memory-like internal variables in one discovered subsystem predict another subsystem's actions, conditional on local sensory and active states. This shifts from interaction detection to inferred internal modeling.
+
+Related cooperation literatures are relevant but assume predefined agents \cite{hamilton1964genetical,woolley2010collective}. UAD-style cooperation analysis instead treats agent identity and coupling structure as inferred objects.
+
+\section{Synthesis: Where UAD Appears Novel}
+
+Prior work contains many pieces of UAD but usually not one integrated inference pipeline. Formal agency work clarifies interpretability \cite{dennett1981true,orseau2018agents,biehl2022pomdp}. Markov-blanket and active-inference work clarifies boundary dynamics \cite{friston2010free,kirchhoff2018markov,parr2020markov,dacosta2021bayesianmechanics}. Information theory quantifies control, prediction, and influence \cite{klyubin2005empowerment,bialek2001predictability,schreiber2000te}. IRL handles reward inference \cite{ng2000irl,ziebart2008maxent}. PSR and computational mechanics recover predictive state \cite{littman2001psr,shalizi2001computational}. Representation learning supports raw perceptual decomposition \cite{locatello2020slot,kipf2020contrastive,goyal2021rim}.
+
+The novel claim of UAD is the integration: discover boundary, then memory, then objective-like regularities, then inter-agent modeling and cooperation, from raw or weakly structured traces \cite{zarncke2025uad,zarncke2025biq}. The strongest near-neighbors each solve only part of this stack \cite{kenton2022discovering,biehl2022pomdp,rosas2020emergence,beck2025dynamic}.
+
+\bibliographystyle{plainnat}
+\bibliography{uad_literature_review}
+
+\end{document}

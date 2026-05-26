@@ -1,0 +1,63 @@
+digraph Backbone {
+  graph [rankdir=TB, splines=true, nodesep=0.5, ranksep=0.6, pad=0.2];
+  node  [shape=box, style="rounded", fontname="Helvetica"];
+  edge  [arrowhead=normal];
+
+  // Core backbone
+  subgraph cluster_backbone {
+    label="Backbone";
+    style="rounded,dashed";
+
+    igm [label="Internal Generative Model"];
+    tba [label="Temporal Buffer & Attention"];
+    
+    igm -> tba [style=invis];
+  }
+
+  // Consciousness branch (C)
+  subgraph cluster_c {
+    label="Consciousness";
+    style="rounded,dashed";
+
+    sc   [label="Scene-Construction"];
+    gb   [label="Global Broadcast"];
+    meta [label="Metacognition"];
+    pr   [label="Phenomenal Report"];
+
+    sc -> gb;
+    sc -> meta;
+    gb -> pr [style=invis];
+    meta -> pr [style=invis];
+  }
+
+  // Agency branch (A)
+  subgraph cluster_a {
+    label="Agency";
+    style="rounded,dashed";
+
+    ps  [label="Policy-Selection"];
+    val [label="Valuation Register"];
+    eff [label="Efference Cascade"];
+    me  [label="Motor Execution"];
+
+    ps -> val;
+    ps -> eff;
+    val -> me [style=invis];
+    eff -> me [style=invis];
+  }
+
+
+
+  // Connectivity from the core to branches
+  igm -> sc;
+  igm -> ps;
+
+  // Re-convergence and outputs
+  sc  -> tba;
+  ps  -> tba;
+
+  tba -> pr;
+  tba -> me;
+
+  // Layout hints
+}

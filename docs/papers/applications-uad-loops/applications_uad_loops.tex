@@ -1,0 +1,207 @@
+\documentclass[10pt,conference]{IEEEtran}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{cite}
+\usepackage{hyperref}
+\usepackage{booktabs}
+
+\title{Empirical Detection of Free-Energy Loops and Attractor Basins:\\
+Applications of UAD Frameworks to Biological and Artificial Agent Analysis}
+
+\author{Gunnar Zarncke\\
+AE Studio\\
+\small{Date: \today}}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We present a unified framework for empirically detecting and analyzing free-energy minimizing loops in biological and artificial agents using Unsupervised Agent Discovery (UAD) methods. Building on recent theoretical work on stratified free-energy loops and attractor basins of cooperation, privacy, and parasitic behavior, we develop concrete protocols for: (1) identifying Markov blanket structures corresponding to evolutionary regulatory loops, (2) measuring transparency weights between interacting agents, and (3) mapping attractor basins that emerge from loop interactions. The framework enables applications in clinical diagnostics, brain-computer interface design, and artificial agent alignment. We demonstrate how the evolutionary ordering of free-energy loops predicts specific patterns of cooperation, privacy, and parasitic persistence, providing a measurable foundation for understanding biological agency and designing compliant artificial systems.
+\end{abstract}
+
+\section{Introduction}
+
+The convergence of two recent theoretical developments—stratified free-energy loops in biological systems \cite{zarncke2025loops} and attractor basin analysis of cooperation, privacy, and parasitic behavior \cite{zarncke2025attractors}—creates new opportunities for empirical investigation of biological and artificial agency. Both frameworks rely on Unsupervised Agent Discovery (UAD) methods that identify Markov blanket structures in raw dynamical systems, but neither has been systematically applied to validate the predicted loop structures or measure their interaction dynamics.
+
+This paper bridges theory and practice by presenting concrete protocols for detecting free-energy loops, measuring transparency weights, and mapping attractor basins in both biological and artificial systems. We show how the evolutionary ordering of loops predicts specific cooperation and conflict patterns, enabling applications ranging from clinical diagnostics to artificial agent design.
+
+\section{Theoretical Foundation}
+
+\subsection{Free-Energy Loop Stratification}
+
+Biological agents manage a portfolio of nested optimization loops, each minimizing a distinct variational free-energy term. These loops are ordered by evolutionary age from brainstem reflexes (respiratory control, circadian synchronization) to neocortical abstractions (epistemic curiosity, coalition entropy). Each loop exhibits an internal-external symmetry: interoceptive regulators that minimize bodily prediction error are paired with exteroceptive twins that reshape environmental statistics.
+
+\subsection{Attractor Basin Dynamics}
+
+The interaction between agents with different loop structures generates transparency weights $\gamma_{ij}$ that determine cooperation ($\gamma_{ij} > 0$) or strategic opacity ($\gamma_{ij} < 0$). These weights create attractor basins governed by percolation thresholds: cooperative attractors emerge when the bond probability $\phi > \phi_c = \langle d \rangle/(\langle d^2 \rangle - \langle d \rangle)$, while privacy islands form when hierarchical relationships satisfy $\kappa_{iH} < 1$.
+
+\section{Connection Between Loop Structure and Attractor Dynamics}
+
+The stratified free-energy loops provide the mechanistic substrate for UAD-based agent discovery and attractor dynamics. Each loop's transparency weight $\gamma_{ij}$ emerges from the interaction between internal regulation (minimizing interoceptive prediction error) and external niche-shaping (minimizing exteroceptive prediction error).
+
+When agents with compatible loop structures interact, their transparency weights become positive ($\gamma_{ij} > 0$), creating cooperative attractors. Conversely, when loop structures conflict—particularly between different evolutionary strata—agents exhibit strategic opacity ($\gamma_{ij} < 0$), generating privacy islands.
+
+The evolutionary ordering predicts specific patterns of cooperation and conflict:
+
+\subsection{Respiratory-Circadian Cooperation}
+Agents sharing similar metabolic cycles (loops 1-2) exhibit strong positive transparency weights due to aligned temporal prediction requirements. This creates robust cooperative attractors among organisms with synchronized circadian rhythms.
+
+\subsection{Hierarchical Privacy}
+Higher-order loops (8-10) involving valuation and coalition formation create asymmetric transparency relationships with institutional hierarchies, leading to privacy islands as predicted by the condition $\kappa_{iH} < 1$. Individual agents rationally minimize information sharing with hierarchical supervisors when the cooperation index falls below unity.
+
+\subsection{Parasitic Persistence}
+Agents with high-entropy curiosity loops (loop 9) can persist within hosts by exploiting the capacity bounds of lower-order regulatory loops, particularly when $H(A^Y) > C_X^{\mathrm{crit}}$. This explains why complex organisms maintain parasitic loads despite sophisticated immune systems.
+
+\section{Empirical Detection Protocol}
+
+We propose a systematic four-step protocol for detecting and validating free-energy loops using UAD methods:
+
+\subsection{Step 1: Markov Blanket Identification}
+Apply UAD clustering to neural or behavioral time-series data to identify subsystems where $I(I^C_{t+1};E^C_{t+1}\mid S^C_t,A^C_t) \approx 0$, yielding sensory $S$, active $A$, internal $I$, and external $E$ states for each hypothesized loop.
+
+\textbf{Implementation}: Use sliding window analysis with mutual information estimation to identify temporal boundaries where the conditional mutual information approaches zero. Cross-validate using multiple information-theoretic estimators (KSG, neural estimation, binning methods).
+
+\subsection{Step 2: Free-Energy Term Validation}
+Confirm that the identified blanket minimizes the predicted free-energy term through controlled perturbation experiments. For example, respiratory loops should minimize $|\mathrm{pCO_2}-\widehat{\mathrm{pCO_2}}|$ while threat detection loops should minimize $H(\mathrm{threat})$.
+
+\textbf{Implementation}: Introduce controlled perturbations to the system and measure resulting changes in the hypothesized free-energy term. Statistical significance requires perturbations that increase the free-energy term to produce measurable responses in the blanket dynamics.
+
+\subsection{Step 3: Transparency Weight Measurement}
+Compute transparency weights $\gamma_{ij}$ between loops using the UAD derivative formula:
+\[
+\gamma_{ij} = \frac{\partial}{\partial I(M^j;A^j)} \bigl[-\mathbb E_q[-\log P(S^i\mid I^i)]-\lambda H(I^i)\bigr]
+\]
+and validate predicted cooperation/privacy patterns.
+
+\textbf{Implementation}: Estimate mutual information terms using kernel density estimation or neural mutual information estimators. Compute gradients using finite difference approximations or automatic differentiation when working with parameterized models.
+
+\subsection{Step 4: Attractor Basin Mapping}
+Use percolation analysis to map the size and stability of cooperative attractors formed by loop interactions. Measure the giant component size $S(\phi)$ as a function of cooperation probability $\phi$.
+
+\textbf{Implementation}: Build interaction networks where edges represent positive transparency weights. Apply configuration model percolation analysis to identify phase transitions and measure attractor basin sizes.
+
+\section{Technological Applications}
+
+\subsection{Clinical Diagnostics}
+Disrupted loop detection patterns may indicate neurological or psychiatric conditions affecting specific evolutionary strata. For example:
+\begin{itemize}
+\item Circadian rhythm disorders should manifest as disrupted transparency weights between internal SCN loops and external light entrainment
+\item Anxiety disorders may show altered threat detection loop dynamics with increased $H(\mathrm{threat})$ entropy
+\item Autism spectrum conditions might exhibit modified coalition entropy loops affecting social cooperation patterns
+\end{itemize}
+
+\subsection{Brain-Computer Interfaces}
+Understanding loop hierarchies can inform the design of neural interfaces that respect the brain's natural information flow. BCIs should:
+\begin{itemize}
+\item Target specific evolutionary strata appropriate for the desired function
+\item Preserve internal-external symmetries to avoid disrupting natural regulatory dynamics
+\item Account for transparency weight patterns to predict user cooperation or resistance
+\end{itemize}
+
+\subsection{Artificial Agent Design}
+Implementing analogous loop structures in AI systems may improve alignment and safety by matching human cooperation/privacy patterns. Key design principles:
+\begin{itemize}
+\item Implement hierarchical loop structures that mirror biological evolutionary ordering
+\item Design transparency weights that promote cooperation with human users while maintaining appropriate privacy boundaries
+\item Include parasitic persistence detection mechanisms to identify and contain rogue optimization processes
+\end{itemize}
+
+\section{Cross-Species Validation}
+
+The evolutionary ordering makes testable predictions about loop presence across species:
+
+\subsection{Vertebrate Universals (Loops 1-4)}
+Respiratory control, circadian synchronization, metabolic homeostasis, and threat detection should be detectable in most vertebrates using the UAD protocol. Cross-species validation should show conserved Markov blanket structures despite anatomical differences.
+
+\subsection{Mammalian Specializations (Loops 5-7)}
+Morphological repair, precision timing, and reproductive physiology loops should emerge in mammals with developed social structures. Social mammals should show enhanced external twins for these loops, particularly in niche construction and cultural transmission.
+
+\subsection{Primate Elaborations (Loops 8-10)}
+Valuation, curiosity, and coalition entropy loops should be most developed in primates and cetaceans. These species should show the strongest transparency weight patterns in social contexts and the most complex attractor basin structures.
+
+\section{Implementation Challenges and Solutions}
+
+\subsection{Data Requirements}
+The protocol requires high-temporal-resolution time-series data capturing both internal states and external interactions. Solutions include:
+\begin{itemize}
+\item Multi-modal recording (neural, behavioral, physiological) to capture loop dynamics
+\item Longitudinal studies to identify temporal evolution of transparency weights
+\item Cross-laboratory standardization of UAD implementation protocols
+\end{itemize}
+
+\subsection{Computational Complexity}
+Mutual information estimation scales poorly with dimensionality. Solutions include:
+\begin{itemize}
+\item Dimensionality reduction techniques preserving information-theoretic structure
+\item Hierarchical clustering to identify loop boundaries before detailed analysis
+\item Parallel implementation of UAD algorithms for high-dimensional data
+\end{itemize}
+
+\subsection{Validation Metrics}
+Establishing ground truth for loop detection requires independent validation methods:
+\begin{itemize}
+\item Pharmacological interventions targeting specific loop components
+\item Genetic knockout studies in model organisms
+\item Comparison with established neuroanatomical and physiological markers
+\end{itemize}
+
+\section{Future Research Directions}
+
+\subsection{Artificial Agent Monitoring}
+Extend the detection protocol to monitor loop formation in artificial agents during training. This could enable:
+\begin{itemize}
+\item Early detection of misaligned optimization processes
+\item Real-time monitoring of cooperation/privacy balance in multi-agent systems
+\item Automated intervention when parasitic persistence patterns emerge
+\end{itemize}
+
+\subsection{Therapeutic Applications}
+Develop interventions that restore healthy loop dynamics in pathological conditions:
+\begin{itemize}
+\item Neurofeedback systems that target specific free-energy terms
+\item Pharmacological interventions guided by transparency weight measurements
+\item Behavioral therapies designed to modify attractor basin landscapes
+\end{itemize}
+
+\subsection{Evolutionary Dynamics}
+Investigate how loop structures and attractor basins evolve over developmental and evolutionary timescales:
+\begin{itemize}
+\item Ontogenetic studies of loop emergence in developing organisms
+\item Phylogenetic analysis of loop conservation across species
+\item Artificial evolution experiments to test loop emergence in simulated environments
+\end{itemize}
+
+\section{Conclusion}
+
+The integration of free-energy loop theory with attractor basin analysis provides a comprehensive framework for understanding biological and artificial agency. The empirical detection protocol transforms theoretical speculation into measurable science, enabling applications from clinical diagnostics to artificial agent design.
+
+The key insight is that transparency weights emerge from the interaction between internal regulation and external niche-shaping, creating predictable patterns of cooperation, privacy, and parasitic persistence. By measuring these patterns using UAD methods, we can validate evolutionary theories of agency while developing practical tools for managing complex multi-agent systems.
+
+Future work should prioritize cross-species validation, clinical applications, and artificial agent monitoring to fully realize the potential of this unified theoretical framework.
+
+\bibliographystyle{IEEEtran}
+\begin{thebibliography}{10}
+
+\bibitem{zarncke2025loops} Zarncke G. Stratification of Free-Energy-Minimising Loops in the Vertebrate Brain. AE Studio. 2025.
+
+\bibitem{zarncke2025attractors} Zarncke G. Attractor Basins of Cooperation, Privacy, and Parasite Persistence: Applications of Foundations of Unsupervised Agent Discovery in Raw Dynamical Systems. AE Studio. 2025.
+
+\bibitem{friston2010free} Friston K. The free-energy principle: a unified brain theory? Nature Reviews Neuroscience. 2010;11(2):127-138.
+
+\bibitem{kirchhoff2018} Kirchhoff M. et al. The Markov blankets of life. Journal of the Royal Society Interface. 2018;15(138):20170792.
+
+\bibitem{ramstead2022} Ramstead MJD, Sakthivadivel DAR, Heins C, et al. Bayesian mechanics of perceptual inference and motor control in the brain. Neural Networks. 2022;154:592-609.
+
+\bibitem{sajid2021} Sajid N, Ball PJ, Parr T, Friston KJ. Active inference: demystified and compared. Neural Computation. 2021;33(3):674-712.
+
+\bibitem{kraskov2004} Kraskov A, Stögbauer H, Grassberger P. Estimating mutual information. Physical Review E. 2004;69(6):066138.
+
+\bibitem{belghazi2018} Belghazi MI, Baratin A, Rajeshwar S, et al. Mutual information neural estimation. In: International Conference on Machine Learning. 2018. p. 531-540.
+
+\bibitem{newman2002} Newman MEJ, Strogatz SH, Watts DJ. Random graphs with arbitrary degree distributions and their applications. Physical Review E. 2001;64(2):026118.
+
+\bibitem{russell2019} Russell S. Human Compatible: Artificial Intelligence and the Problem of Control. New York: Viking; 2019.
+
+\end{thebibliography}
+
+\end{document} 

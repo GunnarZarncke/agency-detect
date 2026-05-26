@@ -1,0 +1,374 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{bm}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{microtype}
+
+\title{Construction Without Understanding:\\An Account of Reproduction, Successor-Building, and Reflection}
+\author{Gunnar Zarncke, aintelope}
+\date{\today}
+
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\I}{\mathcal{I}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Biq}{B\!\operatorname{-IQ}}
+\newcommand{\MI}{I}
+\newcommand{\KL}{D_{\mathrm{KL}}}
+\newcommand{\dd}{\mathrm{d}}
+\newcommand{\argmax}{\operatorname*{arg\,max}}
+\newcommand{\argmin}{\operatorname*{arg\,min}}
+\newcommand{\ind}{\mathbf{1}}
+\newcommand{\pos}[1]{\left[#1\right]_+}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+An agent can be able to reproduce, instantiate, or build copies without explicitly knowing how its own construction works. This is not an anomaly but a general feature of constructors: reproductive competence may be carried by an inherited or scaffolded construction process rather than by a self-transparent model inside the reproducing agent. In the vocabulary of Unsupervised Agent Discovery (UAD), reproduction can be mediated by a construction channel whose control information is high even when the agent's internal model of the construction mechanism is weak. Reflection becomes useful only when additional internal modelling increases expected successor quality, robustness, or verification by more than it costs in memory, delay, experiment, coordination, and self-distortion. We formalize this distinction using UAD boundaries, B-IQ, construction complexity, verification entropy, and reflection value. The resulting picture reconciles von Neumann construction, biological reproduction, scaffolded development, semantic information, and successor-agent construction: copying can be cheap without understanding; improvement is where understanding earns its keep.
+\end{abstract}
+
+\section{Core claim}
+
+The central distinction is between \emph{performed construction information} and \emph{accessible reflective construction knowledge}. A cell may reliably construct a daughter cell while possessing no explicit model of embryology or molecular biology in any cognitively accessible sense. A shell script may instantiate a large language model without representing the architecture. A society may reproduce an institution, ritual, legal form, or educational pipeline without understanding which parts are causally essential.
+
+In UAD terms, the ability to produce a successor is not the same as having an internal model slot that predicts and controls the causal microstructure of successor construction. The agent may have a high-control construction channel,
+\begin{equation}
+  \MI(A_X^{\mathrm{build}}; Y_{t+\Delta}) \gg 0,
+\end{equation}
+but low reflective construction knowledge,
+\begin{equation}
+  \MI(M_X^{\theta}; \theta_Y \mid S_X,A_X,I_X\setminus M_X^{\theta}) \approx 0,
+\end{equation}
+where $Y$ is the successor, $\theta_Y$ denotes construction-relevant degrees of freedom, and $M_X^{\theta}\subset I_X$ is an internal model slice of $X$ that would count, by UAD inter-agent/inter-process modelling tests, as a representation of the construction mechanism.
+
+The slogan is therefore:
+\begin{quote}
+Reproduction requires sufficient control over a constructor; improvement requires useful information about the constructor.
+\end{quote}
+
+\section{UAD preliminaries}
+
+UAD discovers candidate agents from raw dynamical traces by locating subsets $C$ whose internal variables $I^C$, sensory variables $S^C$, active variables $A^C$, and external variables $E^C$ approximately satisfy a Markov-blanket conditional-independence condition,
+\begin{equation}
+  \MI(I^C_{t+1};E^C_{t+1}\mid S^C_t,A^C_t) \le \varepsilon .
+\end{equation}
+Memory localization tests whether some internal variable $m\subset I^C$ carries unique lagged predictive information,
+\begin{equation}
+  \Delta_m(k)=\MI(m_{t-k};I^C_{t+1}\mid S^C_t,A^C_t,I^C_t\setminus \{m\}).
+\end{equation}
+Inter-agent modelling analogously tests whether $X$ contains a memory/model slot predictive of $Y$'s actions,
+\begin{equation}
+  \Delta_{m,Y}(k)=\MI(m^X_{t-k};A^Y_t\mid S^X_t,A^X_t,I^X_t\setminus\{m\}).
+\end{equation}
+Goal inference treats the observed trajectory as evidence for an objective, reward, or free-energy functional. For this note, write the inferred objective of agent $X$ as
+\begin{equation}
+  G_X = \argmax_G P(\tau_X\mid G,\mathcal E,C_X)P(G),
+\end{equation}
+where $C_X$ summarizes capacity, embodiment, and environmental constraints. This is deliberately extensional: $G_X$ is a trajectory-scoring functional inferred from behavior, not a semantic goal-statement.
+
+B-IQ measures competence as predictive and control information discounted by memory and surprise costs,
+\begin{equation}
+  \Biq_X = I_{\mathrm{pred}}^X+\alpha I_{\mathrm{ctrl}}^X-\beta H(I_X)-\gamma S_X,
+\end{equation}
+with
+\begin{equation}
+  I_{\mathrm{pred}}^X=\MI(I^X_t;S^X_{t+1}),\qquad
+  I_{\mathrm{ctrl}}^X=\MI(A^X_t;E^X_{t+1}),\qquad
+  S_X=\E[-\log P(S^X_{t+1}\mid I^X_t)].
+\end{equation}
+The physical envelope is bounded by sensory and actuator channels in the low memory/surprise regime,
+\begin{equation}
+  \Biq_X \lesssim C_{\mathrm{sens}}^X+\alpha C_{\mathrm{act}}^X.
+\end{equation}
+
+\section{Constructors and copies}
+
+Let $X$ be a current agent, $Y$ a successor/copy, and $\Pi$ a construction process. $\Pi$ may include molecular machinery, developmental scaffolding, a compiler, a factory, a reproductive body, a social institution, a cloud API, a training pipeline, or a universal constructor. The transition is
+\begin{equation}
+  (X,\Pi,E) \longrightarrow Y.
+\end{equation}
+Let $\theta_Y$ describe construction-relevant parameters of $Y$: morphology, genome, weights, architecture, initial memory, training environment, legal structure, ritual form, or local task-policy.
+
+The missing construction information is
+\begin{equation}
+  K_{\mathrm{miss}}(Y\mid X,\Pi,E)=K(\theta_Y\mid X,\Pi,E),
+\end{equation}
+where $K$ may be read as Kolmogorov, MDL, engineering-specification, or search complexity measured in nats. If $\Pi$ already contains most of the constructor, then
+\begin{equation}
+  K_{\mathrm{miss}}\ll K(\theta_Y).
+\end{equation}
+This is the cell case. The cell need not know molecular developmental biology; the construction process already embodies the relevant causal organization.
+
+A construction feasibility condition is
+\begin{equation}
+  \int_0^{T_{\mathrm{build}}}\dot{\Biq}_{X+\Pi}^{\mathrm{build}}(t)\,\dd t
+  \ge
+  K_{\mathrm{miss}}+K_{\mathrm{write}}+K_{\mathrm{error}},
+\end{equation}
+where $K_{\mathrm{write}}$ is the control information needed to inscribe or instantiate $\theta_Y$, and $K_{\mathrm{error}}$ is redundancy/error-correction margin. The effective builder is usually $X+\Pi$, not $X$ alone.
+
+\section{Knowing what to build versus being able to build}
+
+Separate design identification from instantiation:
+\begin{align}
+  \int_0^T \dot I^{\mathrm{design}}_{\mathrm{pred}}(t)\,\dd t &\ge K_{\mathrm{id}},\\
+  \int_0^T \dot I^{\mathrm{build}}_{\mathrm{ctrl}}(t)\,\dd t &\ge K_{\mathrm{write}}.
+\end{align}
+The first inequality says the agent has enough prediction/model information to identify a suitable construction target. The second says it has enough causal leverage to realize it. Copying can satisfy the second without satisfying the first. Reflective improvement generally requires both.
+
+This gives four regimes:
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+ & High construction control & Low construction control \\
+\midrule
+High construction model & engineering, medicine, AI design & reflective impotence \\
+Low construction model & reproduction, copying, ritual replication & neither knowing nor building \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The biologically common regime is high construction control with low explicit model. The technologically dangerous and powerful regime is high construction control with high construction model.
+
+\section{Accessible understanding}
+
+The word ``knowing'' should not be cashed out as mere mutual information somewhere in the physical system. DNA has information relevant to development; a polymerase has construction specificity; a cell has mechanistic organization. But the claim at issue concerns \emph{accessible reflective knowledge}: internal state that can be used flexibly to predict, modify, and improve construction.
+
+Define construction-understanding of $X$ with respect to $Y$ as
+\begin{equation}
+  U_X(Y)=\MI(M_X^\theta;\theta_Y\mid S_X,A_X,I_X\setminus M_X^\theta),
+\end{equation}
+with an actionability correction,
+\begin{equation}
+  U_X^{\mathrm{act}}(Y)=\MI(M_X^\theta;\theta_Y\mid \cdots)\cdot
+  \frac{\MI(A_X^{\mathrm{modify}};Y_{t+\Delta}\mid M_X^\theta)}{H(A_X^{\mathrm{modify}})+\epsilon}.
+\end{equation}
+This distinguishes latent causal structure from usable knowledge. A genome may contain construction-relevant information, while the agent-level reflective subsystem has little $U_X^{\mathrm{act}}$ over developmental mechanisms.
+
+\section{The Conant--Ashby point, correctly localized}
+
+Conant and Ashby's good-regulator theorem suggests that every good regulator must contain a model of the system it regulates. This does not imply that every good reproducer must explicitly understand its own construction. The model may be:
+\begin{enumerate}[leftmargin=*]
+  \item distributed in the constructor $\Pi$ rather than in the agent's reflective subsystem;
+  \item implicit in evolved biochemical dynamics rather than explicit in semantic representations;
+  \item stored in a template or instruction tape rather than inferred online;
+  \item located in a higher-level scaffold, such as a body, ecology, institution, or toolchain.
+\end{enumerate}
+Thus good regulation requires modelling somewhere in the closed regulatory loop. It does not require introspective availability to the focal UAD agent.
+
+\section{Reflection as meta-construction control}
+
+Reflection is the allocation of B-IQ to modelling, evaluating, and modifying the construction process. Let $P_0(Y)$ be the default successor distribution produced by inherited construction machinery, and $P_r(Y)$ the successor distribution after reflection and intervention. Reflection is worthwhile iff
+\begin{equation}
+  \Delta J_{\mathrm{ref}}
+  =\E_{Y\sim P_r}[J(Y)]-\E_{Y\sim P_0}[J(Y)]-C_{\mathrm{ref}}>0.
+\end{equation}
+A B-IQ decomposition is
+\begin{equation}
+  \dot{\Biq}_{\mathrm{ref}}
+  =\dot I_{\mathrm{pred}}^{\mathrm{ref}}
+  +\alpha \dot I_{\mathrm{ctrl}}^{\mathrm{ref}}
+  -\beta \dot H(I_{\mathrm{ref}})
+  -\gamma \dot S_{\mathrm{ref}}
+  -\dot\Psi_{\mathrm{ref}}.
+\end{equation}
+The value of reflection is bounded by the useful construction information it can produce:
+\begin{equation}
+  \Delta J_{\mathrm{ref}}
+  \le
+  \lambda_J\min\left\{H(\theta_{\mathrm{rel}}),\int_0^T\dot{\Biq}_{\mathrm{ref}}(t)\,\dd t\right\}-C_{\mathrm{ref}},
+\end{equation}
+where $\lambda_J$ is marginal successor-value per useful construction nat and $\theta_{\mathrm{rel}}$ are the construction variables whose knowledge would change action.
+
+Unpacking cost,
+\begin{equation}
+  C_{\mathrm{ref}}=
+  C_{\mathrm{compute}}+C_{\mathrm{memory}}+C_{\mathrm{experiment}}+C_{\mathrm{delay}}+C_{\mathrm{coord}}+C_{\mathrm{error}}+C_{\mathrm{self-distortion}}.
+\end{equation}
+The last term matters. Reflection can create memetic parasites, proxy fixation, credential loops, reproductive anxiety, benchmark gaming, or institutional self-protection.
+
+The marginal stopping condition is
+\begin{equation}
+  \lambda_J(t)\dot I_{\mathrm{construct}}(t)\le \dot C_{\mathrm{ref}}(t).
+\end{equation}
+At that point, further reflection is overthinking, not improvement.
+
+\section{Search framing}
+
+If construction improvement is search over interventions $a\in\mathcal A$, and a blind intervention succeeds with probability $\pi_0$, then expected trial cost is approximately
+\begin{equation}
+  \frac{c_{\mathrm{trial}}}{\pi_0}.
+\end{equation}
+If reflection raises the success probability to $\pi_r$, reflection is worthwhile when
+\begin{equation}
+  C_{\mathrm{ref}}<c_{\mathrm{trial}}\left(\frac{1}{\pi_0}-\frac{1}{\pi_r}\right).
+\end{equation}
+This is often the cleanest bound. Reflection has high value when blind search is expensive, reflective modelling substantially increases hit rate, and intervention handles exist.
+
+\section{Successor construction and copying}
+
+For successor-agent construction, define an acceptability set for predecessor $X$:
+\begin{equation}
+  \Omega_X(\Delta_X)=\left\{\theta:\E_{\tau\sim M_\theta}[G_X(\tau)]\ge V_X^{\mathrm{base}}+\Delta_X\right\}.
+\end{equation}
+For two predecessors $A,B$, the mutually acceptable successor region is
+\begin{equation}
+  \Omega_{AB}=\Omega_A\cap\Omega_B.
+\end{equation}
+The construction problem is simply
+\begin{equation}
+  \text{find and instantiate }\theta_M\in\Omega_{AB}.
+\end{equation}
+The feasibility bound is
+\begin{equation}
+  \int_0^{T_{\mathrm{build}}}\dot{\Biq}_{A+B+\Pi}^{\mathrm{build}}(t)\,\dd t
+  \ge
+  K_{\mathrm{miss}}+K_{\mathrm{search}}+K_{\mathrm{verify}}^A+K_{\mathrm{verify}}^B+K_{\mathrm{transfer}}+K_{\mathrm{error}}.
+\end{equation}
+Copying is the special case where $K_{\mathrm{miss}}$ and $K_{\mathrm{search}}$ are small because $\Pi$ already contains a template. Novel reflective successor engineering is the case where these terms dominate.
+
+\section{Verification before behavior}
+
+Existing agents can be evaluated from trajectories. A not-yet-existing successor lacks a long trajectory, so predecessors must infer acceptability from plan, architecture, proof, construction process, copy relation, or tests. Let $Z_X=1$ iff $M\in\Omega_X$. If the prior is $P_X(Z_X=1)=\pi_X$ and $X$ requires posterior failure probability at most $\delta_X$, then the required log Bayes factor is
+\begin{equation}
+  K_{\mathrm{verify}}^X\gtrsim
+  \log\frac{(1-\delta_X)(1-\pi_X)}{\delta_X\pi_X}.
+\end{equation}
+Copying and shared checkpoints raise $\pi_X$ and lower verification cost. Opaque novel construction lowers $\pi_X$ and raises it.
+
+\section{Parasites and cultural reproduction}
+
+Culture is a mixed reservoir of useful information and memetic parasites. A cultural item $m$ can improve host prediction/control,
+\begin{equation}
+  \Delta \Biq_X(m)>0,
+\end{equation}
+or reproduce by controlling attention, identity, status, and obligation while imposing negative host value,
+\begin{equation}
+  R_{\mathrm{mem}}(m)>1,\qquad \Delta \Biq_X(m)<0.
+\end{equation}
+Reflection over reproduction can itself be captured by such items. A culture may reproduce rituals, institutions, or successor-building habits without knowing which pieces are load-bearing. Reflective science is valuable partly because it converts inherited copy-processes into tested construction handles; it is costly because it introduces new semantic/control channels through which parasites can enter.
+
+\section{Empirical UAD signatures}
+
+A system exhibits construction without understanding when the following pattern is detected:
+\begin{align}
+  \MI(A_X^{\mathrm{build}};Y_{t+\Delta}) &\gg 0,\\
+  \MI(M_X^\theta;\theta_Y\mid S_X,A_X,I_X\setminus M_X^\theta) &\approx 0,\\
+  \MI(A_X^{\mathrm{modify}};\Delta \Biq_Y\mid M_X^\theta) &\approx 0.
+\end{align}
+It exhibits reflective successor improvement when
+\begin{align}
+  \MI(M_X^\theta;\theta_Y\mid \cdots)&>0,\\
+  \MI(A_X^{\mathrm{modify}};\Delta \Biq_Y\mid M_X^\theta)&>0,\\
+  \E[J(Y)\mid \mathrm{reflection}]-\E[J(Y)\mid \mathrm{copy}]&>C_{\mathrm{ref}}.
+\end{align}
+The key observational distinction is whether internal model variables causally improve successor outcomes beyond what the inherited constructor already does.
+
+\section{Examples}
+
+\paragraph{Cell division.} The cell has high construction control because inherited biochemical machinery copies and partitions components. It need not contain explicit reflective developmental knowledge. Reflection-like knowledge appears only in organisms or cultures that model and intervene in reproduction, e.g. medicine, nutrition, IVF, genetic screening, and childcare.
+
+\paragraph{Universal constructors.} Von Neumann separates a constructor from a description tape. The tape need not understand the constructor; the constructor executes the tape. This architecture cleanly separates copyable specification from construction dynamics.
+
+\paragraph{Software deployment.} A script can instantiate a model checkpoint. The script has construction control but little model-understanding. A research team that understands architecture, training data, evals, and deployment risks has higher reflective construction knowledge.
+
+\paragraph{Institutions.} A society can reproduce courts, schools, bureaucracies, churches, or laboratories through imitation and ritual. It may not know which mechanisms cause their useful effects. Institutional science attempts to raise $U_X^{\mathrm{act}}$ but pays coordination and memetic costs.
+
+\paragraph{Successor agents.} Digital copies are plausible when templates, checkpoints, and build metadata lower $K_{\mathrm{miss}}$ and $K_{\mathrm{verify}}$. Novel successors require large reflection-relevant B-IQ and robust verification before long behavioral traces exist.
+
+\section{Relation to prior work}
+
+Von Neumann's theory of self-reproducing automata provides the canonical constructor/description split. Eigen's error threshold formalizes limits on heredity when copying error overwhelms selectable information. Autopoiesis emphasizes self-producing networks, but often blurs reflective knowledge with organizational closure. Griesemer's reproducer and scaffolded-development accounts are especially close to the present framing because they reject a pure formal-copy view and emphasize material continuity and developmental scaffolding. Maynard Smith and Szathm\'ary locate major evolutionary transitions in changes to how information is stored and transmitted. Conant--Ashby explains why regulation requires modelling, but UAD localizes where the model may reside. Kolchinsky--Wolpert's semantic information links information to viability, while UAD/B-IQ distinguishes viability-relevant construction information from agent-accessible reflective control. Krakauer et al.'s information theory of individuality and Biehl--Virgo's POMDP interpretation program are close relatives in treating agency and individuality as inferable from dynamics rather than assumed ontology.
+
+\section{Conclusion}
+
+The ability to reproduce or build copies is not equivalent to understanding the construction mechanism. In UAD terms, reproduction may be high-control but low-reflection: $A_X^{\mathrm{build}}$ reliably routes through an inherited constructor $\Pi$, while no internal model slice $M_X^\theta$ gives flexible predictive/control access to the construction variables. Reflection becomes valuable only where it changes the successor distribution enough to pay for its costs. This yields a compact principle:
+\begin{equation}
+  \boxed{
+  \text{copy when }K_{\mathrm{miss}}\text{ is already compressed by }\Pi;
+  \quad
+  \text{reflect when }\lambda_J\Delta I_{\mathrm{construct}}>C_{\mathrm{ref}}.
+  }
+\end{equation}
+The same distinction applies to cells, software, institutions, cultures, and artificial successor agents. Copying is the cheap inheritance of construction. Reflection is the costly attempt to make construction steerable.
+
+\begin{thebibliography}{99}
+
+\bibitem{zarncke2025uad}
+G. Zarncke, ``Foundations of Unsupervised Agent Discovery in Raw Dynamical Systems,'' AE Studio technical report, 2025.
+
+\bibitem{zarncke2025biq}
+G. Zarncke, ``Bitwise Intelligence: A Blanket--Information Measure of Competence,'' AE Studio technical report, 2025.
+
+\bibitem{zarncke2025attractor}
+G. Zarncke, ``Attractor Basins of Cooperation, Privacy, and Parasite Persistence,'' AE Studio technical report, 2025.
+
+\bibitem{zarncke2025acausal}
+G. Zarncke, ``A Formalization of Acausal Trade on Top of Unsupervised Agent Discovery,'' AE Studio technical report, 2025.
+
+\bibitem{biehlvirgo2025}
+M. Biehl and N. Virgo, ``Interpreting systems as solving POMDPs: a step towards a formal understanding of agency,'' arXiv:2209.01619v2, 2025.
+
+\bibitem{vonneumann1966}
+J. von Neumann, \emph{Theory of Self-Reproducing Automata}, edited and completed by A. W. Burks. Urbana: University of Illinois Press, 1966.
+
+\bibitem{burks1969}
+A. W. Burks, ``Von Neumann's self-reproducing automata,'' in A. W. Burks, ed., \emph{Essays on Cellular Automata}. Urbana: University of Illinois Press, 1969.
+
+\bibitem{pesavento1995}
+U. Pesavento, ``An implementation of von Neumann's self-reproducing machine,'' \emph{Artificial Life}, vol. 2, no. 4, pp. 337--354, 1995.
+
+\bibitem{eigen1971}
+M. Eigen, ``Selforganization of matter and the evolution of biological macromolecules,'' \emph{Naturwissenschaften}, vol. 58, pp. 465--523, 1971. doi:10.1007/BF00623322.
+
+\bibitem{maturana1980}
+H. R. Maturana and F. J. Varela, \emph{Autopoiesis and Cognition: The Realization of the Living}. Dordrecht: Reidel, 1980.
+
+\bibitem{smithszathmary1995nature}
+E. Szathm\'ary and J. Maynard Smith, ``The major evolutionary transitions,'' \emph{Nature}, vol. 374, pp. 227--232, 1995. doi:10.1038/374227a0.
+
+\bibitem{smithszathmary1995book}
+J. Maynard Smith and E. Szathm\'ary, \emph{The Major Transitions in Evolution}. Oxford: Oxford University Press, 1995.
+
+\bibitem{griesemer2000}
+J. R. Griesemer, ``Reproduction and the reduction of genetics,'' in P. Beurton, R. Falk, and H.-J. Rheinberger, eds., \emph{The Concept of the Gene in Development and Evolution}. Cambridge: Cambridge University Press, pp. 240--285, 2000.
+
+\bibitem{griesemer2016}
+J. R. Griesemer, ``Reproduction in complex life cycles: toward a developmental reaction norms perspective,'' \emph{Philosophy of Science}, vol. 83, no. 5, pp. 803--815, 2016.
+
+\bibitem{szostak2001}
+J. W. Szostak, D. P. Bartel, and P. L. Luisi, ``Synthesizing life,'' \emph{Nature}, vol. 409, pp. 387--390, 2001. doi:10.1038/35053176.
+
+\bibitem{hordijk2010}
+W. Hordijk and M. Steel, ``Autocatalytic sets and the origin of life,'' \emph{Entropy}, vol. 12, no. 7, pp. 1733--1742, 2010.
+
+\bibitem{conantashby1970}
+R. C. Conant and W. R. Ashby, ``Every good regulator of a system must be a model of that system,'' \emph{International Journal of Systems Science}, vol. 1, no. 2, pp. 89--97, 1970.
+
+\bibitem{kolchinsky2018}
+A. Kolchinsky and D. H. Wolpert, ``Semantic information, autonomous agency and non-equilibrium statistical physics,'' \emph{Interface Focus}, vol. 8, no. 6, 20180041, 2018.
+
+\bibitem{krakauer2020}
+D. Krakauer, N. Bertschinger, E. Olbrich, N. Ay, and J. C. Flack, ``The information theory of individuality,'' \emph{Theory in Biosciences}, vol. 139, pp. 209--223, 2020.
+
+\bibitem{bertschinger2008}
+N. Bertschinger, E. Olbrich, N. Ay, and J. Jost, ``Information and closure in systems theory,'' in \emph{Explorations in the Complexity of Possible Life}, 2008.
+
+\bibitem{friston2010}
+K. Friston, ``The free-energy principle: a unified brain theory?'' \emph{Nature Reviews Neuroscience}, vol. 11, pp. 127--138, 2010.
+
+\bibitem{kaelbling1998}
+L. P. Kaelbling, M. L. Littman, and A. R. Cassandra, ``Planning and acting in partially observable stochastic domains,'' \emph{Artificial Intelligence}, vol. 101, no. 1--2, pp. 99--134, 1998.
+
+\bibitem{orseau2018}
+L. Orseau, S. M. McGill, and S. Legg, ``Agents and devices: a relative definition of agency,'' arXiv:1805.12387, 2018.
+
+\bibitem{kenton2022}
+Z. Kenton, R. Kumar, S. Farquhar, J. Richens, M. MacDermott, and T. Everitt, ``Discovering agents,'' arXiv:2208.08345, 2022.
+
+\end{thebibliography}
+
+\end{document}

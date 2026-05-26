@@ -272,13 +272,15 @@ local_config.py
 test_results/
 test_output/
 
-# LaTeX auxiliary files (for the paper in docs/)
-docs/*.aux
-docs/*.bbl
-docs/*.blg
-docs/*.fdb_latexmk
-docs/*.fls
-docs/*.log
-docs/*.out
-docs/*.synctex.gz
-docs/*.toc 
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.blg
+*.out
+*.fdb_latexmk
+*.fls
+*.synctex.gz
+*.toc
+*.lof
+*.lot
+*.bak
