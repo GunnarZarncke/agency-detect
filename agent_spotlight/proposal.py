@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional, Set, Tuple
+from typing import List, Optional, Sequence, Set, Tuple
 
 import numpy as np
 
@@ -16,6 +16,7 @@ from learn_agents.learn_agents import (
 )
 
 from .config import SpotlightConfig
+from .validation import agency_role_penalty, agency_signature_for_indices
 
 
 @dataclass
@@ -92,6 +93,7 @@ def rank_cluster_candidates(
     trace: np.ndarray,
     cfg: SpotlightConfig,
     peeled: Set[int],
+    var_names: Optional[Sequence[str]] = None,
 ) -> Tuple[List[ClusterCandidate], MiPartitionResult]:
     """All MI cluster candidates sorted by score (best first)."""
     work = apply_peel_mask(trace, peeled, cfg.peel_mode)
@@ -107,6 +109,9 @@ def rank_cluster_candidates(
         k_selection="mdl",
     )
 
+    gate_mode = cfg.effective_agency_gate_mode()
+    score_penalty = gate_mode == "score_penalty" and var_names is not None
+
     candidates: List[ClusterCandidate] = []
     for cluster_id in np.unique(part.labels[part.labels >= 0]):
         idxs = np.where(part.labels == cluster_id)[0].tolist()
@@ -114,6 +119,9 @@ def rank_cluster_candidates(
         if len(idxs) < cfg.min_cluster_size:
             continue
         score, passed, pers, cont, rich = _score_single_cluster(work, idxs, cfg)
+        if score_penalty:
+            sig = agency_signature_for_indices(idxs, var_names, trace, cfg)
+            score -= agency_role_penalty(sig, cfg)
         candidates.append(
             ClusterCandidate(
                 cluster_id=int(cluster_id),
@@ -134,8 +142,9 @@ def propose_best_cluster(
     trace: np.ndarray,
     cfg: SpotlightConfig,
     peeled: Set[int],
+    var_names: Optional[Sequence[str]] = None,
 ) -> Tuple[Optional[ClusterCandidate], MiPartitionResult]:
-    candidates, part = rank_cluster_candidates(trace, cfg, peeled)
+    candidates, part = rank_cluster_candidates(trace, cfg, peeled, var_names=var_names)
     if not candidates:
         return None, part
     best = candidates[0]

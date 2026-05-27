@@ -86,8 +86,18 @@ class SpotlightConfig:
     discretization_bins: int = 8
     require_uad_pass: bool = False
 
-    # Data-only S/A/I gate before training (skips world/decoy blobs). Opt-in; costs ~0.125 recall.
+    # Data-only agency gate before training (see agency_gate_mode).
     require_agency_signature: bool = False
+    agency_gate_mode: Literal["off", "strict", "soft", "actions_only", "score_penalty"] = "off"
+    agency_score_penalty_weight: float = 1.0
+    agency_penalty_no_actions: float = 0.85
+    agency_penalty_no_sensors: float = 0.35
+    agency_penalty_no_internals: float = 0.15
+
+    def effective_agency_gate_mode(self) -> str:
+        if self.require_agency_signature and self.agency_gate_mode == "off":
+            return "strict"
+        return self.agency_gate_mode
 
     # --- Admission (eval / optional filter) ---
     jaccard_hit_threshold: float = 0.30
@@ -99,7 +109,7 @@ class SpotlightConfig:
     peel_on_precursor_skip: bool = False
     # Peel large passive clusters when all candidates fail agency (exogenous world blobs).
     peel_on_agency_skip: bool = True
-    # On Jaccard hit, peel full ground-truth agent cluster (avoids partial-peel orphans).
+    # Eval/oracle only: peel ground-truth agent vars (uses agent_clusters metadata).
     peel_full_agent_on_hit: bool = False
 
     # --- Logging ---

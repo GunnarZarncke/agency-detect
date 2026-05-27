@@ -459,6 +459,30 @@ Settings: seed=1, T=4000, 50 pretrain + 25 refine, 12 decoys (20%), downstream K
 | E8 global (`--exogenous-benchmark`, K=30) | **0.875** | — | post-UAD recall@30 |
 | E9e spotlight (exogenous defaults) | **0.875** | **1.00** | 7/8 agents; `--require-agency-signature` → 0.750 |
 
+### E10 — miss diagnosis + sweeps (2026-05-27)
+
+**Script:** `scripts/run_spotlight_sweeps.py`  
+**Artifacts:** `results/spotlight_e10_diagnose.json`, `results/spotlight_e10_sweeps.json`
+
+**Why 7/8 agents (not cheating):** We identify the **right agent** but often not **all six variables**.
+
+1. **MI at K=16** returns ~6-var clusters that are usually a *subset* of one agent, or a partial merge with a neighbor (ring coupling). Jaccard ≥ 0.3 admits at 2/6 overlap.
+2. **Peel masks `cluster.var_indices` only** — the proposed MI cluster, not the full agent. Overlapping peels from earlier passes orphan 1–2 vars (agent 7: 4/6 peeled before it was ever trained).
+3. **`peel_full_agent_on_hit`** uses ground-truth `agent_clusters` → recall 1.0 but is **oracle/eval only**; left off by default.
+
+**Production path:** expand peel set from refine alignment or grow cluster within MI partition (data-only), not metadata.
+
+| Sweep | Setting | Recall | Missed |
+|-------|---------|--------|--------|
+| Agents | 8 / 12 / 16 | 0.875 / 0.917 / **1.000** | [7] / [5] / [] |
+| Decoys | 0 / 6 / 12 / 18 | 0.875 / 0.750 / **0.25** / 0.25 | decoys≥12 collapses |
+| World | 0 / 6 / 12 / 18 | **1.0** / **1.0** / 0.875 / 0.875 | 12 shared = default |
+| Agency gate | **off (default)** | **0.875** | [7] |
+| | score_penalty / actions_only / soft | 0.875 | same recall, no gain |
+| | strict | 0.750 | −0.125 |
+
+**Defaults locked:** exogenous benchmark, `mi_cluster`, agency gate **off**, cluster-only peel. Gates optional for ablation; strict S+A+I not recommended.
+
 ---
 
 ## Code map

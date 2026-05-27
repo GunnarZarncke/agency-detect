@@ -156,3 +156,24 @@ Sequential adaptions with E9b (`mi_cluster`): `scripts/run_spotlight_env_adaptio
 | 3. + shared world | 0.500 | 0.67 | partial recovery |
 
 Sim support: `local_env_strength`, `env_vars_per_agent`, `world_vars` in `TraceSimulationConfig`.
+
+### E9d — exogenous world (2026-05-27)
+
+Replaced action-coupled env niches with shared exogenous `world.shared*` (agents read, do not drive). Spotlight + adapt1: **recall 0.875**, pass-1 J=1.0.
+
+### E10 — diagnosis + sweeps (2026-05-27)
+
+**Script:** `scripts/run_spotlight_sweeps.py`  
+**Artifacts:** `results/spotlight_e10_diagnose.json`, `results/spotlight_e10_sweeps.json`
+
+| Result | Detail |
+|--------|--------|
+| **8-agent benchmark** | **0.875 recall** (7/8), pass-1 J=1.0 — matches E8 global on exogenous sim |
+| **1/8 miss** | Agent 7: `partial_peel_orphan` — MI had J=1.0 cluster at pass 0 but cluster-only peel left 2/6 vars |
+| **16 agents** | 1.0 recall with enough passes |
+| **Decoys ≥12** | Recall collapses to 0.25 |
+| **World 12 vars** | Default; 0.875 recall |
+| **Agency gates** | **Off by default** — no gain; strict costs 0.125 recall |
+| **Oracle peel** | `--peel-full-agent-on-hit` → 1.0 on 8 agents but uses ground-truth clusters (eval only) |
+
+**Status:** Serial spotlight + exogenous world benchmark is the working default. Next: data-only peel expansion via refine, not metadata.

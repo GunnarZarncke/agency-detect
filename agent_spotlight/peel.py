@@ -19,7 +19,9 @@ from .config import SpotlightConfig
 from .metrics import PassMetrics, best_agent_match, cumulative_agent_recall
 from .proposal import rank_cluster_candidates
 from .refine import refine_to_cluster
-from .validation import agency_signature_for_indices, build_candidate, validate_candidate_uad
+from .agency_gate import build_candidate_log, select_cluster_for_pass
+from .diagnostics import compute_agent_diagnostics, mi_partition_agent_overlap
+from .validation import build_candidate, validate_candidate_uad
 
 
 def _sim_config(cfg: SpotlightConfig) -> TraceSimulationConfig:
@@ -62,37 +64,20 @@ def run_spotlight_peel(cfg: SpotlightConfig) -> Dict[str, Any]:
     peeled: Set[int] = set()
     admitted_agents: Set[int] = set()
     passes: List[PassMetrics] = []
+    pass_candidate_logs: List[List[Dict[str, Any]]] = []
 
     for pass_idx in range(cfg.max_passes):
-        candidates, part = rank_cluster_candidates(trace, cfg, peeled)
-        cluster = None
-        agency_sig = None
-        skipped_agency: List[Dict[str, Any]] = []
-        peeled_agency_skip = False
-        if candidates:
-            for cand in candidates:
-                if cfg.require_agency_signature:
-                    agency_sig = agency_signature_for_indices(
-                        cand.var_indices, var_names, trace, cfg
-                    )
-                    if not agency_sig["passed"]:
-                        skipped_agency.append(
-                            {
-                                "cluster_id": cand.cluster_id,
-                                "score": cand.score,
-                                "size": len(cand.var_indices),
-                                "var_indices": cand.var_indices,
-                                "n_sensors": agency_sig["n_sensors"],
-                                "n_actions": agency_sig["n_actions"],
-                                "n_internals": agency_sig["n_internals"],
-                            }
-                        )
-                        if cfg.peel_on_agency_skip and agency_sig["n_actions"] == 0 and len(cand.var_indices) >= 6:
-                            peeled.update(cand.var_indices)
-                            peeled_agency_skip = True
-                        continue
-                cluster = cand
-                break
+        candidates, part = rank_cluster_candidates(trace, cfg, peeled, var_names=var_names)
+        pass_candidate_logs.append(
+            build_candidate_log(candidates, agent_clusters, var_names, trace, cfg)
+        )
+        cluster, skipped_agency, agency_sig, peeled_agency_skip = select_cluster_for_pass(
+            candidates, var_names, trace, cfg
+        )
+        if peeled_agency_skip and skipped_agency:
+            for entry in skipped_agency:
+                if entry["n_actions"] == 0 and entry["size"] >= 6:
+                    peeled.update(entry["var_indices"])
 
         if cluster is None:
             if cfg.peel_on_agency_skip and skipped_agency:
@@ -236,6 +221,7 @@ def run_spotlight_peel(cfg: SpotlightConfig) -> Dict[str, Any]:
             admitted_agents.add(best_agent)
 
         if cfg.peel_selected_always or record_admitted:
+            # peel_full_agent_on_hit uses ground-truth agent_clusters — eval/oracle only.
             if record_admitted and cfg.peel_full_agent_on_hit and best_agent >= 0:
                 peeled.update(agent_clusters[best_agent])
             else:
@@ -290,6 +276,24 @@ def run_spotlight_peel(cfg: SpotlightConfig) -> Dict[str, Any]:
                 f"cum_recall={pm.cumulative_recall:.2f}"
             )
 
+    agent_diag = compute_agent_diagnostics(
+        agent_clusters=agent_clusters,
+        admitted_agents=admitted_agents,
+        peeled=peeled,
+        passes=passes,
+        pass_candidate_logs=pass_candidate_logs,
+        var_names=var_names,
+        trace=trace,
+        cfg=cfg,
+    )
+    mi_residual = mi_partition_agent_overlap(
+        trace=trace,
+        cfg=cfg,
+        peeled=peeled,
+        agent_clusters=agent_clusters,
+        var_names=var_names,
+    )
+
     summary = {
         "cumulative_recall": cumulative_agent_recall(admitted_agents, agent_ids),
         "pass1_jaccard": passes[0].best_jaccard if passes else 0.0,
@@ -298,6 +302,8 @@ def run_spotlight_peel(cfg: SpotlightConfig) -> Dict[str, Any]:
         "n_admitted": sum(1 for p in passes if p.admitted),
         "admitted_agent_ids": sorted(admitted_agents),
         "peeled_var_count": len(peeled),
+        "missed_agent_ids": agent_diag["missed_agent_ids"],
+        "agency_gate_mode": cfg.effective_agency_gate_mode(),
     }
 
     return {
@@ -309,5 +315,7 @@ def run_spotlight_peel(cfg: SpotlightConfig) -> Dict[str, Any]:
             "decoy_fraction_actual": float(metadata.get("decoy_fraction", 0.0)),
         },
         "passes": [p.to_dict() for p in passes],
+        "agent_diagnostics": agent_diag,
+        "mi_residual": mi_residual,
         "summary": summary,
     }

@@ -39,6 +39,27 @@ def agency_signature(
     }
 
 
+def agency_role_penalty(sig: Dict[str, Any], cfg: SpotlightConfig) -> float:
+    penalty = 0.0
+    if sig["n_actions"] == 0:
+        penalty += cfg.agency_penalty_no_actions
+    if sig["n_sensors"] == 0:
+        penalty += cfg.agency_penalty_no_sensors
+    if sig["n_internals"] == 0:
+        penalty += cfg.agency_penalty_no_internals
+    return penalty * cfg.agency_score_penalty_weight
+
+
+def agency_gate_passes(sig: Dict[str, Any], mode: str) -> bool:
+    if mode in ("off", "soft", "score_penalty"):
+        return True
+    if mode == "strict":
+        return bool(sig["passed"])
+    if mode == "actions_only":
+        return sig["n_actions"] >= 1
+    return True
+
+
 def agency_signature_for_indices(
     var_indices: Sequence[int],
     var_names: Sequence[str],

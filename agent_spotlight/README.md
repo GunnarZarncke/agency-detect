@@ -12,7 +12,9 @@ Replaces global N-slot competition (see E8 in [`learn_agents/EXPERIMENTS.md`](..
 │  ├── config.py      SpotlightConfig (all ablation knobs)│
 │  ├── proposal.py    MI partition → best single cluster  │
 │  ├── refine.py      3-slot model, align to one cluster  │
-│  ├── validation.py  candidate + strict UAD            │
+│  ├── validation.py  candidate + strict UAD + agency gate │
+│  ├── agency_gate.py cluster selection by gate mode      │
+│  ├── diagnostics.py per-agent miss diagnosis            │
 │  ├── metrics.py     per-pass measurements               │
 │  └── peel.py        serial loop                         │
 └─────────────────────────────────────────────────────────┘
@@ -31,12 +33,24 @@ Per pass:
 5. UAD validate; record Jaccard vs ground truth
 6. Peel cluster vars; repeat up to `max_passes`
 
-**Default setting = E8:** 8 agents, 12 decoys (20%), seed=1, T=4000.
+**Default benchmark (E9e/E10):** 8 agents, 0 decoys, 12 exogenous world vars, `mi_cluster`, adapt1 strengths.
 
 ```bash
-.venv/bin/python scripts/run_spotlight_e9a.py \
-  --output-json results/spotlight_peel_e8_decoy20.json
+.venv/bin/python scripts/run_spotlight_e9a.py
+.venv/bin/python scripts/run_spotlight_sweeps.py --fast
 ```
+
+### Agency gate modes (`--agency-gate-mode`)
+
+| Mode | Behavior |
+|------|----------|
+| `off` | No gate (default) |
+| `score_penalty` | Subtract penalty for missing S/A/I roles in proposal ranking |
+| `actions_only` | Skip clusters with no action vars (passive/world blobs) |
+| `soft` | Prefer agency-passing clusters; fall back to top precursor |
+| `strict` | Require S+A+I before train (~0.125 recall cost) |
+
+Prefer `score_penalty` over strict — same recall as off on 8-agent benchmark. **Default: gate off** (no measured gain at current performance).
 
 ### Ablation examples
 
@@ -80,4 +94,8 @@ Per pass:
 | MI K | 30 | 8 (pick **one** cluster) |
 | Slots | 24 | **3** |
 | Candidates/pass | 64 | **1** |
-| Target metric | R@30=0.25 | cumulative recall @ 8 peels |
+| Target metric | R@30=0.875 (exogenous) | cumulative recall **0.875** (8 agents, data-only peel) |
+
+## Partial peel (7/8 agents)
+
+MI proposes ~6-var clusters; admission at J≥0.3 matches the **right agent** with **2–4 vars**. Peel masks only those cluster vars, so overlapping serial passes orphan remaining vars. `--peel-full-agent-on-hit` fixes this via ground truth (eval only). Data-only fix: grow peel set from refine alignment.
