@@ -63,6 +63,13 @@ class RefineConfig:
     mi_k_max: Optional[int] = None
     mi_mdl_lambda: float = 0.02
     mi_fixed_k: Optional[int] = None
+    mi_k_selection: str = "downstream"  # mdl | downstream | hybrid
+    mi_k_hybrid_alpha: float = 0.55  # weight on downstream in hybrid mode
+    mi_k_downstream_top_m: int = 0  # 0 = score all K; else top-M by MDL only
+    mi_background_factorize: bool = True
+    mi_background_components: int = 1
+    mi_precursor_persistence_floor: float = 0.12
+    mi_precursor_contingency_floor: float = 0.015
     freeze_var_encoder: bool = True
     freeze_dynamics: bool = True
     target_smoothing: float = 0.05
@@ -388,6 +395,163 @@ class MiPartitionResult:
     best_k: int
     k_scores: Dict[int, float]
     mean_within_mi: float
+    k_downstream_scores: Optional[Dict[int, float]] = None
+    k_selection: str = "mdl"
+    background_meta: Optional[Dict[str, float]] = None
+
+
+@dataclass
+class PrecursorClusterStats:
+    cluster_id: int
+    size: int
+    persistence: float
+    contingency: float
+    richness: float
+    passed: bool
+
+
+def factorize_background(
+    trace: np.ndarray,
+    n_components: int = 1,
+) -> Tuple[np.ndarray, Dict[str, float]]:
+    """
+    Remove shared temporal background (rank-k PCA on T×N) before MI clustering.
+    Targets global-confound decoys that dominate pairwise MI.
+    """
+    x = trace.astype(np.float64)
+    col_mean = x.mean(axis=0, keepdims=True)
+    x_c = x - col_mean
+    if x_c.shape[0] < 2 or x_c.shape[1] < 1:
+        return trace.copy(), {"var_explained": 0.0, "n_components": 0}
+
+    _u, s, vt = np.linalg.svd(x_c, full_matrices=False)
+    k = min(max(int(n_components), 0), len(s))
+    if k == 0:
+        return trace.copy(), {"var_explained": 0.0, "n_components": 0}
+
+    bg = (_u[:, :k] * s[:k]) @ vt[:k, :]
+    residual = (x_c - bg) + col_mean
+    var_explained = float((s[:k] ** 2).sum() / max((s ** 2).sum(), 1e-12))
+    return residual.astype(np.float32), {"var_explained": var_explained, "n_components": float(k)}
+
+
+def _discretize_series(series: np.ndarray, bins: int = 8) -> np.ndarray:
+    edges = np.quantile(series, np.linspace(0, 1, bins + 1))
+    edges = np.maximum.accumulate(edges)
+    edges[0] -= 1e-9
+    edges[-1] += 1e-9
+    return np.clip(np.digitize(series, edges[1:-1], right=False), 0, bins - 1).astype(np.int64)
+
+
+def _lag1_autocorr(series: np.ndarray) -> float:
+    if len(series) < 3:
+        return 0.0
+    x = series.astype(np.float64) - float(series.mean())
+    num = float(np.dot(x[:-1], x[1:]))
+    denom = float(np.sqrt((x[:-1] ** 2).sum() * (x[1:] ** 2).sum()))
+    if denom < 1e-12:
+        return 0.0
+    return num / denom
+
+
+def _series_entropy(disc: np.ndarray) -> float:
+    _, counts = np.unique(disc, return_counts=True)
+    p = counts.astype(np.float64) / max(len(disc), 1)
+    return float(-(p * np.log(p + 1e-12)).sum())
+
+
+def precursor_cluster_stats(
+    trace: np.ndarray,
+    labels: np.ndarray,
+    *,
+    bins: int = 8,
+    max_lag: int = 3,
+    persistence_floor: float = 0.12,
+    contingency_floor: float = 0.015,
+) -> list[PrecursorClusterStats]:
+    """
+    Per-cluster precursor scores inspired by early agency cues:
+    persistence (state continuity) and contingency (cluster→rest lagged MI).
+    """
+    from agency_detect.detection import lagmax_mi
+
+    n_vars = trace.shape[1]
+    stats: list[PrecursorClusterStats] = []
+    for cluster_id in np.unique(labels[labels >= 0]):
+        idx = np.where(labels == cluster_id)[0]
+        if len(idx) == 0:
+            continue
+
+        cluster_ts = trace[:, idx].mean(axis=1)
+        persistence = _lag1_autocorr(cluster_ts)
+        contingency = 0.0
+        rest_idx = np.setdiff1d(np.arange(n_vars), idx)
+        if len(rest_idx) > 0:
+            rest_ts = trace[:, rest_idx].mean(axis=1)
+            c_disc = _discretize_series(cluster_ts, bins=bins)
+            r_disc = _discretize_series(rest_ts, bins=bins)
+            contingency = float(lagmax_mi(c_disc, r_disc, max_lag=max_lag))
+
+        richness = _series_entropy(_discretize_series(cluster_ts, bins=bins))
+        passed = (
+            len(idx) >= 2
+            and persistence >= persistence_floor
+            and contingency >= contingency_floor
+        )
+        stats.append(
+            PrecursorClusterStats(
+                cluster_id=int(cluster_id),
+                size=int(len(idx)),
+                persistence=float(persistence),
+                contingency=float(contingency),
+                richness=float(richness),
+                passed=passed,
+            )
+        )
+    return stats
+
+
+def precursor_partition_score(stats: Sequence[PrecursorClusterStats]) -> Dict[str, float]:
+    if not stats:
+        return {"score": 0.0, "pass_rate": 0.0, "mean_passed_signal": 0.0, "n_clusters": 0.0}
+    pass_rate = sum(s.passed for s in stats) / len(stats)
+    passed = [s for s in stats if s.passed]
+    mean_passed_signal = float(np.mean([s.persistence + s.contingency for s in passed])) if passed else 0.0
+    score = pass_rate * (mean_passed_signal + 1e-6) + 0.02 * len(stats)
+    return {
+        "score": float(score),
+        "pass_rate": float(pass_rate),
+        "mean_passed_signal": mean_passed_signal,
+        "n_clusters": float(len(stats)),
+    }
+
+
+def precursor_passes_var_indices(
+    trace: np.ndarray,
+    var_indices: Sequence[int],
+    *,
+    bins: int = 8,
+    max_lag: int = 3,
+    persistence_floor: float = 0.12,
+    contingency_floor: float = 0.015,
+) -> Tuple[bool, Dict[str, float]]:
+    """Precursor gate for a single candidate variable set (treated as one cluster)."""
+    idxs = [int(i) for i in var_indices if 0 <= int(i) < trace.shape[1]]
+    if len(idxs) < 2:
+        return False, {"score": 0.0, "pass_rate": 0.0}
+    labels = np.full(trace.shape[1], -1, dtype=np.int64)
+    labels[idxs] = 0
+    stats = precursor_cluster_stats(
+        trace,
+        labels,
+        bins=bins,
+        max_lag=max_lag,
+        persistence_floor=persistence_floor,
+        contingency_floor=contingency_floor,
+    )
+    part = precursor_partition_score(stats)
+    passed = bool(stats and stats[0].passed)
+    return passed, part
 
 
 def _score_mi_partition(sim: np.ndarray, labels_active: np.ndarray, k: int, mdl_lambda: float) -> tuple[float, float]:
@@ -406,6 +570,54 @@ def _score_mi_partition(sim: np.ndarray, labels_active: np.ndarray, k: int, mdl_
     return mean_within - penalty, mean_within
 
 
+def _active_labels_for_k(
+    dist: np.ndarray,
+    n_active: int,
+    k: int,
+) -> np.ndarray:
+    from sklearn.cluster import AgglomerativeClustering
+
+    if k <= 1:
+        return np.zeros(n_active, dtype=np.int64)
+    return AgglomerativeClustering(
+        n_clusters=k, metric="precomputed", linkage="complete"
+    ).fit_predict(dist)
+
+
+def _embed_active_labels(
+    labels: np.ndarray,
+    active_idx: np.ndarray,
+    labels_active: np.ndarray,
+) -> np.ndarray:
+    out = labels.copy()
+    for local_i, lbl in enumerate(labels_active):
+        out[int(active_idx[local_i])] = int(lbl)
+    return out
+
+
+def _downstream_k_score(
+    labels: np.ndarray,
+    trace: np.ndarray,
+    avg_assign: Optional[np.ndarray],
+    *,
+    bins: int,
+    max_lag: int,
+    persistence_floor: float,
+    contingency_floor: float,
+) -> float:
+    stats = precursor_cluster_stats(
+        trace,
+        labels,
+        bins=bins,
+        max_lag=max_lag,
+        persistence_floor=persistence_floor,
+        contingency_floor=contingency_floor,
+    )
+    part = precursor_partition_score(stats)
+    align = slot_alignment_strength(labels, avg_assign) if avg_assign is not None else 0.0
+    return float(part["score"] + 0.45 * align)
+
+
 def mi_partition_search(
     trace: np.ndarray,
     k_min: int = 2,
@@ -414,13 +626,22 @@ def mi_partition_search(
     bins: int = 8,
     max_lag: int = 3,
     mdl_lambda: float = 0.02,
+    k_selection: str = "mdl",
+    avg_assign: Optional[np.ndarray] = None,
+    k_hybrid_alpha: float = 0.55,
+    k_downstream_top_m: int = 0,
+    persistence_floor: float = 0.12,
+    contingency_floor: float = 0.015,
 ) -> MiPartitionResult:
     """
     Search over cluster counts (no assumed agent cardinality).
-    Picks K maximizing mean within-cluster MI minus MDL penalty.
+
+    k_selection:
+      - mdl: mean within-cluster MI minus MDL penalty (legacy)
+      - downstream: precursor + slot-alignment score (needs avg_assign for alignment)
+      - hybrid: convex mix of normalized MDL and downstream scores
     """
     from agency_detect.detection import build_similarity_matrix
-    from sklearn.cluster import AgglomerativeClustering
 
     disc = discretize_trace_columns(trace, bins=bins)
     n_vars = disc.shape[1]
@@ -443,38 +664,83 @@ def mi_partition_search(
         k_candidates = list(range(k_min, k_max + 1))
 
     k_scores: Dict[int, float] = {}
-    best_k = k_candidates[0]
-    best_score = -float("inf")
-    best_within = 0.0
-    best_labels_active: Optional[np.ndarray] = None
+    k_downstream_scores: Dict[int, float] = {}
+    k_labels: Dict[int, np.ndarray] = {}
+    k_within: Dict[int, float] = {}
 
     for k in k_candidates:
         if k < 1:
             continue
-        if k == 1:
-            labels_active = np.zeros(n_active, dtype=np.int64)
-        else:
-            labels_active = AgglomerativeClustering(
-                n_clusters=k, metric="precomputed", linkage="complete"
-            ).fit_predict(dist)
+        labels_active = _active_labels_for_k(dist, n_active, k)
         score, mean_within = _score_mi_partition(sim, labels_active, max(k, 1), mdl_lambda)
         k_scores[int(k)] = float(score)
-        if score > best_score:
-            best_score = score
-            best_k = int(k)
-            best_within = mean_within
-            best_labels_active = labels_active.copy()
+        k_within[int(k)] = float(mean_within)
+        full_labels = _embed_active_labels(labels, active_idx, labels_active)
+        k_labels[int(k)] = full_labels
+        if k_selection in {"downstream", "hybrid"}:
+            k_downstream_scores[int(k)] = _downstream_k_score(
+                full_labels,
+                trace,
+                avg_assign,
+                bins=bins,
+                max_lag=max_lag,
+                persistence_floor=persistence_floor,
+                contingency_floor=contingency_floor,
+            )
 
-    if best_labels_active is not None:
-        for local_i, lbl in enumerate(best_labels_active):
-            labels[int(active_idx[local_i])] = int(lbl)
+    if k_selection == "mdl" or not k_downstream_scores:
+        ranked = sorted(k_scores.items(), key=lambda kv: kv[1], reverse=True)
+    elif k_downstream_top_m > 0:
+        ranked = sorted(k_scores.items(), key=lambda kv: kv[1], reverse=True)[: k_downstream_top_m]
+        ranked = [(k, k_scores[k]) for k, _ in ranked]
+    else:
+        ranked = [(k, k_scores[k]) for k in k_candidates if k in k_scores]
+
+    if k_selection == "mdl" or not k_downstream_scores:
+        best_k = int(ranked[0][0])
+    elif k_selection == "downstream":
+        best_k = max(
+            (k for k, _ in ranked),
+            key=lambda k: k_downstream_scores.get(k, -float("inf")),
+        )
+    else:
+        mdl_vals = [k_scores[k] for k, _ in ranked]
+        lo, hi = min(mdl_vals), max(mdl_vals)
+        span = hi - lo + 1e-9
+        ds_vals = [k_downstream_scores.get(k, 0.0) for k, _ in ranked]
+        ds_lo, ds_hi = min(ds_vals), max(ds_vals)
+        ds_span = ds_hi - ds_lo + 1e-9
+
+        def hybrid_score(k: int) -> float:
+            mdl_norm = (k_scores[k] - lo) / span
+            ds_norm = (k_downstream_scores.get(k, 0.0) - ds_lo) / ds_span
+            return (1.0 - k_hybrid_alpha) * mdl_norm + k_hybrid_alpha * ds_norm
+
+        best_k = max((k for k, _ in ranked), key=hybrid_score)
+
+    best_labels_active = _active_labels_for_k(dist, n_active, best_k)
+    labels = _embed_active_labels(labels, active_idx, best_labels_active)
 
     return MiPartitionResult(
         labels=labels,
         best_k=best_k,
         k_scores=k_scores,
-        mean_within_mi=float(best_within),
+        mean_within_mi=float(k_within.get(best_k, 0.0)),
+        k_downstream_scores=k_downstream_scores or None,
+        k_selection=k_selection,
     )
+
+
+def slot_alignment_strength(labels: np.ndarray, avg_assign: np.ndarray) -> float:
+    mapping = match_mi_clusters_to_slots(labels, avg_assign)
+    if not mapping:
+        return 0.0
+    scores: list[float] = []
+    for cluster_id, slot_id in mapping.items():
+        mask = labels == cluster_id
+        if np.any(mask):
+            scores.append(float(avg_assign[slot_id, mask].mean()))
+    return float(np.mean(scores)) if scores else 0.0
 
 
 def match_mi_clusters_to_slots(
@@ -571,17 +837,31 @@ def refine_model_with_mi(
     if fixed_k is None and num_agents is not None:
         fixed_k = num_agents
 
+    avg_assign = _mean_assignment(model, trace, batch_size=refine_cfg.batch_size)
+
+    bg_meta: Optional[Dict[str, float]] = None
+    mi_trace = trace
+    if refine_cfg.mi_background_factorize:
+        mi_trace, bg_meta = factorize_background(trace, n_components=refine_cfg.mi_background_components)
+
+    k_selection = "mdl" if fixed_k is not None else refine_cfg.mi_k_selection
     part = mi_partition_search(
-        trace,
+        mi_trace,
         k_min=refine_cfg.mi_k_min,
         k_max=refine_cfg.mi_k_max,
         fixed_k=fixed_k,
         bins=refine_cfg.mi_bins,
         max_lag=refine_cfg.mi_max_lag,
         mdl_lambda=refine_cfg.mi_mdl_lambda,
+        k_selection=k_selection,
+        avg_assign=avg_assign,
+        k_hybrid_alpha=refine_cfg.mi_k_hybrid_alpha,
+        k_downstream_top_m=refine_cfg.mi_k_downstream_top_m,
+        persistence_floor=refine_cfg.mi_precursor_persistence_floor,
+        contingency_floor=refine_cfg.mi_precursor_contingency_floor,
     )
+    part.background_meta = bg_meta
     labels = part.labels
-    avg_assign = _mean_assignment(model, trace, batch_size=refine_cfg.batch_size)
     cluster_to_slot = match_mi_clusters_to_slots(labels, avg_assign)
     if not cluster_to_slot:
         raise RuntimeError("MI clustering produced no valid clusters for refinement")
@@ -614,9 +894,18 @@ def refine_model_with_mi(
     }
 
     n_active = int(np.sum(labels >= 0))
+    prec_stats = precursor_cluster_stats(
+        trace,
+        labels,
+        bins=refine_cfg.mi_bins,
+        max_lag=refine_cfg.mi_max_lag,
+        persistence_floor=refine_cfg.mi_precursor_persistence_floor,
+        contingency_floor=refine_cfg.mi_precursor_contingency_floor,
+    )
     print(
-        f"MI refine: K={part.best_k} ({len(cluster_to_slot)} cluster->slot maps), "
-        f"{n_active}/{len(labels)} vars labeled, within_MI={part.mean_within_mi:.3f}"
+        f"MI refine: K={part.best_k} sel={k_selection} ({len(cluster_to_slot)} cluster->slot maps), "
+        f"{n_active}/{len(labels)} vars labeled, within_MI={part.mean_within_mi:.3f}, "
+        f"prec_pass={sum(s.passed for s in prec_stats)}/{len(prec_stats)}"
     )
 
     for epoch in range(refine_cfg.epochs):
@@ -664,6 +953,11 @@ def refine_model_with_mi(
         "mi_labels": labels,
         "mi_best_k": part.best_k,
         "mi_k_scores": part.k_scores,
+        "mi_k_downstream_scores": part.k_downstream_scores,
+        "mi_k_selection": k_selection,
+        "mi_background_meta": bg_meta,
+        "precursor_stats": [s.__dict__ for s in prec_stats],
+        "precursor_partition": precursor_partition_score(prec_stats),
         "cluster_to_slot": cluster_to_slot,
         "target": target_np,
         "history": history,

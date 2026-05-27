@@ -1,0 +1,924 @@
+# Development, Testing, and Use Instructions for Latent-UAD
+
+## 1. Purpose
+
+The goal is to make UAD less data-hungry by learning a compact latent representation of the domain before applying UAD-style structure discovery.
+
+The learned representation should not merely reconstruct or predict the raw trace. It should preserve the kinds of structure UAD needs:
+
+* persistent internal state,
+* action-like variables,
+* sensory interfaces,
+* directed influence between subsystems,
+* approximate separating boundaries,
+* tolerable residual leakage,
+* episodic emergence and disappearance of agentic structure.
+
+The working hypothesis is:
+
+[
+X_t \rightarrow Z_t
+]
+
+where (X_t) is the raw observed trace and (Z_t) is a lower-dimensional latent slot representation on which UAD can operate with fewer samples.
+
+The practical objective is not to discover perfect Markov blankets. It is to discover useful (\varepsilon)-blankets or optimal separating clusters:
+
+[
+C^\star = \arg\min_C \left[ \mathrm{Leakage}(C) + \lambda,\mathrm{Complexity}(C) - \mu,\mathrm{AgencyEvidence}(C) \right].
+]
+
+A good cluster is one where most relevant cross-boundary dependence is routed through a compact sensory/action interface, not one where all dependence vanishes.
+
+### Experiment log
+
+Runs to date (motivation, settings, results, JSON paths):
+
+* [`EXPERIMENTS.md`](EXPERIMENTS.md) — chronological lab notebook
+* [`docs/learn_agents_debug_findings.md`](../docs/learn_agents_debug_findings.md) — analysis summary
+* [`results/README.md`](../results/README.md) — artifact index
+
+---
+
+## 2. Current Components
+
+The current Python file contains three major pieces.
+
+### 2.1 Simulator
+
+The simulator generates traces with known latent agent structure.
+
+Each simulated agent has latent roles:
+
+* sensor (S^i_t),
+* internal state (I^i_t),
+* action (A^i_t).
+
+Observed variables are noisy redundant copies of these roles. The simulator also adds:
+
+* global confounds,
+* cross-agent action-to-sensor interactions,
+* leakage between agents,
+* redundant observations,
+* decoy variables,
+* optional episodic activation.
+
+The simulator is intentionally simple. It is not meant to be realistic. It is meant to produce controlled traces where success and failure can be diagnosed.
+
+### 2.2 Latent DNN
+
+The model learns slot latents:
+
+[
+Z_t = {z^1_t, \dots, z^K_t}.
+]
+
+Architecture:
+
+1. encode each observed variable over a time window,
+2. assign variables softly to latent slots,
+3. update slots with sparse graph-GRU dynamics,
+4. reconstruct the current trace,
+5. predict the future trace,
+6. optionally apply agency-preserving regularizers.
+
+### 2.3 UAD Sanity Diagnostics
+
+The current file includes simple oracle diagnostics using the known simulator structure:
+
+* `oracle_uad_scores(...)`,
+* `lagged_action_sensor_matrix(...)`.
+
+These are not the final UAD pipeline. They are regression tests: they confirm that the generated trace contains the intended agency-like structure.
+
+---
+
+## 3. Near-Term Development Goals
+
+### Goal A: Establish a Minimal End-to-End Loop
+
+The first milestone is:
+
+```text
+simulated raw trace
+  → latent DNN
+  → exported slot traces
+  → simple UAD scoring over slots
+  → comparison against known ground truth
+```
+
+Success means:
+
+* slots specialize at least partially to true simulated agents or roles,
+* learned adjacency roughly reflects true directed interactions,
+* UAD scores are better on learned latents than on raw variables at low sample counts,
+* performance degrades smoothly under noise, confounds, and leakage.
+
+### Goal B: Test Whether Latent-UAD Reduces Sample Requirements
+
+For each configuration, compare:
+
+1. UAD directly on raw variables,
+2. UAD on learned latent slots,
+3. UAD on oracle latent variables from the simulator.
+
+The important quantity is the number of time steps needed to recover the known structure.
+
+For example:
+
+```text
+T ∈ {250, 500, 1000, 2000, 5000, 10000}
+```
+
+Measure the smallest (T) where recovery becomes stable.
+
+### Goal C: Separate Representation Learning from UAD Discovery
+
+The DNN should propose a better coordinate system. It should not be treated as the authority on agency.
+
+The UAD layer should remain an independent test on the latent traces, followed eventually by raw-space falsification.
+
+---
+
+## 4. Experimental Axes
+
+The simulator should be used to produce a grid of controlled difficulties.
+
+### 4.1 Noise
+
+Vary:
+
+```python
+process_noise ∈ {0.01, 0.03, 0.06, 0.10}
+observation_noise ∈ {0.01, 0.03, 0.06, 0.10}
+```
+
+Expected behavior:
+
+* reconstruction worsens gradually,
+* prediction worsens gradually,
+* UAD recovery should remain possible until noise overwhelms directed interactions.
+
+Failure mode:
+
+* the model uses redundant/confounded variables rather than agency-relevant variables.
+
+### 4.2 Redundancy
+
+Vary:
+
+```python
+copies_per_role ∈ {1, 2, 3, 5, 8}
+redundancy_noise ∈ {0.00, 0.02, 0.05, 0.10}
+```
+
+Expected behavior:
+
+* moderate redundancy should help the DNN infer clean latent roles,
+* excessive noisy redundancy may cause slot collapse or over-smoothing.
+
+Diagnostic:
+
+* compare slot-variable assignment entropy.
+
+### 4.3 Global Confounds
+
+Vary:
+
+```python
+confound_strength ∈ {0.0, 0.1, 0.25, 0.5, 0.8}
+```
+
+Expected behavior:
+
+* raw UAD should become more confused as confounds rise,
+* latent-UAD should learn to isolate global confound slots or discount them.
+
+Failure mode:
+
+* the model discovers the global confound as a false super-agent.
+
+### 4.4 Interaction Strength
+
+Vary:
+
+```python
+interaction_strength ∈ {0.0, 0.1, 0.25, 0.45, 0.8}
+```
+
+Expected behavior:
+
+* with no interaction, inter-agent edges should vanish,
+* with weak interaction, sample requirements should increase,
+* with strong interaction, directed edges should become easier to recover but boundary separation may worsen.
+
+This tests the tension between coupling and separability.
+
+### 4.5 Leakage
+
+Vary:
+
+```python
+leakage_strength ∈ {0.0, 0.01, 0.03, 0.08, 0.15}
+```
+
+Expected behavior:
+
+* perfect-blanket scoring should fail too aggressively,
+* ε-blanket scoring should degrade smoothly,
+* optimal separating clusters should remain identifiable until leakage dominates interface-mediated dependence.
+
+Important: leakage is not automatically a failure. It is the reason the criterion must be soft.
+
+### 4.6 Mixing Confounds
+
+Vary:
+
+```python
+mixing_strength ∈ {0.0, 0.03, 0.08, 0.15, 0.3}
+```
+
+This tests whether observed variables are mixtures of multiple latent agents.
+
+Expected behavior:
+
+* slot attention should still recover approximate latent factors,
+* hard clustering of raw variables should fail earlier than latent-slot discovery.
+
+### 4.7 Episodes
+
+Vary:
+
+```python
+episodic ∈ {False, True}
+episode_len ∈ {200, 500, 900, 1500}
+episode_gap ∈ {0, 200, 500, 1000}
+```
+
+Expected behavior:
+
+* non-episodic agents should be easier,
+* episodic agents should require either windowed UAD or boundary/event detection,
+* learned slots may remain stable while agency evidence becomes episode-dependent.
+
+Later goal:
+
+```text
+agent exists during interval [t0, t1], not globally
+```
+
+---
+
+## 5. Metrics
+
+### 5.1 Reconstruction and Prediction
+
+Basic training metrics:
+
+[
+\mathcal L_{recon} = |\hat X_t - X_t|^2
+]
+
+[
+\mathcal L_{pred} = |\hat X_{t+h} - X_{t+h}|^2
+]
+
+These are necessary but not sufficient. A model can predict well while deleting agency-relevant structure.
+
+### 5.2 Slot Specialization
+
+Use known simulator metadata.
+
+For each slot (k), compute the mass of its assignment over true variables belonging to each agent and role.
+
+Useful scores:
+
+* agent purity,
+* role purity,
+* assignment entropy,
+* number of active slots,
+* slot collapse rate.
+
+A slot may specialize by agent, by role, or by confound. All three are informative. The target is not necessarily one slot per agent; the target is a representation on which UAD can recover agent structure.
+
+### 5.3 Edge Recovery
+
+The simulator contains a known directed adjacency matrix:
+
+[
+A^{true}_{target,source}.
+]
+
+Compare this to:
+
+* learned graph-GRU adjacency,
+* lagged action→sensor correlation,
+* UAD-inferred inter-agent coupling.
+
+Metrics:
+
+* AUROC for edge existence,
+* AUPRC if sparse,
+* rank of true edges among all possible edges,
+* sign/direction accuracy.
+
+### 5.4 ε-Blanket Quality
+
+For a candidate cluster (C), estimate:
+
+[
+\ell(C)=I(I^C_{t+1};E^C_{t+1}\mid S^C_t,A^C_t).
+]
+
+Also estimate raw cross-boundary dependence:
+
+[
+r(C)=I(I^C_{t+1};E^C_{t+1}).
+]
+
+Then define:
+
+[
+\mathrm{SepRatio}(C)=\frac{\ell(C)}{r(C)+\delta}.
+]
+
+Lower is better. A good ε-blanket need not have (\ell(C)=0); it should have low residual leakage relative to raw dependence.
+
+### 5.5 Agency Evidence
+
+Use approximate components:
+
+[
+A(C)=
+w_p I(I^C_t;S^C_{t+1})
+
+* w_u I(A^C_t;E^C_{t+1})
+* w_m I(I^C_{t-k};I^C_{t+1}\mid S^C_t,A^C_t).
+  ]
+
+This prevents the method from preferring inert clusters merely because they are well-separated.
+
+### 5.6 Sample Efficiency
+
+The central metric:
+
+```text
+minimum T needed for stable recovery
+```
+
+Compare:
+
+* raw UAD,
+* latent-UAD,
+* oracle-latent UAD.
+
+The desired result is:
+
+```text
+T_latent-UAD < T_raw-UAD
+```
+
+especially under redundancy, mixing, moderate noise, and confounds.
+
+---
+
+## 6. Development Stages
+
+## Stage 1: Simulator Regression Tests
+
+Before training the DNN, verify the simulator.
+
+For each default simulation:
+
+1. print `oracle_uad_scores`,
+2. print `lagged_action_sensor_matrix`,
+3. check that the true directed ring is visible,
+4. check that conditional leakage is lower than raw MI for true clusters,
+5. increase noise/confounds and confirm graceful degradation.
+
+Expected default output:
+
+* true clusters have separation ratios clearly below 1,
+* lagged action→sensor matrix has stronger entries on the designed ring edges,
+* decoys do not dominate all signals.
+
+If this fails, fix the simulator before touching the DNN.
+
+---
+
+## Stage 2: Plain Predictive Latent Model
+
+Train with:
+
+```python
+use_agency_regularizer=False
+```
+
+Purpose:
+
+* confirm the model can compress the trace,
+* confirm slots do not immediately collapse,
+* inspect assignment matrix,
+* inspect learned adjacency.
+
+Do not use the agency regularizer yet.
+
+Initial settings:
+
+```python
+ModelConfig(
+    window=16,
+    num_slots=8,
+    slot_dim=16,
+    hidden_dim=128,
+)
+
+TrainConfig(
+    epochs=10,
+    batch_size=128,
+    use_agency_regularizer=False,
+)
+```
+
+Expected behavior:
+
+* prediction loss decreases,
+* assignments become non-uniform,
+* adjacency becomes somewhat structured.
+
+Failure modes:
+
+* all slots identical,
+* one slot owns all variables,
+* adjacency becomes fully dense,
+* model predicts only global confound.
+
+Possible fixes:
+
+* reduce number of slots,
+* increase slot iterations,
+* increase sparse penalty slightly,
+* reduce confound strength in early experiments,
+* train longer before adding regularizers.
+
+---
+
+## Stage 3: Latent UAD on Frozen Slots
+
+After training, export latents:
+
+```python
+latent = encode_trace(model, trace)
+Z = latent["slots"]
+```
+
+Flatten slots for simple UAD tests:
+
+```python
+Z_flat = Z.reshape(Z.shape[0], -1)
+```
+
+But prefer slot-aware tests where each slot is treated as a small vector-valued subsystem.
+
+Initial UAD-over-slots method:
+
+1. treat each slot (z^k_t) as a candidate variable group,
+2. estimate pairwise lagged dependence between slots,
+3. cluster slots using lagged MI/correlation,
+4. for each candidate cluster, estimate ε-blanket score,
+5. rank clusters by separation plus agency evidence.
+
+This should be implemented as a small separate function rather than buried inside training.
+
+---
+
+## Stage 4: Optional Agency Regularizer
+
+Only after Stage 2 and Stage 3 work, enable:
+
+```python
+use_agency_regularizer=True
+```
+
+Use a warmup:
+
+```python
+warmup_epochs=5
+```
+
+Start weak:
+
+```python
+lambda_control = 0.02 to 0.05
+lambda_memory = 0.02 to 0.05
+lambda_epsilon_blanket = 0.01 to 0.05
+epsilon_blanket = 0.05
+```
+
+Purpose:
+
+* encourage slots to preserve control-relevant and memory-relevant structure,
+* discourage representations with excessive unexplained cross-boundary leakage,
+* avoid optimizing for perfect independence.
+
+The regularizer is optional and should be treated as a hypothesis, not as part of the definition of UAD.
+
+A useful test:
+
+```text
+Does the regularizer improve latent-UAD recovery at low T without damaging prediction too much?
+```
+
+If not, keep it off.
+
+---
+
+## Stage 5: Raw-Space Falsification
+
+Any latent cluster discovered by UAD must eventually be mapped back to raw variables.
+
+Use slot assignment matrix:
+
+```python
+assign = latent["assign"]
+```
+
+For candidate slot cluster (C_Z), identify high-assignment raw variables:
+
+```text
+C_X = variables with high average assignment to slots in C_Z
+```
+
+Then run UAD-style leakage tests in raw space.
+
+The latent model proposes candidates. Raw-space tests try to falsify them.
+
+This guards against ontology hallucination by the DNN.
+
+---
+
+## 7. Methods to Add Next
+
+### 7.1 Slot-UAD Function
+
+Add a function:
+
+```python
+discover_slot_clusters(Z, max_cluster_size=4, ...)
+```
+
+Inputs:
+
+* `Z`: `[T, K, d]` slot trace.
+
+Outputs:
+
+* candidate slot clusters,
+* ε-blanket score,
+* agency evidence score,
+* total score,
+* likely internal/sensor/action split.
+
+Initial heuristic:
+
+1. compute lagged dependence matrix between slots,
+2. form candidate clusters from high-dependence neighborhoods,
+3. infer action-like slot dimensions by influence on external future,
+4. infer sensor-like dimensions by sensitivity to external past/current variables,
+5. infer internal-like dimensions by persistence and memory.
+
+### 7.2 Bootstrap Uncertainty
+
+Add bootstrap confidence intervals for scores.
+
+For each candidate cluster:
+
+```text
+sample time blocks with replacement
+estimate leakage and agency score
+report mean ± std
+```
+
+Use block bootstrap, not iid timestep bootstrap, because traces are autocorrelated.
+
+### 7.3 Episode-Aware UAD
+
+Add windowed discovery:
+
+```python
+discover_over_windows(Z, window_len=500, stride=100)
+```
+
+Output:
+
+```text
+cluster C exists from t0 to t1 with score trajectory s(t)
+```
+
+This is important because some structures are agentic only episodically.
+
+### 7.4 Ablation Tests
+
+Ablate:
+
+* no slot attention,
+* no graph dynamics,
+* no sparse adjacency,
+* no agency regularizer,
+* no prediction horizon,
+* no global confound slots.
+
+The goal is to determine which components actually improve UAD sample efficiency.
+
+---
+
+## 8. Suggested Experiment Matrix
+
+Start with a small matrix.
+
+```text
+T:                    1000, 3000, 10000
+noise:                low, medium
+confound_strength:    0.0, 0.25, 0.5
+leakage_strength:     0.0, 0.03, 0.10
+copies_per_role:      1, 3, 5
+regularizer:          off, on
+```
+
+Do not run the full grid immediately. First run one-axis sweeps.
+
+Recommended order:
+
+1. vary T,
+2. vary noise,
+3. vary confound,
+4. vary leakage,
+5. vary redundancy,
+6. enable optional regularizer.
+
+For each condition, record:
+
+```text
+seed
+config
+training losses
+slot purity
+edge recovery
+separation ratio
+agency evidence
+raw-UAD score
+latent-UAD score
+oracle-UAD score
+```
+
+---
+
+## 9. Success Criteria
+
+The project is succeeding if the following become true.
+
+### Minimal success
+
+* the simulator reliably produces traces with known recoverable structure,
+* oracle UAD scores validate the intended ε-blankets,
+* the DNN learns non-degenerate slots,
+* latent slots improve simple downstream structure discovery over raw variables in at least some low-sample regimes.
+
+### Strong success
+
+* latent-UAD requires fewer samples than raw-UAD across a broad region of the simulator grid,
+* learned slots separate global confounds from agent-relevant variables,
+* discovered latent clusters map back to raw variables matching ground truth,
+* optional agency regularization improves recovery under confounds/leakage without overfitting.
+
+### Failure but still informative
+
+The approach is failing usefully if:
+
+* predictive latents consistently delete action/control variables,
+* regularizers create false agency,
+* raw-space falsification rejects most latent discoveries,
+* latent-UAD only works when oracle structure is almost obvious.
+
+These failures would indicate that the representation objective needs stronger causal/interventional constraints.
+
+---
+
+## 10. Known Failure Modes
+
+### 10.1 Predictive Shortcut Failure
+
+The model predicts using global confounds and ignores agent-specific causal pathways.
+
+Symptom:
+
+* low prediction loss,
+* poor edge recovery,
+* slots dominated by confound variables.
+
+Fixes:
+
+* add confound stress tests,
+* use control-preservation losses,
+* penalize overly global slots,
+* compare against oracle latents.
+
+### 10.2 Slot Collapse
+
+All variables are assigned to one slot or all slots become identical.
+
+Symptom:
+
+* high assignment concentration in one slot,
+* low diversity between slot vectors.
+
+Fixes:
+
+* reduce number of slots,
+* add slot diversity penalty,
+* increase slot attention iterations,
+* reduce decoder capacity.
+
+### 10.3 False Agent Discovery
+
+The DNN creates clean-looking latent clusters that do not correspond to raw-space separating clusters.
+
+Symptom:
+
+* good latent score,
+* bad raw-space falsification.
+
+Fix:
+
+* require raw-space validation,
+* treat DNN as proposal generator only.
+
+### 10.4 Perfect-Blanket Bias
+
+The method rejects useful clusters because leakage is nonzero.
+
+Symptom:
+
+* true clusters score poorly at moderate leakage,
+* decoupled inert variables score better than active agents.
+
+Fix:
+
+* use separation ratio, not absolute independence,
+* include agency evidence,
+* tune ε by estimator uncertainty and entropy scale.
+
+### 10.5 Dense-Coupling Ambiguity
+
+Strong interactions make agents easier to detect as coupled systems but harder to separate.
+
+Symptom:
+
+* high agency evidence,
+* high residual leakage.
+
+Fix:
+
+* rank clusters by Pareto frontier of agency evidence vs leakage,
+* avoid a single scalar threshold too early.
+
+---
+
+## 11. Practical Use Workflow
+
+### Step 1: Generate trace
+
+```python
+sim = simulate_known_agent_trace(TraceSimulationConfig(seed=1))
+trace = sim.trace
+metadata = sim.metadata
+```
+
+### Step 2: Validate simulator structure
+
+```python
+print(oracle_uad_scores(trace, metadata))
+print(lagged_action_sensor_matrix(trace, metadata))
+```
+
+### Step 3: Train model without agency regularizer
+
+```python
+model_cfg = ModelConfig(num_vars=trace.shape[1], window=16, num_slots=8, slot_dim=16)
+train_cfg = TrainConfig(epochs=10, batch_size=128, use_agency_regularizer=False)
+model, history = train_model(trace, model_cfg, train_cfg)
+```
+
+### Step 4: Export latents
+
+```python
+latent = encode_trace(model, trace)
+Z = latent["slots"]
+assign = latent["assign"]
+adjacency = latent["adjacency"]
+```
+
+### Step 5: Run slot-UAD
+
+To be implemented next:
+
+```python
+clusters = discover_slot_clusters(Z)
+```
+
+### Step 6: Map latent clusters back to raw variables
+
+Use `assign` to identify which raw variables belong to discovered slot clusters.
+
+### Step 7: Raw-space falsification
+
+Run conditional leakage tests on raw variables corresponding to the latent candidate.
+
+### Step 8: Repeat with regularizer
+
+```python
+train_cfg.use_agency_regularizer = True
+train_cfg.warmup_epochs = 5
+```
+
+Compare discovery quality.
+
+---
+
+## 12. Immediate Next Coding Tasks
+
+1. Add `slot_dependence_matrices(Z)`:
+
+   * lagged correlation,
+   * Gaussian MI proxy,
+   * directional influence proxy.
+
+2. Add `discover_slot_clusters(Z)`:
+
+   * propose candidate clusters,
+   * compute separation ratio,
+   * compute agency evidence,
+   * rank candidates.
+
+3. Add `score_against_ground_truth(clusters, metadata, assign)`:
+
+   * compare recovered raw variables or agent IDs to simulator ground truth.
+
+4. Add plotting utilities:
+
+   * slot assignment heatmap,
+   * learned adjacency heatmap,
+   * lagged action→sensor matrix,
+   * score vs sample length.
+
+5. Add experiment runner:
+
+```python
+run_experiment_grid(configs, seeds, regularizer_on_off)
+```
+
+6. Add saved result format:
+
+```text
+results/*.jsonl
+```
+
+Each line should include config, seed, metrics, and model settings.
+
+---
+
+## 13. Research Questions
+
+The development should answer these questions in order.
+
+1. Does the learned latent domain improve UAD sample efficiency?
+2. Under which conditions does it help most: redundancy, noise, confounds, mixing, or episodic structure?
+3. Does predictive learning alone preserve agency-relevant variables?
+4. Does the optional agency regularizer improve discovery, or does it create artifacts?
+5. Can latent discoveries be validated in raw space?
+6. What is the failure boundary where confounds/leakage/mixing make agent discovery ambiguous?
+7. Are there regimes where raw UAD is better than latent-UAD?
+8. Can the method distinguish inert predictive structure from action/control-bearing structure?
+
+---
+
+## 14. Methodological Position
+
+The DNN is not the agent-discovery method. It is a representation learner.
+
+UAD remains the criterion layer.
+
+The simulator is not a benchmark of realism. It is a microscope slide: a controlled preparation where known agency-like structure, confounds, leakage, and redundancy can be varied independently.
+
+The best near-term result would be a plot like:
+
+```text
+sample count T vs recovery accuracy
+raw UAD
+latent-UAD
+oracle-latent UAD
+```
+
+If latent-UAD approaches oracle-latent UAD faster than raw UAD under meaningful confounds, the approach is promising.
+
+If it does not, the likely explanation is that the representation learner is optimizing prediction while discarding control-relevant structure. That would motivate stronger causal or interventional objectives.

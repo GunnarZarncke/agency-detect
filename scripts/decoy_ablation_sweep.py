@@ -30,6 +30,7 @@ from learn_agents.learn_agents import (
     RefineConfig,
     TraceSimulationConfig,
     TrainConfig,
+    factorize_background,
     mi_partition_search,
     refine_model_with_mi,
     simulate_known_agent_trace,
@@ -95,9 +96,17 @@ def run_condition(
     agent_clusters = {int(k): list(v) for k, v in metadata["agent_clusters"].items()}
 
     mi_fixed = mi_partition_search(trace, fixed_k=num_agents)
-    mi_var = mi_partition_search(trace, fixed_k=None)
+    mi_var = mi_partition_search(trace, fixed_k=None, k_selection="mdl")
+    mi_trace, _bg = factorize_background(trace, n_components=1)
+    mi_down = mi_partition_search(
+        mi_trace,
+        fixed_k=None,
+        k_selection="downstream",
+        avg_assign=None,
+    )
     mi_fixed_stats = mi_partition_recall(mi_fixed.labels, agent_clusters)
     mi_var_stats = mi_partition_recall(mi_var.labels, agent_clusters)
+    mi_down_stats = mi_partition_recall(mi_down.labels, agent_clusters)
 
     n_slots = slots_for_agents(num_agents)
     model_cfg = ModelConfig(num_vars=trace.shape[1], window=16, num_slots=n_slots, slot_dim=16)
@@ -105,23 +114,37 @@ def run_condition(
 
     print(
         f"  agents={num_agents} mode={decoy_mode} frac={decoy_fraction:.0%} "
-        f"decoys={decoy_vars} MI_K={mi_var.best_k} fixed_R={mi_fixed_stats['recall']:.2f} var_R={mi_var_stats['recall']:.2f}"
+        f"decoys={decoy_vars} MI_K={mi_var.best_k} Kds={mi_down.best_k} "
+        f"fixed_R={mi_fixed_stats['recall']:.2f} var_R={mi_var_stats['recall']:.2f} "
+        f"ds_R={mi_down_stats['recall']:.2f}"
     )
 
     model, _ = train_model(trace, model_cfg, train_cfg)
     baseline = evaluate_candidates(model, trace, metadata, args.top_k)
 
-    def refine_with(fixed_k: Optional[int]) -> Dict[str, Any]:
+    def refine_with(
+        fixed_k: Optional[int],
+        *,
+        k_selection: str = "downstream",
+        background_factorize: bool = True,
+    ) -> Dict[str, Any]:
         m = copy.deepcopy(model)
-        rcfg = RefineConfig(epochs=args.refine_epochs, lambda_align=2.0, mi_fixed_k=fixed_k)
+        rcfg = RefineConfig(
+            epochs=args.refine_epochs,
+            lambda_align=2.0,
+            mi_fixed_k=fixed_k,
+            mi_k_selection=k_selection,
+            mi_background_factorize=background_factorize,
+        )
         with redirect_stdout(io.StringIO()):
             m, meta = refine_model_with_mi(m, trace, refine_cfg=rcfg)
         ev = evaluate_candidates(m, trace, metadata, args.top_k)
         ev["mi_best_k"] = meta.get("mi_best_k")
         return ev
 
-    refine_fixed = refine_with(num_agents)
-    refine_var = refine_with(None)
+    refine_fixed = refine_with(num_agents, k_selection="mdl", background_factorize=False)
+    refine_var = refine_with(None, k_selection="mdl", background_factorize=False)
+    refine_down = refine_with(None, k_selection="downstream", background_factorize=True)
 
     return {
         "num_agents": num_agents,
@@ -134,9 +157,16 @@ def run_condition(
         "mi_fixed_k": num_agents,
         "mi_fixed": {**mi_fixed_stats, "best_k": mi_fixed.best_k},
         "mi_variable": {**mi_var_stats, "best_k": mi_var.best_k, "k_scores": mi_var.k_scores},
+        "mi_downstream": {
+            **mi_down_stats,
+            "best_k": mi_down.best_k,
+            "k_scores": mi_down.k_scores,
+            "k_downstream_scores": mi_down.k_downstream_scores,
+        },
         "baseline": baseline,
         "refine_fixed_k": refine_fixed,
         "refine_variable_k": refine_var,
+        "refine_downstream_k": refine_down,
     }
 
 
@@ -193,17 +223,20 @@ def main() -> None:
 
     print("\n=== Summary ===")
     print(
-        f"{'ag':>3} {'mode':>8} {'frac':>5} {'K*':>3} {'MIfx':>5} {'MIvr':>5} "
-        f"{'base':>5} {'rFix':>5} {'rVar':>5} {'dec%':>5}"
+        f"{'ag':>3} {'mode':>8} {'frac':>5} {'K*':>3} {'Kds':>3} {'MIfx':>5} {'MIvr':>5} {'MIds':>5} "
+        f"{'base':>5} {'rFix':>5} {'rVar':>5} {'rDs':>5} {'dec%':>5}"
     )
     for r in rows:
         print(
             f"{r['num_agents']:>3} {r['decoy_mode']:>8} {r['decoy_fraction_target']:>5.0%} "
             f"{r['mi_variable']['best_k']:>3.0f} "
+            f"{r['mi_downstream']['best_k']:>3.0f} "
             f"{r['mi_fixed']['recall']:>5.2f} {r['mi_variable']['recall']:>5.2f} "
+            f"{r['mi_downstream']['recall']:>5.2f} "
             f"{r['baseline']['pre_recall_at_k']:>5.2f} "
             f"{r['refine_fixed_k']['pre_recall_at_k']:>5.2f} "
             f"{r['refine_variable_k']['pre_recall_at_k']:>5.2f} "
+            f"{r['refine_downstream_k']['pre_recall_at_k']:>5.2f} "
             f"{100 * r['baseline']['mapping'].get('decoy_frac_mean', 0):>4.0f}%"
         )
     print(f"\nWrote {out}")

@@ -35,6 +35,7 @@ from learn_agents.learn_agents import (
     TraceSimulationConfig,
     TrainConfig,
     encode_trace,
+    precursor_passes_var_indices,
     refine_model_with_mi,
     simulate_known_agent_trace,
     train_model,
@@ -81,6 +82,31 @@ def parse_args() -> argparse.Namespace:
         "--mi-fixed-k-agents",
         action="store_true",
         help="Use --num-agents as fixed MI cluster count (legacy). Default: search K via MDL.",
+    )
+    p.add_argument(
+        "--mi-k-selection",
+        choices=["mdl", "downstream", "hybrid"],
+        default="downstream",
+        help="How to pick MI cluster count K (default: downstream precursor+alignment).",
+    )
+    p.add_argument("--mi-k-hybrid-alpha", type=float, default=0.55)
+    p.add_argument(
+        "--no-mi-background-factorize",
+        action="store_false",
+        dest="mi_background_factorize",
+        help="Skip rank-1 PCA background removal before MI clustering.",
+    )
+    p.add_argument("--mi-background-factorize", action="store_true", default=True)
+    p.add_argument(
+        "--precursor-gate-candidates",
+        action="store_true",
+        default=True,
+        help="Drop latent candidates that fail persistence/contingency precursor gates.",
+    )
+    p.add_argument(
+        "--no-precursor-gate-candidates",
+        action="store_false",
+        dest="precursor_gate_candidates",
     )
     p.add_argument("--refine-epochs", type=int, default=20)
     p.add_argument("--refine-lr", type=float, default=1e-4)
@@ -498,6 +524,9 @@ def main() -> None:
             lambda_align=args.lambda_align,
             device=args.device,
             mi_fixed_k=args.num_agents if args.mi_fixed_k_agents else None,
+            mi_k_selection=args.mi_k_selection,
+            mi_k_hybrid_alpha=args.mi_k_hybrid_alpha,
+            mi_background_factorize=args.mi_background_factorize,
         )
         model, refine_meta = refine_model_with_mi(model, trace, refine_cfg=refine_cfg)
     latent = encode_trace(model, trace)
@@ -511,6 +540,21 @@ def main() -> None:
             c["slots"], avg_assign, var_names, args.assign_threshold, args.min_vars_per_candidate
         )
         c["num_raw_vars"] = len(c["raw_vars"])
+
+    if args.precursor_gate_candidates:
+        kept: List[Dict[str, Any]] = []
+        dropped = 0
+        for c in candidates:
+            idxs = [var_to_idx[v] for v in c["raw_vars"] if v in var_to_idx]
+            passed, prec = precursor_passes_var_indices(trace, idxs)
+            c["precursor_passed"] = passed
+            c["precursor_score"] = prec
+            if passed:
+                kept.append(c)
+            else:
+                dropped += 1
+        print(f"Precursor gate: kept {len(kept)}/{len(candidates)} candidates (dropped {dropped})")
+        candidates = kept
 
     print("=== Step 3: Strict UAD validation on candidates ===")
     disc = discretize_trace(trace, bins=args.discretization_bins)
@@ -622,6 +666,9 @@ def main() -> None:
             "model_cfg": asdict(model_cfg),
             "train_cfg": asdict(train_cfg),
             "mi_refine": args.mi_refine,
+            "mi_k_selection": args.mi_k_selection,
+            "mi_background_factorize": args.mi_background_factorize,
+            "precursor_gate_candidates": args.precursor_gate_candidates,
             "refine_epochs": args.refine_epochs,
             "refine_lr": args.refine_lr,
             "lambda_align": args.lambda_align,
