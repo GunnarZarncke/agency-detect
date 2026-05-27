@@ -92,5 +92,38 @@ Artifact: `results/learn_agents_go_nogo_commit_smoke.jsonl` (gitignored).
 ## Repo cleanup (2026-05-26)
 
 - Committed: `scripts/learn_agents_go_nogo_sweep.py`, agency_detect tests
+- Committed: CMI research → `scripts/research/cmi/` (see README there)
 - Removed: stale factory debug scripts, scratch `t*.dot`/`t.png`, `loop-hub-value-graph.py`, orphan `src/parameters.py*`
-- Kept untracked: CMI research scripts (`scripts/discrete_cmi_*.py`, etc.) — separate from learn_agents line
+
+---
+
+## CMI estimator analysis (2026-05-26)
+
+**Scripts + findings:** [`scripts/research/cmi/README.md`](../scripts/research/cmi/README.md)
+
+Ran all four scripts; logs in `results/cmi/*.log` (gitignored).
+
+| Script | Runtime | Verdict |
+|--------|---------|---------|
+| `nats_inflation_analysis.py` | ~1s | k-NN inflates CMI on continuous data; discrete independent vars → ~0; high cardinality can spike to ~23 nats |
+| `cmi_scaling_analysis.py` | ~48s | Memory coupling realistically 2–8 nats; recommends **5.0 nats** blanket threshold for k-NN era |
+| `discrete_cmi_alternatives.py` | ~1s | **Smoothed plug-in (α=0.1)** best for discrete; chi-square as validation; independent → ~0.7 nats (smoothed) vs ~1.2 (plug-in) |
+| `discrete_cmi_evaluation.py` | ~4s | Discrete beats k-NN on sample size, dimension, memory tests; suggests threshold **3.0–5.0 nats** with smoothed plug-in |
+
+### Interpretation
+
+1. **k-NN CMI was the wrong tool** for discretized agent traces — erratic or zero on discrete data, inflated on continuous.
+2. **Production already migrated:** `agency_detect/markov_blanket.py` uses **Laplace-smoothed discrete plug-in** (`CMI_SMOOTHING_ALPHA=0.1`).
+3. **Threshold mismatch:** scripts calibrate to **5.0 nats** (k-NN legacy); current `DetectionConfig.BLANKET_TOLERANCE = **1.0**` (stricter, post-fix). Strict UAD on learn_agents simulator uses tolerance 1.0 in evaluate script.
+4. **Actionable:** Re-calibrate `BLANKET_TOLERANCE` empirically on learn_agents oracle clusters with the discrete estimator (not k-NN scripts' 5.0 recommendation). Chi-square independence test could complement CMI as a precursor gate.
+
+### Sample discrete CMI baselines (from `discrete_cmi_evaluation.py`)
+
+| Variable type | Smoothed CMI (typical) |
+|---------------|------------------------|
+| Independent actions | ~0.002 nats |
+| Independent sensors | ~0.15 nats |
+| Memory + 3D conditioning | ~0.67 nats |
+| Invalid / mixed cluster | ~0.6–1.1 nats (test scenarios) |
+
+With tolerance **1.0**, well-formed small clusters should pass; strong spurious coupling still fails — aligns with strict UAD role as falsification, not discovery.
