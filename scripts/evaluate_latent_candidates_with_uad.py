@@ -117,6 +117,18 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--min-improvement", type=float, default=1e-3)
     p.add_argument("--uad-verbose", action="store_true", default=False)
     p.add_argument("--output-json", type=str, default=None)
+    p.add_argument(
+        "--exogenous-benchmark",
+        action="store_true",
+        help="Use E9d exogenous-world sim (matches agent_spotlight defaults).",
+    )
+    p.add_argument("--interaction-strength", type=float, default=0.45)
+    p.add_argument("--mixing-strength", type=float, default=0.0)
+    p.add_argument("--leakage-strength", type=float, default=0.0)
+    p.add_argument("--local-env-strength", type=float, default=1.0)
+    p.add_argument("--world-vars", type=int, default=0)
+    p.add_argument("--world-to-sensor-strength", type=float, default=0.08)
+    p.add_argument("--env-action-coupling", type=float, default=0.0)
     return p.parse_args()
 
 
@@ -477,6 +489,17 @@ def summarize_candidate_mapping(
 def main() -> None:
     args = parse_args()
 
+    if args.exogenous_benchmark:
+        args.decoy_vars = 0
+        args.T = 4000
+        args.interaction_strength = 0.10
+        args.mixing_strength = 0.02
+        args.leakage_strength = 0.01
+        args.local_env_strength = 1.8
+        args.world_vars = 12
+        args.world_to_sensor_strength = 0.08
+        args.env_action_coupling = 0.0
+
     sim_cfg = TraceSimulationConfig(
         seed=args.seed,
         T=args.T,
@@ -486,10 +509,14 @@ def main() -> None:
         process_noise=0.02,
         observation_noise=0.01,
         redundancy_noise=0.0,
-        interaction_strength=0.45,
+        interaction_strength=args.interaction_strength,
         confound_strength=0.0,
-        leakage_strength=0.0,
-        mixing_strength=0.0,
+        leakage_strength=args.leakage_strength,
+        mixing_strength=args.mixing_strength,
+        local_env_strength=args.local_env_strength,
+        env_action_coupling=args.env_action_coupling,
+        world_vars=args.world_vars,
+        world_to_sensor_strength=args.world_to_sensor_strength,
         episodic=False,
     )
     sim = simulate_known_agent_trace(sim_cfg)

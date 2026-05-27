@@ -127,3 +127,32 @@ Ran all four scripts; logs in `results/cmi/*.log` (gitignored).
 | Invalid / mixed cluster | ~0.6–1.1 nats (test scenarios) |
 
 With tolerance **1.0**, well-formed small clusters should pass; strong spurious coupling still fails — aligns with strict UAD role as falsification, not discovery.
+
+---
+
+## E9 spotlight serial discovery (2026-05-27)
+
+**Design:** `agent_spotlight/` — one MI cluster per pass, peel on hit. Full log: [`learn_agents/EXPERIMENTS.md`](../learn_agents/EXPERIMENTS.md) §E9.
+
+| Run | Mode | Cumulative recall | Pass-1 J | Admitted |
+|-----|------|-------------------|----------|----------|
+| E8 baseline | global K=30 + 24 slots | **0.25** | — | — |
+| E9a v1 | spotlight, bad scoring | 0.00 | 0.00 | 0/8 |
+| E9a v2 | spotlight + fixed proposal | 0.00 | 0.13 | 0/8 |
+| **E9b** | **`mi_cluster` candidate** | **0.625** | **0.50** | **5/8** |
+
+Artifacts: `results/spotlight_peel_e8_decoy20_v2.json`, `results/spotlight_mi_cluster_e8_decoy20.json`.
+
+**Findings:** (1) Binary precursor scoring tied decoy blobs at 0.02 — fixed with continuous signal + K=16. (2) `spotlight_slot` bloated 12-var MI clusters to 47 vars — bypass with `mi_cluster`. (3) Remaining misses: agents 4, 5, 7 — K=16 partial/cross-agent clusters at J=0.25 stuck below hit threshold.
+
+### E9c env-realism adaptions (2026-05-27)
+
+Sequential adaptions with E9b (`mi_cluster`): `scripts/run_spotlight_env_adaptions.py`
+
+| Step | Recall | Pass-1 J | vs E9b |
+|------|--------|----------|--------|
+| 1. Rebalance A-A coupling | 0.625 | **1.00** | tie recall, cleaner pass-1 |
+| 2. + per-agent env niches | 0.125 | 0.67 | **regression** (MI splits agent/env) |
+| 3. + shared world | 0.500 | 0.67 | partial recovery |
+
+Sim support: `local_env_strength`, `env_vars_per_agent`, `world_vars` in `TraceSimulationConfig`.

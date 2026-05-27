@@ -1108,6 +1108,18 @@ class TraceSimulationConfig:
     confound_strength: float = 0.25
     leakage_strength: float = 0.03
     mixing_strength: float = 0.05
+    local_env_strength: float = 1.0
+    # Exogenous world (non-agent). Agents read; they do not drive these by default.
+    env_vars_per_agent: int = 0  # local exogenous world patches per agent (observed as world.local{k}.*)
+    env_action_coupling: float = 0.0  # agent action -> local world (0 = exogenous; >0 legacy coupled niche)
+    env_to_sensor_strength: float = 0.08  # local world -> that agent's sensors only
+    env_ar1_rho: float = 0.94
+    env_ar1_sigma: float = 0.12
+    env_copies_per_var: int = 1
+    world_vars: int = 0  # shared exogenous world (observed as world.shared*)
+    world_to_sensor_strength: float = 0.08  # shared world -> all agent sensors
+    world_ar1_rho: float = 0.96
+    world_ar1_sigma: float = 0.10
     episodic: bool = True
     episode_len: int = 900
     episode_gap: int = 300
@@ -1187,6 +1199,7 @@ def simulate_known_agent_trace(cfg: TraceSimulationConfig = TraceSimulationConfi
     - each agent has one latent sensor, internal state, and action variable;
     - observed variables are noisy redundant copies of these latent roles;
     - actions from one agent drive sensors of another through a known directed ring;
+    - optional exogenous world variables (shared + local patches) read weakly by sensors;
     - a global AR(1) confounder drives many observed variables;
     - optional leakage creates epsilon-blankets rather than perfect blankets;
     - optional episodes make agentic structure appear and disappear.
@@ -1201,6 +1214,13 @@ def simulate_known_agent_trace(cfg: TraceSimulationConfig = TraceSimulationConfi
     local_env = np.stack([_ar1(T, rho=0.96 - 0.02 * (k % 3), sigma=0.18, rng=rng) for k in range(K)], axis=1)
     active = _episode_mask(cfg, rng)
 
+    n_local_world = max(int(cfg.env_vars_per_agent), 0)
+    n_world = max(int(cfg.world_vars), 0)
+    local_world = (
+        np.zeros((T, K, n_local_world), dtype=np.float32) if n_local_world else None
+    )
+    world_latent = np.zeros((T, n_world), dtype=np.float32) if n_world else None
+
     direct_adjacency = np.zeros((K, K), dtype=np.float32)  # entry [target, source]
     for k in range(K):
         direct_adjacency[k, (k - 1) % K] = 1.0
@@ -1212,11 +1232,41 @@ def simulate_known_agent_trace(cfg: TraceSimulationConfig = TraceSimulationConfi
     policy_bias = rng.normal(0.0, 0.15, size=K).astype(np.float32)
 
     for t in range(1, T):
+        if world_latent is not None:
+            for j in range(n_world):
+                world_latent[t, j] = (
+                    cfg.world_ar1_rho * world_latent[t - 1, j]
+                    + cfg.world_ar1_sigma * rng.normal()
+                )
+
+        if local_world is not None:
+            for k in range(K):
+                for j in range(n_local_world):
+                    drive = 0.0
+                    if cfg.env_action_coupling > 0.0:
+                        drive = cfg.env_action_coupling * a[t - 1, k]
+                    local_world[t, k, j] = (
+                        cfg.env_ar1_rho * local_world[t - 1, k, j]
+                        + drive
+                        + cfg.env_ar1_sigma * rng.normal()
+                    )
+
         incoming = a[t - 1] @ direct_adjacency.T
         for k in range(K):
             on = active[t, k]
+            local_world_sensor = 0.0
+            if local_world is not None:
+                local_world_sensor = cfg.env_to_sensor_strength * float(
+                    local_world[t - 1, k].mean()
+                )
+            world_sensor = 0.0
+            if world_latent is not None:
+                world_sensor = cfg.world_to_sensor_strength * float(world_latent[t, :].mean())
+
             s[t, k] = on * (
-                local_env[t, k]
+                cfg.local_env_strength * local_env[t, k]
+                + local_world_sensor
+                + world_sensor
                 + cfg.interaction_strength * incoming[k]
                 + cfg.confound_strength * global_confound[t]
                 + cfg.process_noise * rng.normal()
@@ -1255,6 +1305,28 @@ def simulate_known_agent_trace(cfg: TraceSimulationConfig = TraceSimulationConfi
                 noise = (cfg.observation_noise + cfg.redundancy_noise * r) * rng.normal(size=T)
                 add_var(f"agent{k}.{role}{r}", k, role, coef * base + mixed + conf + noise)
 
+    local_world_var_indices: Dict[int, list] = {k: [] for k in range(K)}
+    if local_world is not None:
+        for k in range(K):
+            for j in range(n_local_world):
+                base = local_world[:, k, j]
+                for r in range(max(int(cfg.env_copies_per_var), 1)):
+                    coef = rng.normal(1.0, 0.06)
+                    noise = cfg.observation_noise * rng.normal(size=T)
+                    suffix = f"_{r}" if cfg.env_copies_per_var > 1 else ""
+                    name = f"world.local{k}.state{j}{suffix}"
+                    add_var(name, -1, "world_local", coef * base + noise)
+                    local_world_var_indices[k].append(len(columns) - 1)
+
+    world_var_indices: list = []
+    if world_latent is not None:
+        for j in range(n_world):
+            base = world_latent[:, j]
+            coef = rng.normal(1.0, 0.06)
+            noise = cfg.observation_noise * rng.normal(size=T)
+            add_var(f"world.shared{j}", -1, "world_shared", coef * base + noise)
+            world_var_indices.append(len(columns) - 1)
+
     for j in range(cfg.decoy_vars):
         values, role = _decoy_series(cfg, j, global_confound, T, rng)
         add_var(f"decoy{j}.{role}", -1, role, values)
@@ -1279,6 +1351,16 @@ def simulate_known_agent_trace(cfg: TraceSimulationConfig = TraceSimulationConfi
         "latent_internal": h,
         "latent_action": a,
         "global_confound": global_confound,
+        "local_world_var_indices": local_world_var_indices,
+        "world_var_indices": world_var_indices,
+        "world_all_var_indices": sorted(
+            world_var_indices
+            + [i for idxs in local_world_var_indices.values() for i in idxs]
+        ),
+        "latent_local_world": local_world,
+        "latent_world_shared": world_latent,
+        # Back-compat alias (local exogenous patches only).
+        "env_var_indices": local_world_var_indices,
         "config": cfg,
     }
     return SimulationResult(trace=trace, metadata=metadata)

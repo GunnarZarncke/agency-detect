@@ -333,6 +333,134 @@ Settings: seed=1, T=4000, 50 pretrain + 25 refine, 12 decoys (20%), downstream K
 
 ---
 
+## E9 — Serial spotlight (`agent_spotlight/`)
+
+**Architecture:** separate package for one-agent-at-a-time discovery. See [`agent_spotlight/README.md`](../agent_spotlight/README.md).
+
+**E9a (implemented):** MI at `proposal_mi_k=8` → pick best cluster by precursor → 3-slot pretrain+refine → one candidate → peel → repeat.
+
+```bash
+.venv/bin/python scripts/run_spotlight_e9a.py \
+  --output-json results/spotlight_peel_e8_decoy20.json
+```
+
+**Artifact:** `results/spotlight_peel_e8_decoy20.json`. Compare cumulative recall vs E8 R@30=0.25.
+
+### E9a results (8 agents, 12 noise decoys, E8 setting)
+
+| Metric | E8 (global) | E9a (spotlight) |
+|--------|-------------|-----------------|
+| Cumulative recall | 0.25 | **0.00** |
+| Pass-1 Jaccard | — | 0.00 |
+| Agents admitted | — | 0 / 8 |
+| Passes executed | — | 4 (stopped: no vars left) |
+
+**Run notes:**
+
+1. First background job exited after pass 1 (`stop_if_precursor_fails=True`, default before fix): decoy cluster `[49,53,57]` failed precursor → loop halted (~9 s).
+2. Rerun with `stop_if_precursor_fails=False` (~23 s): passes 1–2 peeled decoy pairs; pass 3 selected **all 48 agent vars** as one cluster but still failed precursor (contingency 0.0075 < floor 0.015) → skipped train/refine due to `require_precursor_pass=True`; peeled everything; pass 4 had no cluster.
+
+**Conclusion:** Peel-on-precursor-fail avoids early halt, but **`require_precursor_pass` + precursor scoring on decoy-first MI order** never reaches train/refine. Next knobs: relax precursor for proposal-only (train anyway), score clusters by size/purity not precursor alone, or peel only on admitted hits (not `peel_selected_always` on skips).
+
+### E9a fix — proposal ranking (2026-05-27)
+
+**Root cause:** `_score_single_cluster` used `precursor_partition_score` on a single cluster. Any cluster failing precursor floors got the same score (`0.02`), so `max()` tie-broke on lowest `cluster_id` — always tiny decoy blobs at K=8.
+
+**Changes (`agent_spotlight/`):**
+- Continuous score: `max(persistence,0) + contingency + within_mi_weight * within_MI`
+- `tiny_cluster_penalty` down-weights size≤2 decoy pairs
+- `proposal_mi_k`: 8 → **16** (K=8 merges all agents into one blob)
+- `require_precursor_pass`: **False** (precursor ranks, does not block train)
+- Peel only on **hits** (`peel_selected_always=False`, `peel_on_precursor_skip=False`)
+
+**Smoke (5 epochs):** pass 1 selects agent cluster (J=0.13, not decoys); full run pending.
+
+### E9a v2 full run (`spotlight_peel_e8_decoy20_v2.json`)
+
+| Metric | E8 (global) | E9a v1 | E9a v2 (fixed proposal) |
+|--------|-------------|--------|---------------------------|
+| Cumulative recall | 0.25 | 0.00 | **0.00** |
+| Pass-1 Jaccard | — | 0.00 | **0.13** |
+| Agents admitted | — | 0 | **0 / 8** |
+| Runtime | — | ~23 s | **~281 s** |
+
+**What improved:** Proposal no longer picks decoys first. Pass 1 MI cluster = 12 vars (agents 0+4), precursor pass, UAD pass.
+
+**New bottleneck:** `spotlight_slot` candidate maps slot 0 → **47 vars** (multi-agent + decoys) despite 12-var MI target; Jaccard ~0.13 every pass. No hits → nothing peeled → same cluster repeated 8×.
+
+**Next:** E9b `candidate_mode=mi_cluster` (use proposal cluster directly, skip slot mapping).
+
+### E9b predictions vs results (`spotlight_mi_cluster_e8_decoy20.json`)
+
+**Predictions (before run):**
+
+| Prediction | Rationale |
+|------------|-----------|
+| Pass-1 Jaccard **~0.50** (not 0.13) | E9a v2 pass-1 MI cluster = 12 vars spanning 2 agents; `mi_cluster` uses those vars directly → J = 6/12 |
+| Cumulative recall **0.50–0.75** | Hits at J≥0.3 should peel clusters and advance; 8 passes, K=16 often merges 2 agents/cluster |
+| Beats E8 (**0.25**) if peel works | Slot→candidate mapping was the E9a v2 bottleneck; bypassing it should unlock serial progress |
+| UAD mostly passes | E9a already passed UAD on bloated candidates; tighter 12-var sets may fail on 2-agent merges |
+| Agents 4, 5, 7 at risk | Late passes may hit partial clusters (J=0.25 = 4-var overlap on 6-var agent) below hit threshold |
+
+**Results:**
+
+| Metric | E8 | E9a v2 (slot) | E9b (mi_cluster) | Predicted |
+|--------|-----|---------------|------------------|-----------|
+| Cumulative recall | 0.25 | 0.00 | **0.625** | 0.50–0.75 ✓ |
+| Pass-1 Jaccard | — | 0.13 | **0.50** | ~0.50 ✓ |
+| Agents admitted | — | 0 | **5 / 8** | — |
+| Runtime | — | ~281 s | ~253 s | — |
+
+**Pass log:** agents **0, 1, 2, 3, 6** admitted (passes 1–5); passes 6–8 stuck at J=0.25 (agent 5 partial cluster, below 0.3 threshold), no further peel.
+
+**Conclusion:** Prediction confirmed — slot mapping was the blocker. E9b **2.5× E8** recall. Remaining gap: K=16 merges agents → J=0.25–0.67 per pass; need purer single-agent clusters or lower hit threshold / split merged clusters.
+
+### E9c — realism adaptions 1→3 (sequential, E9b / `mi_cluster`)
+
+**Script:** `scripts/run_spotlight_env_adaptions.py`  
+**Summary:** `results/spotlight_env_adaptions_summary.json`
+
+| Condition | Change | Recall | Pass-1 J | Admitted | N vars |
+|-----------|--------|--------|----------|----------|--------|
+| E9b baseline | ring-heavy | **0.625** | 0.50 | 5/8 | 60 |
+| **Adapt 1** | weak A-A (`interaction=0.1`, `mix=0.02`, `local_env×1.8`) | **0.625** | **1.00** | 5/8 `[0,4,5,6,7]` | 60 |
+| **Adapt 2** | + per-agent `env{k}.*` (3/agent, decoys off) | **0.125** | 0.67 | 1/8 | 72 |
+| **Adapt 3** | + `world.*` (4 shared) | **0.500** | 0.67 | 4/8 | 76 |
+
+**Findings:**
+1. **Adapt 1 alone** matches baseline recall but **pass-1 is a clean single-agent hit** (J=1.0) — rebalancing A-A vs private env removes early hybrid merges without extra vars.
+2. **Adapt 2 regresses:** MI clusters `agent{k}` separately from `env{k}`; proposal picks env-dominated or partial clusters → peel stalls (only agent 2 admitted).
+3. **Adapt 3 partial recovery (0.5):** shared world gives global structure that partially re-stabilizes clustering vs env-only niches, still below adapt 1.
+
+**Next for env-rich sim:** score/propose **agent+attached-env** jointly (precursor on agent vars only, or hard-link env indices from metadata at eval time); or peel env with admitted agent.
+
+### E9d — exogenous world redesign (2026-05-27)
+
+**Change:** Replaced action-coupled `env{k}` niches with true exogenous world:
+- `world.shared*` — shared AR(1), all agents read weakly (`world_to_sensor_strength=0.08`)
+- `world.local{k}.*` — optional local exogenous patches (`env_action_coupling=0` default)
+- Agents do **not** drive world (`env_action_coupling=0`)
+
+**Verify:** `scripts/verify_exogenous_world.py` — PASS shared-only (0 mixed MI clusters, pass-1 agent-only).
+
+**Spotlight (adapt1 + shared world, E9b):** recall **0.875** (7/8), pass-1 J=**1.0** vs old coupled-env adapt2 **0.125**.
+
+### E9e — exogenous benchmark defaults + agency gate (2026-05-27)
+
+**Changes:**
+- `SpotlightConfig` defaults → exogenous world (`world_vars=12`, `decoy_vars=0`, `mi_cluster`, adapt1 strengths)
+- Data-only **agency signature gate** (S+A+I on cluster vars before train)
+- **Peel full agent** on Jaccard hit; peel non-agency clusters on skip
+
+**Artifacts:** `results/spotlight_exogenous_baseline.json`, `results/e8_exogenous_benchmark.json`
+
+| Method | Cumulative recall | Pass-1 J | Notes |
+|--------|-------------------|----------|-------|
+| E8 global (`--exogenous-benchmark`, K=30) | **0.875** | — | post-UAD recall@30 |
+| E9e spotlight (exogenous defaults) | **0.875** | **1.00** | 7/8 agents; `--require-agency-signature` → 0.750 |
+
+---
+
 ## Code map
 
 | Component | Path |
