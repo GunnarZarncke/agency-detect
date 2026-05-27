@@ -221,11 +221,7 @@ def run_spotlight_peel(cfg: SpotlightConfig) -> Dict[str, Any]:
             admitted_agents.add(best_agent)
 
         if cfg.peel_selected_always or record_admitted:
-            # peel_full_agent_on_hit uses ground-truth agent_clusters — eval/oracle only.
-            if record_admitted and cfg.peel_full_agent_on_hit and best_agent >= 0:
-                peeled.update(agent_clusters[best_agent])
-            else:
-                peeled.update(cluster.var_indices)
+            peeled.update(cluster.var_indices)
 
         stop_reason = "admitted" if record_admitted else ("low_jaccard" if not is_hit else "not_admitted")
 

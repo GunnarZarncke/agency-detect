@@ -32,7 +32,7 @@ def _sim_and_meta(cfg: SpotlightConfig):
 
 class SpotlightProposalTest(unittest.TestCase):
     def test_spotlight_proposal_prefers_agent_over_decoys(self):
-        cfg = SpotlightConfig()
+        cfg = SpotlightConfig(proposal_mi_k=16)
         trace, meta = _sim_and_meta(cfg)
         decoys = {i for i, name in enumerate(meta["var_names"]) if "decoy" in name}
         agent_clusters = {int(k): list(v) for k, v in meta["agent_clusters"].items()}

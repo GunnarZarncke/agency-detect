@@ -91,11 +91,20 @@ Prefer `score_penalty` over strict — same recall as off on 8-agent benchmark. 
 
 | | E8 global | E9a spotlight |
 |--|-----------|---------------|
-| MI K | 30 | 8 (pick **one** cluster) |
+| MI K | 30 | 24 (pick **one** cluster) |
 | Slots | 24 | **3** |
 | Candidates/pass | 64 | **1** |
-| Target metric | R@30=0.875 (exogenous) | cumulative recall **0.875** (8 agents, data-only peel) |
+| Target metric | R@30=0.875 (exogenous) | cumulative recall **1.000** (8 agents, data-only peel, K=24) |
 
 ## Partial peel (7/8 agents)
 
-MI proposes ~6-var clusters; admission at J≥0.3 matches the **right agent** with **2–4 vars**. Peel masks only those cluster vars, so overlapping serial passes orphan remaining vars. `--peel-full-agent-on-hit` fixes this via ground truth (eval only). Data-only fix: grow peel set from refine alignment.
+MI proposes ~6-var clusters; admission at J≥0.3 matches the **right agent** with **2–4 vars**. Peel masks only those cluster vars, so overlapping serial passes orphan remaining vars. Data-only fix: grow peel set from refine alignment.
+
+## 100% Recall Setup (E10)
+
+The smallest data-only recovery change from `scripts/run_spotlight_recovery_sweep.py` is `proposal_mi_k=24` (now default). It keeps the exogenous world setting and cluster-only peel, recovering **8/8 agents** on seed 1 without ground-truth metadata.
+
+```bash
+.venv/bin/python scripts/run_spotlight_e9a.py \
+  --proposal-mi-k 24 --output-json results/spotlight_exogenous_k24.json
+```

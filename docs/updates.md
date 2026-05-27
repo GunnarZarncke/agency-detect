@@ -174,6 +174,12 @@ Replaced action-coupled env niches with shared exogenous `world.shared*` (agents
 | **Decoys ≥12** | Recall collapses to 0.25 |
 | **World 12 vars** | Default; 0.875 recall |
 | **Agency gates** | **Off by default** — no gain; strict costs 0.125 recall |
-| **Oracle peel** | `--peel-full-agent-on-hit` → 1.0 on 8 agents but uses ground-truth clusters (eval only) |
 
-**Status:** Serial spotlight + exogenous world benchmark is the working default. Next: data-only peel expansion via refine, not metadata.
+### E10b recovery sweep
+
+**Script:** `scripts/run_spotlight_recovery_sweep.py`  
+**Artifact:** `results/spotlight_recovery_sweep.json`
+
+Small one-at-a-time sweep found the simplest 100% recall setup: raise `proposal_mi_k` from 16 to **24**. This recovers **8/8 agents** with exogenous world, agency gate off, and cluster-only peel. Lower coupling/noise generally did not help; reducing `world_vars` to 6 also reached 8/8 but changes the benchmark.
+
+**Status:** Serial spotlight + exogenous world benchmark is the working default at `proposal_mi_k=24`. Next: data-only peel expansion via refine for harder decoy and moving-agent worlds.

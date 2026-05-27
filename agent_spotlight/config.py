@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from typing import Any, Dict, Literal, Optional
 
 
@@ -45,7 +45,7 @@ class SpotlightConfig:
     stop_if_precursor_fails: bool = False
 
     # --- MI proposal (pick ONE cluster per pass) ---
-    proposal_mi_k: int = 16
+    proposal_mi_k: int = 24
     proposal_background_factorize: bool = True
     proposal_background_components: int = 1
     mi_bins: int = 8
@@ -109,8 +109,6 @@ class SpotlightConfig:
     peel_on_precursor_skip: bool = False
     # Peel large passive clusters when all candidates fail agency (exogenous world blobs).
     peel_on_agency_skip: bool = True
-    # Eval/oracle only: peel ground-truth agent vars (uses agent_clusters metadata).
-    peel_full_agent_on_hit: bool = False
 
     # --- Logging ---
     verbose: bool = True

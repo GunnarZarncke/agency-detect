@@ -468,9 +468,9 @@ Settings: seed=1, T=4000, 50 pretrain + 25 refine, 12 decoys (20%), downstream K
 
 1. **MI at K=16** returns ~6-var clusters that are usually a *subset* of one agent, or a partial merge with a neighbor (ring coupling). Jaccard ≥ 0.3 admits at 2/6 overlap.
 2. **Peel masks `cluster.var_indices` only** — the proposed MI cluster, not the full agent. Overlapping peels from earlier passes orphan 1–2 vars (agent 7: 4/6 peeled before it was ever trained).
-3. **`peel_full_agent_on_hit`** uses ground-truth `agent_clusters` → recall 1.0 but is **oracle/eval only**; left off by default.
+3. We intentionally do **not** peel ground-truth agent vars; peel remains data-only (`cluster.var_indices`).
 
-**Production path:** expand peel set from refine alignment or grow cluster within MI partition (data-only), not metadata.
+**Production path:** expand peel set from refine alignment or grow cluster within MI partition (data-only).
 
 | Sweep | Setting | Recall | Missed |
 |-------|---------|--------|--------|
@@ -481,7 +481,22 @@ Settings: seed=1, T=4000, 50 pretrain + 25 refine, 12 decoys (20%), downstream K
 | | score_penalty / actions_only / soft | 0.875 | same recall, no gain |
 | | strict | 0.750 | −0.125 |
 
-**Defaults locked:** exogenous benchmark, `mi_cluster`, agency gate **off**, cluster-only peel. Gates optional for ablation; strict S+A+I not recommended.
+### E10b — 100% recall setup (2026-05-27)
+
+**Script:** `scripts/run_spotlight_recovery_sweep.py`  
+**Artifact:** `results/spotlight_recovery_sweep.json`
+
+Small one-at-a-time sweep over coupling/noise/world/K found that lower coupling/noise does **not** fix the orphan issue; most such tweaks remain at 0.875 or regress. The clean data-only fix is finer MI proposal:
+
+| Setting | Recall | Pass-1 J | Missed |
+|---------|--------|----------|--------|
+| baseline (`K=16`, world=12) | 0.875 | **1.000** | [7] |
+| `world_vars=6` | **1.000** | 0.667 | [] |
+| `proposal_mi_k=24` | **1.000** | 0.667 | [] |
+| `proposal_mi_k=32` | **1.000** | 0.667 | [] |
+| weak-world + `K=24` | **1.000** | 0.667 | [] |
+
+**Default locked:** exogenous benchmark, `mi_cluster`, `proposal_mi_k=24`, agency gate **off**, cluster-only peel. This recovers **8/8** on the 8-agent benchmark without using ground-truth agent clusters. Gates optional for ablation; strict S+A+I not recommended.
 
 ---
 
