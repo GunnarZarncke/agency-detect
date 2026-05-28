@@ -20,6 +20,8 @@ class SpotlightConfig:
     copies_per_role: int = 2
     decoy_vars: int = 0
     decoy_mode: str = "noise"
+    agent_variant_mode: str = "redundant"
+    agent_variant_delay: int = 2
     process_noise: float = 0.02
     observation_noise: float = 0.01
     interaction_strength: float = 0.10

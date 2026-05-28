@@ -183,3 +183,15 @@ Replaced action-coupled env niches with shared exogenous `world.shared*` (agents
 Small one-at-a-time sweep found the simplest 100% recall setup: raise `proposal_mi_k` from 16 to **24**. This recovers **8/8 agents** with exogenous world, agency gate off, and cluster-only peel. Lower coupling/noise generally did not help; reducing `world_vars` to 6 also reached 8/8 but changes the benchmark.
 
 **Status:** Serial spotlight + exogenous world benchmark is the working default at `proposal_mi_k=24`. Next: data-only peel expansion via refine for harder decoy and moving-agent worlds.
+
+### E11 rich fixed agents
+
+**Change:** `agent_variant_mode=rich` adds heterogeneous per-role variables: delayed sensor/internal/action variants and nonlinear add/min/max-style composites, rather than purely redundant copies.
+
+| Run | Setting | Recall | Notes |
+|-----|---------|--------|-------|
+| `spotlight_e11_rich_agents_cpr3_k32.json` | 8 agents, 3 vars/role, K=32, 8 passes | 0.625 | finds role chunks; 8 passes insufficient |
+| `spotlight_e11_rich_agents_cpr3_k24_p16.json` | 8 agents, 3 vars/role, K=24, 16 passes | **1.000** | all agents recovered from data-only cluster peel |
+| `spotlight_e11_rich_agents_cpr3_k32_p16.json` | same, K=32, 16 passes | 0.875 | too fine; repeated role chunks |
+
+Interpretation: richer agents are still recoverable locally, but an agent now appears as multiple agency-bearing role chunks. Scaling complexity therefore needs more passes or a data-only cluster-growth/refine expansion step.

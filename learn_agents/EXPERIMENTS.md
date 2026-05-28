@@ -498,6 +498,23 @@ Small one-at-a-time sweep over coupling/noise/world/K found that lower coupling/
 
 **Default locked:** exogenous benchmark, `mi_cluster`, `proposal_mi_k=24`, agency gate **off**, cluster-only peel. This recovers **8/8** on the 8-agent benchmark without using ground-truth agent clusters. Gates optional for ablation; strict S+A+I not recommended.
 
+### E11 — richer fixed-coordinate agents (2026-05-27)
+
+**Simulator change:** `TraceSimulationConfig.agent_variant_mode="rich"` keeps fixed agent variables but makes per-role observations non-redundant:
+- delayed/early-ish role variants (`agent_variant_delay=2`)
+- additive sensor/internal/action composites
+- nonlinear min/max-style role transforms
+
+This is a complexity step before moving-agent invariants: the agent still occupies fixed variables, but its observable variables are no longer simple noisy copies.
+
+| Run | Vars/agent | K | Passes | Recall | Pass-1 J | Notes |
+|-----|------------|---|--------|--------|----------|-------|
+| `spotlight_e11_rich_agents_cpr3_k32.json` | 9 | 32 | 8 | 0.625 | 0.333 | finds 3-var role chunks; too few passes |
+| `spotlight_e11_rich_agents_cpr3_k24_p16.json` | 9 | 24 | 16 | **1.000** | 0.333 | all 8 agents recovered |
+| `spotlight_e11_rich_agents_cpr3_k32_p16.json` | 9 | 32 | 16 | 0.875 | 0.333 | too fine; repeats chunks |
+
+**Interpretation:** richer agents are discoverable, but the unit of discovery becomes a role/subrole chunk (J≈3/9) rather than a whole agent. The next pipeline improvement is data-only stitching/growth of chunks into agent-level hypotheses.
+
 ---
 
 ## Code map

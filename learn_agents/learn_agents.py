@@ -1127,6 +1127,8 @@ class TraceSimulationConfig:
     decoy_mode: str = "mixed"  # mixed | noise | confound | ar1
     decoy_ar1_rho: float = 0.93
     decoy_confound_weight: float = 1.0
+    agent_variant_mode: str = "redundant"  # redundant | rich
+    agent_variant_delay: int = 2
 
 
 @dataclass
@@ -1190,6 +1192,21 @@ def _decoy_series(
         values = rng.normal(0.0, 1.0, size=T)
         role = "noise_decoy"
     return values.astype(np.float32), role
+
+
+def _shift_with_edge(x: np.ndarray, steps: int) -> np.ndarray:
+    """Shift without wraparound; positive steps are delayed copies."""
+    if steps == 0:
+        return x
+    out = np.empty_like(x)
+    if steps > 0:
+        out[:steps] = x[0]
+        out[steps:] = x[:-steps]
+    else:
+        lead = -steps
+        out[-lead:] = x[-1]
+        out[:-lead] = x[lead:]
+    return out
 
 
 def simulate_known_agent_trace(cfg: TraceSimulationConfig = TraceSimulationConfig()) -> SimulationResult:
@@ -1303,7 +1320,32 @@ def simulate_known_agent_trace(cfg: TraceSimulationConfig = TraceSimulationConfi
                 mixed = cfg.mixing_strength * (s[:, neighbor] if role != "action" else a[:, neighbor])
                 conf = cfg.confound_strength * (0.35 if role in {"sensor", "action"} else 0.15) * global_confound
                 noise = (cfg.observation_noise + cfg.redundancy_noise * r) * rng.normal(size=T)
-                add_var(f"agent{k}.{role}{r}", k, role, coef * base + mixed + conf + noise)
+                values = coef * base + mixed + conf + noise
+                if cfg.agent_variant_mode == "rich" and r > 0:
+                    delay = max(int(cfg.agent_variant_delay), 1)
+                    s_lag = _shift_with_edge(s[:, k], delay)
+                    h_lag = _shift_with_edge(h[:, k], delay)
+                    a_lag = _shift_with_edge(a[:, k], delay)
+                    if role == "sensor":
+                        variants = (
+                            0.70 * s[:, k] + 0.30 * h_lag,
+                            np.maximum(s[:, k], 0.60 * h_lag),
+                            np.minimum(s[:, k], local_env[:, k]) + 0.20 * a_lag,
+                        )
+                    elif role == "internal":
+                        variants = (
+                            0.55 * h[:, k] + 0.30 * h_lag + 0.15 * s_lag,
+                            np.tanh(h[:, k] + 0.45 * s_lag),
+                            np.maximum(h_lag, a_lag) - 0.25 * np.minimum(h[:, k], s_lag),
+                        )
+                    else:
+                        variants = (
+                            0.75 * a[:, k] + 0.25 * a_lag,
+                            np.tanh(a[:, k] + 0.35 * h_lag),
+                            np.maximum(a[:, k], h_lag) - 0.20 * s_lag,
+                        )
+                    values = coef * variants[(r - 1) % len(variants)] + mixed + conf + noise
+                add_var(f"agent{k}.{role}{r}", k, role, values)
 
     local_world_var_indices: Dict[int, list] = {k: [] for k in range(K)}
     if local_world is not None:

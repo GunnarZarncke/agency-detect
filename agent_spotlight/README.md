@@ -108,3 +108,14 @@ The smallest data-only recovery change from `scripts/run_spotlight_recovery_swee
 .venv/bin/python scripts/run_spotlight_e9a.py \
   --proposal-mi-k 24 --output-json results/spotlight_exogenous_k24.json
 ```
+
+## Rich Fixed Agents (E11)
+
+`--agent-variant-mode rich` changes observed role variables from redundant copies into delayed and nonlinear variants. With 3 variables per role (9 vars/agent), the pipeline recovers all 8 agents with more serial passes:
+
+```bash
+.venv/bin/python scripts/run_spotlight_e9a.py \
+  --agent-variant-mode rich --copies-per-role 3 \
+  --proposal-mi-k 24 --max-passes 16 \
+  --output-json results/spotlight_e11_rich_agents_cpr3_k24_p16.json
+```
