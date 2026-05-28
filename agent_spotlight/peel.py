@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from dataclasses import asdict
 from typing import Any, Dict, List, Set
 
@@ -56,7 +57,20 @@ def _sim_config(cfg: SpotlightConfig) -> TraceSimulationConfig:
 
 
 def run_spotlight_peel(cfg: SpotlightConfig) -> Dict[str, Any]:
+    timing: Dict[str, float] = {
+        "simulate_sec": 0.0,
+        "proposal_sec": 0.0,
+        "pretrain_sec": 0.0,
+        "refine_sec": 0.0,
+        "uad_sec": 0.0,
+        "diagnostics_sec": 0.0,
+        "peel_total_sec": 0.0,
+    }
+    peel_started = time.perf_counter()
+
+    t0 = time.perf_counter()
     sim = simulate_known_agent_trace(_sim_config(cfg))
+    timing["simulate_sec"] = time.perf_counter() - t0
     trace = sim.trace
     metadata = sim.metadata
     var_names = list(metadata["var_names"])
@@ -69,7 +83,9 @@ def run_spotlight_peel(cfg: SpotlightConfig) -> Dict[str, Any]:
     pass_candidate_logs: List[List[Dict[str, Any]]] = []
 
     for pass_idx in range(cfg.max_passes):
+        t0 = time.perf_counter()
         candidates, part = rank_cluster_candidates(trace, cfg, peeled, var_names=var_names)
+        timing["proposal_sec"] += time.perf_counter() - t0
         pass_candidate_logs.append(
             build_candidate_log(candidates, agent_clusters, var_names, trace, cfg)
         )
@@ -193,8 +209,12 @@ def run_spotlight_peel(cfg: SpotlightConfig) -> Dict[str, Any]:
             device=cfg.device,
             use_agency_regularizer=False,
         )
+        t0 = time.perf_counter()
         model, history = train_model(trace, model_cfg, train_cfg)
+        timing["pretrain_sec"] += time.perf_counter() - t0
+        t0 = time.perf_counter()
         model, refine_meta = refine_to_cluster(model, trace, cluster.var_indices, cfg)
+        timing["refine_sec"] += time.perf_counter() - t0
 
         candidate = build_candidate(model, trace, var_names, cluster.var_indices, cfg)
         var_indices = candidate["var_indices"]
@@ -205,7 +225,9 @@ def run_spotlight_peel(cfg: SpotlightConfig) -> Dict[str, Any]:
         uad_violation = None
         uad_details = None
         if cfg.validate_uad and candidate["raw_vars"]:
+            t0 = time.perf_counter()
             uad = validate_candidate_uad(candidate["raw_vars"], var_names, trace, cfg)
+            timing["uad_sec"] += time.perf_counter() - t0
             uad_valid = uad["strict_valid"]
             uad_violation = uad["strict_violation"]
             uad_details = uad["strict_details"]
@@ -274,6 +296,7 @@ def run_spotlight_peel(cfg: SpotlightConfig) -> Dict[str, Any]:
                 f"cum_recall={pm.cumulative_recall:.2f}"
             )
 
+    t0 = time.perf_counter()
     agent_diag = compute_agent_diagnostics(
         agent_clusters=agent_clusters,
         admitted_agents=admitted_agents,
@@ -291,6 +314,8 @@ def run_spotlight_peel(cfg: SpotlightConfig) -> Dict[str, Any]:
         agent_clusters=agent_clusters,
         var_names=var_names,
     )
+    timing["diagnostics_sec"] = time.perf_counter() - t0
+    timing["peel_total_sec"] = time.perf_counter() - peel_started
 
     summary = {
         "cumulative_recall": cumulative_agent_recall(admitted_agents, agent_ids),
@@ -315,5 +340,6 @@ def run_spotlight_peel(cfg: SpotlightConfig) -> Dict[str, Any]:
         "passes": [p.to_dict() for p in passes],
         "agent_diagnostics": agent_diag,
         "mi_residual": mi_residual,
+        "timing": timing,
         "summary": summary,
     }

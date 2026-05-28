@@ -567,6 +567,36 @@ The first permissive run used `min_cross_mi=0.05` and produced one giant compone
 
 **Interpretation:** This confirms the richer-agent result should be read hierarchically: spotlight finds local agency charts; fusion begins to assemble those charts into larger agent hypotheses. The next hard case is non-stationary/moving agents, where "same agent" will mean an invariant identity across changing observed variables rather than a fixed variable set.
 
+### E12b — complex fixed-agent hierarchy sample (2026-05-28)
+
+**Script:** `scripts/hierarchical/run_hierarchical_e12b_sweep.py`
+
+**Why this before moving agents:** E12 should not succeed merely because observed role variables are lockstep copies. E12b keeps fixed raw coordinates but uses `agent_variant_mode="complex"` so every role channel is a heterogeneous delayed, nonlinear, or cross-role view of the same latent agent. It also samples weak ring coupling between agents to test whether fusion separates same-agent cohesion from low-bandwidth neighbor interaction.
+
+**Simulator change:** `TraceSimulationConfig.agent_variant_mode="complex"` applies heterogeneous transforms to all role channels (including `r=0`), not just delayed variants of a base copy.
+
+Six-case sample (16–20 passes, MPS, `--fast` smoke settings: T=1600, 10/8 train epochs):
+
+```bash
+.venv/bin/python scripts/hierarchical/run_hierarchical_e12b_sweep.py --fast --device mps --jobs 6 \
+  --summary-json results/hierarchical/e12b/e12b_complex_sample_summary.json
+```
+
+An early 6-pass attempt was invalid for hierarchy testing (fewer passes than agents/chunks). Valid E12b runs need 16+ passes so multiple heterogeneous chunks per agent appear before fusion.
+
+| Run | interaction | mixing | spot recall | graph recall | clean recall | components | edges |
+|-----|-------------|--------|-------------|--------------|--------------|------------|-------|
+| `complex_k24_p16_i002_m000` | 0.02 | 0.00 | **1.000** | **1.000** | **1.000** | 8 | 7 |
+| `complex_k24_p16_i005_m000` | 0.05 | 0.00 | **1.000** | **1.000** | **1.000** | 9 | 6 |
+| `complex_k24_p16_i010_m000` | 0.10 | 0.00 | **1.000** | **1.000** | **1.000** | 8 | 6 |
+| `complex_k32_p16_i005_m000` | 0.05 | 0.00 | **1.000** | **1.000** | **1.000** | 8 | 4 |
+| `complex_k24_p20_i005_m002` | 0.05 | 0.02 | **1.000** | **1.000** | **1.000** | 9 | 6 |
+| `complex_k32_p20_i010_m002` | 0.10 | 0.02 | **1.000** | **1.000** | **1.000** | 8 | 3 |
+
+**Artifact:** `results/hierarchical/e12b/e12b_complex_sample_summary.json` (includes per-stage timing: proposal dominates spotlight; pretrain/refine use MPS).
+
+**Interpretation:** Under heterogeneous within-agent channels and weak inter-agent coupling up to `interaction_strength=0.10`, spotlight still recovers all agents as role chunks and hierarchical fusion assembles them into agent-level components without collapsing into one giant graph. E12b supports treating the hierarchy as stable on fixed coordinates before attempting moving/non-stationary agents.
+
 ---
 
 ## Code map
@@ -578,6 +608,8 @@ The first permissive run used `min_cross_mi=0.05` and produced one giant compone
 | Candidate eval | `scripts/learn_agents/evaluate_latent_candidates_with_uad.py` |
 | Agent-count sweep | `scripts/learn_agents/learn_agents_agent_count_sweep.py` |
 | Decoy ablation | `scripts/decoys/decoy_ablation_sweep.py` |
+| E12 hierarchical fusion | `hierarchical_spotlight/` |
+| E12b complex hierarchy sweep | `scripts/hierarchical/run_hierarchical_e12b_sweep.py` |
 | Strict UAD / MI roles | `agency_detect/markov_blanket.py` |
 
 ---

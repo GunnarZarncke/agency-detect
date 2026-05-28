@@ -49,5 +49,13 @@ See [`hierarchical_spotlight/README.md`](../hierarchical_spotlight/README.md) an
   - `scripts/learn_agents/`, `scripts/decoys/`, `scripts/spotlight/`
   - `results/learn_agents/`, `results/decoys/`, `results/spotlight/`, `results/hierarchical/`
 
+### E12b — complex fixed-agent hierarchy
+
+See [`learn_agents/EXPERIMENTS.md#e12b--complex-fixed-agent-hierarchy-sample-2026-05-28`](../learn_agents/EXPERIMENTS.md#e12b--complex-fixed-agent-hierarchy-sample-2026-05-28).
+
+- Added `agent_variant_mode="complex"` so role channels are heterogeneous views, not lockstep copies.
+- Added `scripts/hierarchical/run_hierarchical_e12b_sweep.py` with parallel case execution, MPS device selection, and per-stage timing.
+- Six-case sample at 16–20 passes: all runs reached spotlight/graph/clean recall **1.0** with 8–9 components (no giant-component collapse) up to `interaction_strength=0.10`.
+
 Current direction: moving/non-stationary agents will require identity as an invariant over local charts, rather than a fixed raw variable subset.
 
