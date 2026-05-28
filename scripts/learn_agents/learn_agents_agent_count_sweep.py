@@ -24,7 +24,7 @@ from typing import Any, Dict, List, Sequence
 
 import numpy as np
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
@@ -82,7 +82,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--window", type=int, default=16)
     p.add_argument("--slot-dim", type=int, default=16)
     p.add_argument("--device", type=str, default=None)
-    p.add_argument("--output-json", type=str, default="results/agent_count_sweep.json")
+    p.add_argument("--output-json", type=str, default="results/learn_agents/agent_count/agent_count_sweep.json")
     return p.parse_args()
 
 

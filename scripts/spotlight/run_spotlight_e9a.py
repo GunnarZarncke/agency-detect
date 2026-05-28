@@ -3,8 +3,8 @@
 E9a: serial spotlight peel-off on the E8 setting (8 agents, 20% decoys).
 
 Example:
-  .venv/bin/python scripts/run_spotlight_e9a.py \\
-    --output-json results/spotlight_peel_e8_decoy20.json
+  .venv/bin/python scripts/spotlight/run_spotlight_e9a.py \\
+    --output-json results/spotlight/e9/spotlight_peel_e8_decoy20.json
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import get_args, get_origin
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from agent_spotlight.config import SpotlightConfig
@@ -48,7 +48,7 @@ def _add_config_args(p: argparse.ArgumentParser) -> None:
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="E9a spotlight peel experiment.")
     _add_config_args(p)
-    p.add_argument("--output-json", type=str, default="results/spotlight_exogenous_baseline.json")
+    p.add_argument("--output-json", type=str, default="results/spotlight/e10/spotlight_exogenous_baseline.json")
     return p.parse_args()
 
 

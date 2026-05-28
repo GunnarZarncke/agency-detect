@@ -36,8 +36,8 @@ Per pass:
 **Default benchmark (E9e/E10):** 8 agents, 0 decoys, 12 exogenous world vars, `mi_cluster`, adapt1 strengths.
 
 ```bash
-.venv/bin/python scripts/run_spotlight_e9a.py
-.venv/bin/python scripts/run_spotlight_sweeps.py --fast
+.venv/bin/python scripts/spotlight/run_spotlight_e9a.py
+.venv/bin/python scripts/spotlight/run_spotlight_sweeps.py --fast
 ```
 
 ### Agency gate modes (`--agency-gate-mode`)
@@ -56,15 +56,15 @@ Prefer `score_penalty` over strict — same recall as off on 8-agent benchmark. 
 
 ```bash
 # MI cluster as candidate (skip slot mapping) — E9b preview
-.venv/bin/python scripts/run_spotlight_e9a.py \
-  --candidate-mode mi_cluster --output-json results/spotlight_mi_cluster.json
+.venv/bin/python scripts/spotlight/run_spotlight_e9a.py \
+  --candidate-mode mi_cluster --output-json results/spotlight/e9/spotlight_mi_cluster.json
 
 # Softer proposal partition
-.venv/bin/python scripts/run_spotlight_e9a.py \
+.venv/bin/python scripts/spotlight/run_spotlight_e9a.py \
   --proposal-mi-k 12 --cluster-score precursor_x_size
 
 # Stricter admission
-.venv/bin/python scripts/run_spotlight_e9a.py \
+.venv/bin/python scripts/spotlight/run_spotlight_e9a.py \
   --require-uad-pass --require-jaccard-hit
 ```
 
@@ -102,11 +102,11 @@ MI proposes ~6-var clusters; admission at J≥0.3 matches the **right agent** wi
 
 ## 100% Recall Setup (E10)
 
-The smallest data-only recovery change from `scripts/run_spotlight_recovery_sweep.py` is `proposal_mi_k=24` (now default). It keeps the exogenous world setting and cluster-only peel, recovering **8/8 agents** on seed 1 without ground-truth metadata.
+The smallest data-only recovery change from `scripts/spotlight/run_spotlight_recovery_sweep.py` is `proposal_mi_k=24` (now default). It keeps the exogenous world setting and cluster-only peel, recovering **8/8 agents** on seed 1 without ground-truth metadata.
 
 ```bash
-.venv/bin/python scripts/run_spotlight_e9a.py \
-  --proposal-mi-k 24 --output-json results/spotlight_exogenous_k24.json
+.venv/bin/python scripts/spotlight/run_spotlight_e9a.py \
+  --proposal-mi-k 24 --output-json results/spotlight/e10/spotlight_exogenous_k24.json
 ```
 
 ## Rich Fixed Agents (E11)
@@ -114,8 +114,8 @@ The smallest data-only recovery change from `scripts/run_spotlight_recovery_swee
 `--agent-variant-mode rich` changes observed role variables from redundant copies into delayed and nonlinear variants. With 3 variables per role (9 vars/agent), the pipeline recovers all 8 agents with more serial passes:
 
 ```bash
-.venv/bin/python scripts/run_spotlight_e9a.py \
+.venv/bin/python scripts/spotlight/run_spotlight_e9a.py \
   --agent-variant-mode rich --copies-per-role 3 \
   --proposal-mi-k 24 --max-passes 16 \
-  --output-json results/spotlight_e11_rich_agents_cpr3_k24_p16.json
+  --output-json results/spotlight/e11/spotlight_e11_rich_agents_cpr3_k24_p16.json
 ```

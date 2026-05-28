@@ -26,13 +26,13 @@ Analysis and recommendations: [`docs/learn_agents_debug_findings.md`](../docs/le
 
 **Why:** Find slot count / epoch settings where latent model recovers agent structure; compare to chance `var_acc`.
 
-**Script:** `scripts/learn_agents_go_nogo_sweep.py`
+**Script:** `scripts/learn_agents/learn_agents_go_nogo_sweep.py`
 
 **Settings:** 8 agents, low noise, no decoys; sweep `num_slots`, seeds, epoch checkpoints.
 
 **Results:** Best `var_acc` ~0.47 multi-seed — far below chance at 8 agents (0.125) but not usable as final classifier. Motivated reframing as **candidate proposer** not identifier.
 
-**Artifacts:** `results/learn_agents_go_nogo_8agents.jsonl`, `results/learn_agents_go_nogo_smoke.jsonl`
+**Artifacts:** `results/learn_agents/go_nogo/learn_agents_go_nogo_8agents.jsonl`, `results/learn_agents/go_nogo/learn_agents_go_nogo_smoke.jsonl`
 
 ---
 
@@ -40,7 +40,7 @@ Analysis and recommendations: [`docs/learn_agents_debug_findings.md`](../docs/le
 
 **Why:** Evaluate latent slots as **candidate generator** filtered by strict Markov-blanket validation; report Recall@K and post-UAD precision/recall.
 
-**Script:** `scripts/evaluate_latent_candidates_with_uad.py`
+**Script:** `scripts/learn_agents/evaluate_latent_candidates_with_uad.py`
 
 **Key runs:**
 
@@ -51,7 +51,7 @@ Analysis and recommendations: [`docs/learn_agents_debug_findings.md`](../docs/le
 | reverted | 3/8 | as above | off | 0.67 / 0.38 | — | Before adapt degeneracy analysis |
 | adapt | 3/8 | as above | ε-only | — | shrink to ~2–3 vars/set | Motivated MDL anti-shrink |
 
-**Artifacts:** `results/candidate_uad_eval_*agents_seed1*.json`, `*_reverted.json`, `*_adapt.json`
+**Artifacts:** `results/learn_agents/candidate_uad/candidate_uad_eval_*agents_seed1*.json`, `*_reverted.json`, `*_adapt.json`
 
 ---
 
@@ -59,7 +59,7 @@ Analysis and recommendations: [`docs/learn_agents_debug_findings.md`](../docs/le
 
 **Why:** Isolate failure mode: environment vs representation vs validation vs search.
 
-**Script:** `scripts/debug_learn_agents_protocol.py`
+**Script:** `scripts/learn_agents/debug_learn_agents_protocol.py`
 
 **Stages:** (1) oracle ε-blanket, (2) raw MI clustering, (3) slot persistence, (4) interface/roles [metadata only], (5) ε vs MDL adapt, (6) UAD threshold sweep.
 
@@ -67,7 +67,7 @@ Analysis and recommendations: [`docs/learn_agents_debug_findings.md`](../docs/le
 
 **Finding:** Strict UAD rejected **all** ground-truth clusters (`"no internal variables"`). Looked like environment failure.
 
-**Artifacts:** `results/debug_protocol_3agents.json`, `results/debug_protocol_8agents.json`
+**Artifacts:** `results/learn_agents/debug_protocol/debug_protocol_3agents.json`, `results/learn_agents/debug_protocol/debug_protocol_8agents.json`
 
 ### E2b — After name-hint classifier fix (v2)
 
@@ -75,7 +75,7 @@ Analysis and recommendations: [`docs/learn_agents_debug_findings.md`](../docs/le
 
 **Finding:** Oracle and raw MI passed; confirmed **classifier bug**, not missing structure. User rejected name hints as cheating for real data.
 
-**Artifacts:** `results/debug_protocol_*_v2.json`
+**Artifacts:** `results/learn_agents/debug_protocol/debug_protocol_*_v2.json`
 
 ### E2c — Statistical-only classification (v3)
 
@@ -91,7 +91,7 @@ Analysis and recommendations: [`docs/learn_agents_debug_findings.md`](../docs/le
 
 **Conclusion:** Environment OK; 8-agent bottleneck = latent mapping; raw MI already perfect at 8.
 
-**Artifacts:** `results/debug_protocol_*_v3.json`
+**Artifacts:** `results/learn_agents/debug_protocol/debug_protocol_*_v3.json`
 
 ---
 
@@ -110,7 +110,7 @@ Analysis and recommendations: [`docs/learn_agents_debug_findings.md`](../docs/le
 
 MDL increases size and recall; precision drops (more strict false positives).
 
-**Artifacts:** `results/candidate_uad_eval_8agents_v2_no_adapt.json`, `*_v2_mdl.json`
+**Artifacts:** `results/learn_agents/candidate_uad/candidate_uad_eval_8agents_v2_no_adapt.json`, `*_v2_mdl.json`
 
 ---
 
@@ -129,7 +129,7 @@ MDL increases size and recall; precision drops (more strict false positives).
 
 **3 agents, 2 decoys:** refine did not help (R@30 ~0.33) — MI partition already broken.
 
-**Artifacts:** `results/candidate_uad_eval_8agents_mi_refine.json`, `*_8agents_baseline.json`, `*_3agents_mi_refine.json`
+**Artifacts:** `results/learn_agents/candidate_uad/candidate_uad_eval_8agents_mi_refine.json`, `*_8agents_baseline.json`, `*_3agents_mi_refine.json`
 
 ---
 
@@ -137,7 +137,7 @@ MDL increases size and recall; precision drops (more strict false positives).
 
 **Why:** Explain “8 agents better than 3” — test 1–12 agents under **comparable** clean settings.
 
-**Script:** `scripts/learn_agents_agent_count_sweep.py`
+**Script:** `scripts/learn_agents/learn_agents_agent_count_sweep.py`
 
 **Settings:** `decoy_vars=0`, 50 train + 25 refine, seed=1.
 
@@ -157,7 +157,7 @@ MDL increases size and recall; precision drops (more strict false positives).
 
 **Conclusion:** Earlier 8&gt;3 comparison mixed **decoy counts** (3 agents + decoys ≈ 25% decoys).
 
-**Artifact:** `results/agent_count_sweep.json`
+**Artifact:** `results/learn_agents/agent_count/agent_count_sweep.json`
 
 ---
 
@@ -169,7 +169,7 @@ MDL increases size and recall; precision drops (more strict false positives).
 
 ### E6a — 20% decoys
 
-**Artifact:** `results/agent_count_sweep_decoy20pct.json`
+**Artifact:** `results/learn_agents/agent_count/agent_count_sweep_decoy20pct.json`
 
 | Agents | MI recall | Baseline R@30 | Refine R@30 |
 |--------|-----------|---------------|-------------|
@@ -182,7 +182,7 @@ MDL increases size and recall; precision drops (more strict false positives).
 
 ### E6b — 70% decoys
 
-**Artifact:** `results/agent_count_sweep_decoy70pct.json`
+**Artifact:** `results/learn_agents/agent_count/agent_count_sweep_decoy70pct.json`
 
 Multi-agent discovery **collapses** (MI recall 0, R@30 ≈ 0 from ≥2 agents). Only 1-agent trivial case survives.
 
@@ -202,7 +202,7 @@ Multi-agent discovery **collapses** (MI recall 0, R@30 ≈ 0 from ≥2 agents). 
 
 **MI clustering:** `mi_partition_search()` — sweep K with MDL score (λ=0.02 default); no assumed `num_agents`. Compare **fixed K = num_agents** (legacy) vs **variable K**.
 
-**Script:** `scripts/decoy_ablation_sweep.py`
+**Script:** `scripts/decoys/decoy_ablation_sweep.py`
 
 ### E7 partial results (log: `/tmp/decoy_ablation.log`)
 
@@ -226,7 +226,7 @@ MI partition recall — **fixed_K / variable_K**:
 3. **MDL K-selection still fails** at 8 agents + 20% noise (K→2) — needs **step-2 K pick** by downstream test (planned).
 4. Decoys **steal MI clusters** and **pollute candidates** (~30% decoy vars in top sets at 20%); rarely pass as true agents.
 
-**Artifacts:** `results/decoy_ablation_smoke.json`; full run → `results/decoy_ablation_sweep.json` (in progress); **core subset** → `results/decoy_ablation_core.json` ✓
+**Artifacts:** `results/decoys/ablation/decoy_ablation_smoke.json`; full run → `results/decoys/ablation/decoy_ablation_sweep.json` (in progress); **core subset** → `results/decoys/ablation/decoy_ablation_core.json` ✓
 
 ### E7 core subset (24 conditions, May 26)
 
@@ -260,8 +260,8 @@ Downstream K fixes **MI partition** on hard 8-agent decoy cases (K=30 on noise/m
 **Reproduce:**
 
 ```bash
-.venv/bin/python scripts/decoy_ablation_sweep.py \
-  --output-json results/decoy_ablation_sweep.json
+.venv/bin/python scripts/decoys/decoy_ablation_sweep.py \
+  --output-json results/decoys/ablation/decoy_ablation_sweep.json
 ```
 
 ---
@@ -310,14 +310,14 @@ Used in K selection scoring and optional candidate filtering (`--precursor-gate-
 **Code:** `precursor_cluster_stats()`, `precursor_passes_var_indices()` in `learn_agents.py`.
 
 ```bash
-.venv/bin/python scripts/evaluate_latent_candidates_with_uad.py \
+.venv/bin/python scripts/learn_agents/evaluate_latent_candidates_with_uad.py \
   --num-agents 8 --mi-refine --mi-k-selection downstream \
   --decoy-vars 12 --T 4000 --epochs 50 --no-adapt-blankets
 ```
 
 ### E8 — End-to-end validation loop (8 agents, 20% decoys, downstream K)
 
-**Artifact:** `results/candidate_uad_eval_8agents_decoy20_downstream.json`
+**Artifact:** `results/learn_agents/candidate_uad/candidate_uad_eval_8agents_decoy20_downstream.json`
 
 Settings: seed=1, T=4000, 50 pretrain + 25 refine, 12 decoys (20%), downstream K + background + precursor gates.
 
@@ -340,11 +340,11 @@ Settings: seed=1, T=4000, 50 pretrain + 25 refine, 12 decoys (20%), downstream K
 **E9a (implemented):** MI at `proposal_mi_k=8` → pick best cluster by precursor → 3-slot pretrain+refine → one candidate → peel → repeat.
 
 ```bash
-.venv/bin/python scripts/run_spotlight_e9a.py \
-  --output-json results/spotlight_peel_e8_decoy20.json
+.venv/bin/python scripts/spotlight/run_spotlight_e9a.py \
+  --output-json results/spotlight/e9/spotlight_peel_e8_decoy20.json
 ```
 
-**Artifact:** `results/spotlight_peel_e8_decoy20.json`. Compare cumulative recall vs E8 R@30=0.25.
+**Artifact:** `results/spotlight/e9/spotlight_peel_e8_decoy20.json`. Compare cumulative recall vs E8 R@30=0.25.
 
 ### E9a results (8 agents, 12 noise decoys, E8 setting)
 
@@ -417,8 +417,8 @@ Settings: seed=1, T=4000, 50 pretrain + 25 refine, 12 decoys (20%), downstream K
 
 ### E9c — realism adaptions 1→3 (sequential, E9b / `mi_cluster`)
 
-**Script:** `scripts/run_spotlight_env_adaptions.py`  
-**Summary:** `results/spotlight_env_adaptions_summary.json`
+**Script:** `scripts/spotlight/run_spotlight_env_adaptions.py`  
+**Summary:** `results/spotlight/e9/spotlight_env_adaptions_summary.json`
 
 | Condition | Change | Recall | Pass-1 J | Admitted | N vars |
 |-----------|--------|--------|----------|----------|--------|
@@ -441,7 +441,7 @@ Settings: seed=1, T=4000, 50 pretrain + 25 refine, 12 decoys (20%), downstream K
 - `world.local{k}.*` — optional local exogenous patches (`env_action_coupling=0` default)
 - Agents do **not** drive world (`env_action_coupling=0`)
 
-**Verify:** `scripts/verify_exogenous_world.py` — PASS shared-only (0 mixed MI clusters, pass-1 agent-only).
+**Verify:** `scripts/spotlight/verify_exogenous_world.py` — PASS shared-only (0 mixed MI clusters, pass-1 agent-only).
 
 **Spotlight (adapt1 + shared world, E9b):** recall **0.875** (7/8), pass-1 J=**1.0** vs old coupled-env adapt2 **0.125**.
 
@@ -452,7 +452,7 @@ Settings: seed=1, T=4000, 50 pretrain + 25 refine, 12 decoys (20%), downstream K
 - Data-only **agency signature gate** (S+A+I on cluster vars before train)
 - **Peel full agent** on Jaccard hit; peel non-agency clusters on skip
 
-**Artifacts:** `results/spotlight_exogenous_baseline.json`, `results/e8_exogenous_benchmark.json`
+**Artifacts:** `results/spotlight/e10/spotlight_exogenous_baseline.json`, `results/spotlight/e8/e8_exogenous_benchmark.json`
 
 | Method | Cumulative recall | Pass-1 J | Notes |
 |--------|-------------------|----------|-------|
@@ -461,8 +461,8 @@ Settings: seed=1, T=4000, 50 pretrain + 25 refine, 12 decoys (20%), downstream K
 
 ### E10 — miss diagnosis + sweeps (2026-05-27)
 
-**Script:** `scripts/run_spotlight_sweeps.py`  
-**Artifacts:** `results/spotlight_e10_diagnose.json`, `results/spotlight_e10_sweeps.json`
+**Script:** `scripts/spotlight/run_spotlight_sweeps.py`  
+**Artifacts:** `results/spotlight/e10/spotlight_e10_diagnose.json`, `results/spotlight/e10/spotlight_e10_sweeps.json`
 
 **Why 7/8 agents (not cheating):** We identify the **right agent** but often not **all six variables**.
 
@@ -483,8 +483,8 @@ Settings: seed=1, T=4000, 50 pretrain + 25 refine, 12 decoys (20%), downstream K
 
 ### E10b — 100% recall setup (2026-05-27)
 
-**Script:** `scripts/run_spotlight_recovery_sweep.py`  
-**Artifact:** `results/spotlight_recovery_sweep.json`
+**Script:** `scripts/spotlight/run_spotlight_recovery_sweep.py`  
+**Artifact:** `results/spotlight/e10/spotlight_recovery_sweep.json`
 
 Small one-at-a-time sweep over coupling/noise/world/K found that lower coupling/noise does **not** fix the orphan issue; most such tweaks remain at 0.875 or regress. The clean data-only fix is finer MI proposal:
 
@@ -522,10 +522,10 @@ This is a complexity step before moving-agent invariants: the agent still occupi
 | Component | Path |
 |-----------|------|
 | Simulator + refine | `learn_agents/learn_agents.py` |
-| Debug protocol | `scripts/debug_learn_agents_protocol.py` |
-| Candidate eval | `scripts/evaluate_latent_candidates_with_uad.py` |
-| Agent-count sweep | `scripts/learn_agents_agent_count_sweep.py` |
-| Decoy ablation | `scripts/decoy_ablation_sweep.py` |
+| Debug protocol | `scripts/learn_agents/debug_learn_agents_protocol.py` |
+| Candidate eval | `scripts/learn_agents/evaluate_latent_candidates_with_uad.py` |
+| Agent-count sweep | `scripts/learn_agents/learn_agents_agent_count_sweep.py` |
+| Decoy ablation | `scripts/decoys/decoy_ablation_sweep.py` |
 | Strict UAD / MI roles | `agency_detect/markov_blanket.py` |
 
 ---

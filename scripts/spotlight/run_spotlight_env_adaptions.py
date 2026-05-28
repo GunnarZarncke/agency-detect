@@ -8,7 +8,7 @@ Adaptions (cumulative):
   3. Optional weak local exogenous patches (world.local{k}.*, read-only)
 
 Example:
-  .venv/bin/python scripts/run_spotlight_env_adaptions.py
+  .venv/bin/python scripts/spotlight/run_spotlight_env_adaptions.py
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from agent_spotlight.config import SpotlightConfig
@@ -63,7 +63,7 @@ BASELINE_RECALL = 0.625  # E9b ring-heavy setting
 
 
 def main() -> None:
-    out_dir = REPO_ROOT / "results"
+    out_dir = REPO_ROOT / "results" / "spotlight" / "e9"
     out_dir.mkdir(parents=True, exist_ok=True)
     summary_rows = []
 

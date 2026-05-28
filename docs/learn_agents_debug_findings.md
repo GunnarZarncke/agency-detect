@@ -86,22 +86,22 @@ Environment OK (oracle separability)
 
 ```bash
 # Debug protocol
-.venv/bin/python scripts/debug_learn_agents_protocol.py \
+.venv/bin/python scripts/learn_agents/debug_learn_agents_protocol.py \
   --num-agents 8 --num-slots 24 --epochs 50 --T 4000 --seed 1 \
-  --output-json results/debug_protocol_8agents_v3.json
+  --output-json results/learn_agents/debug_protocol/debug_protocol_8agents_v3.json
 
 # Candidate eval + MI refine (variable K default)
-.venv/bin/python scripts/evaluate_latent_candidates_with_uad.py \
+.venv/bin/python scripts/learn_agents/evaluate_latent_candidates_with_uad.py \
   --num-agents 8 --mi-refine --no-adapt-blankets \
-  --output-json results/candidate_uad_eval_8agents_mi_refine.json
+  --output-json results/learn_agents/candidate_uad/candidate_uad_eval_8agents_mi_refine.json
 
 # Agent-count sweep
-.venv/bin/python scripts/learn_agents_agent_count_sweep.py \
-  --min-agents 1 --max-agents 12 --output-json results/agent_count_sweep.json
+.venv/bin/python scripts/learn_agents/learn_agents_agent_count_sweep.py \
+  --min-agents 1 --max-agents 12 --output-json results/learn_agents/agent_count/agent_count_sweep.json
 
 # Decoy ablation
-.venv/bin/python scripts/decoy_ablation_sweep.py \
-  --output-json results/decoy_ablation_sweep.json
+.venv/bin/python scripts/decoys/decoy_ablation_sweep.py \
+  --output-json results/decoys/ablation/decoy_ablation_sweep.json
 ```
 
 ---
@@ -111,7 +111,7 @@ Environment OK (oracle separability)
 | Component | Path |
 |-----------|------|
 | Simulator, MI search, refine | `learn_agents/learn_agents.py` |
-| Debug protocol | `scripts/debug_learn_agents_protocol.py` |
-| Candidate eval | `scripts/evaluate_latent_candidates_with_uad.py` |
-| Agent-count sweep | `scripts/learn_agents_agent_count_sweep.py` |
-| Decoy ablation | `scripts/decoy_ablation_sweep.py` |
+| Debug protocol | `scripts/learn_agents/debug_learn_agents_protocol.py` |
+| Candidate eval | `scripts/learn_agents/evaluate_latent_candidates_with_uad.py` |
+| Agent-count sweep | `scripts/learn_agents/learn_agents_agent_count_sweep.py` |
+| Decoy ablation | `scripts/decoys/decoy_ablation_sweep.py` |

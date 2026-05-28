@@ -21,9 +21,9 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
-sys.path.insert(0, str(REPO_ROOT / "scripts"))
+sys.path.insert(0, str(REPO_ROOT / "scripts" / "learn_agents"))
 
 from learn_agents.learn_agents import (
     ModelConfig,
@@ -59,7 +59,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--intensity-fraction", type=float, default=0.2)
     p.add_argument("--top-k", type=int, default=30)
     p.add_argument("--skip-intensity", action="store_true")
-    p.add_argument("--output-json", type=str, default="results/decoy_ablation_sweep.json")
+    p.add_argument("--output-json", type=str, default="results/decoys/ablation/decoy_ablation_sweep.json")
     return p.parse_args()
 
 

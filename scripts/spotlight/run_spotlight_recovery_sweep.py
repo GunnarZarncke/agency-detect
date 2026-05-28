@@ -7,7 +7,7 @@ K=16 clusters that span >1 agent. Lower A-A coupling, higher K, or weaker world
 readout may yield purer single-agent clusters.
 
 Example:
-  .venv/bin/python scripts/run_spotlight_recovery_sweep.py --fast
+  .venv/bin/python scripts/spotlight/run_spotlight_recovery_sweep.py --fast
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from agent_spotlight.config import SpotlightConfig
@@ -105,7 +105,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--fast", action="store_true", default=True)
     p.add_argument("--full-epochs", action="store_true", help="Use default 50/40 train epochs.")
     p.add_argument("--seeds", type=int, nargs="+", default=[1])
-    p.add_argument("--output-json", type=str, default="results/spotlight_recovery_sweep.json")
+    p.add_argument("--output-json", type=str, default="results/spotlight/e10/spotlight_recovery_sweep.json")
     return p.parse_args()
 
 

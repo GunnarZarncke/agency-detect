@@ -21,9 +21,9 @@ Full experiment design: [`learn_agents/EXPERIMENTS.md`](../learn_agents/EXPERIME
 
 | Script | Outcome |
 |--------|---------|
-| `scripts/learn_agents_go_nogo_sweep.py` (smoke: 3 agents, 1 seed, 16 slots, 25 epochs) | `var_acc=0.67`, slot purity 0.45 — confirms slots mix agents at scale; motivates candidate framing |
+| `scripts/learn_agents/learn_agents_go_nogo_sweep.py` (smoke: 3 agents, 1 seed, 16 slots, 25 epochs) | `var_acc=0.67`, slot purity 0.45 — confirms slots mix agents at scale; motivates candidate framing |
 
-Artifact: `results/learn_agents_go_nogo_commit_smoke.jsonl` (gitignored).
+Artifact: `results/learn_agents/go_nogo/learn_agents_go_nogo_commit_smoke.jsonl` (gitignored).
 
 ---
 
@@ -91,7 +91,7 @@ Artifact: `results/learn_agents_go_nogo_commit_smoke.jsonl` (gitignored).
 
 ## Repo cleanup (2026-05-26)
 
-- Committed: `scripts/learn_agents_go_nogo_sweep.py`, agency_detect tests
+- Committed: `scripts/learn_agents/learn_agents_go_nogo_sweep.py`, agency_detect tests
 - Committed: CMI research → `scripts/research/cmi/` (see README there)
 - Removed: stale factory debug scripts, scratch `t*.dot`/`t.png`, `loop-hub-value-graph.py`, orphan `src/parameters.py*`
 
@@ -141,13 +141,13 @@ With tolerance **1.0**, well-formed small clusters should pass; strong spurious 
 | E9a v2 | spotlight + fixed proposal | 0.00 | 0.13 | 0/8 |
 | **E9b** | **`mi_cluster` candidate** | **0.625** | **0.50** | **5/8** |
 
-Artifacts: `results/spotlight_peel_e8_decoy20_v2.json`, `results/spotlight_mi_cluster_e8_decoy20.json`.
+Artifacts: `results/spotlight/e9/spotlight_peel_e8_decoy20_v2.json`, `results/spotlight/e9/spotlight_mi_cluster_e8_decoy20.json`.
 
 **Findings:** (1) Binary precursor scoring tied decoy blobs at 0.02 — fixed with continuous signal + K=16. (2) `spotlight_slot` bloated 12-var MI clusters to 47 vars — bypass with `mi_cluster`. (3) Remaining misses: agents 4, 5, 7 — K=16 partial/cross-agent clusters at J=0.25 stuck below hit threshold.
 
 ### E9c env-realism adaptions (2026-05-27)
 
-Sequential adaptions with E9b (`mi_cluster`): `scripts/run_spotlight_env_adaptions.py`
+Sequential adaptions with E9b (`mi_cluster`): `scripts/spotlight/run_spotlight_env_adaptions.py`
 
 | Step | Recall | Pass-1 J | vs E9b |
 |------|--------|----------|--------|
@@ -163,8 +163,8 @@ Replaced action-coupled env niches with shared exogenous `world.shared*` (agents
 
 ### E10 — diagnosis + sweeps (2026-05-27)
 
-**Script:** `scripts/run_spotlight_sweeps.py`  
-**Artifacts:** `results/spotlight_e10_diagnose.json`, `results/spotlight_e10_sweeps.json`
+**Script:** `scripts/spotlight/run_spotlight_sweeps.py`  
+**Artifacts:** `results/spotlight/e10/spotlight_e10_diagnose.json`, `results/spotlight/e10/spotlight_e10_sweeps.json`
 
 | Result | Detail |
 |--------|--------|
@@ -177,8 +177,8 @@ Replaced action-coupled env niches with shared exogenous `world.shared*` (agents
 
 ### E10b recovery sweep
 
-**Script:** `scripts/run_spotlight_recovery_sweep.py`  
-**Artifact:** `results/spotlight_recovery_sweep.json`
+**Script:** `scripts/spotlight/run_spotlight_recovery_sweep.py`  
+**Artifact:** `results/spotlight/e10/spotlight_recovery_sweep.json`
 
 Small one-at-a-time sweep found the simplest 100% recall setup: raise `proposal_mi_k` from 16 to **24**. This recovers **8/8 agents** with exogenous world, agency gate off, and cluster-only peel. Lower coupling/noise generally did not help; reducing `world_vars` to 6 also reached 8/8 but changes the benchmark.
 

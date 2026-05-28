@@ -3,8 +3,8 @@
 E10 sweeps: miss diagnosis, agent count, decoys, world vars, agency gate modes.
 
 Example:
-  .venv/bin/python scripts/run_spotlight_sweeps.py --fast
-  .venv/bin/python scripts/run_spotlight_sweeps.py --diagnose-only
+  .venv/bin/python scripts/spotlight/run_spotlight_sweeps.py --fast
+  .venv/bin/python scripts/spotlight/run_spotlight_sweeps.py --diagnose-only
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from agent_spotlight.config import SpotlightConfig
@@ -55,7 +55,7 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Spotlight E10 sweeps.")
     p.add_argument("--fast", action="store_true", help="Use reduced train epochs for grid sweeps.")
     p.add_argument("--diagnose-only", action="store_true", help="Only run 8-agent miss diagnosis.")
-    p.add_argument("--output-json", type=str, default="results/spotlight_e10_sweeps.json")
+    p.add_argument("--output-json", type=str, default="results/spotlight/e10/spotlight_e10_sweeps.json")
     return p.parse_args()
 
 
