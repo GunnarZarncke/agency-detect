@@ -4,7 +4,7 @@ Chronological, high-level record of repo and experiment milestones.
 
 For detailed hypotheses, failures, reasoning, and tables, see
 [`learn_agents/EXPERIMENTS.md`](../learn_agents/EXPERIMENTS.md). For compact
-conversation-level decisions and rationale, see [`docs/conversations/`](conversations/).
+conversation-level decisions and rationale, see [`docs/conversations/README.md`](conversations/README.md).
 
 ---
 
