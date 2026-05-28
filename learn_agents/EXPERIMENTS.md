@@ -337,6 +337,22 @@ Settings: seed=1, T=4000, 50 pretrain + 25 refine, 12 decoys (20%), downstream K
 
 **Architecture:** separate package for one-agent-at-a-time discovery. See [`agent_spotlight/README.md`](../agent_spotlight/README.md).
 
+### Reasoning arc: why the spotlight line exists
+
+E8 showed a specific failure mode: raw MI could often find meaningful structure, but the learned global slot model and slot→raw mapping did not preserve agent boundaries. Increasing candidate counts or using stricter UAD after the fact did not fix that, because the error happened earlier: a global model with many slots mixed several agents before validation ever saw a candidate.
+
+That led to the E9 hypothesis:
+
+> Stop asking one global latent model to explain all agents at once. Instead, propose one high-signal MI cluster, refine a small model only around that local target, validate it, peel it, and repeat.
+
+The early E9 failures were useful because each isolated one layer of the pipeline:
+
+- **E9a v1:** proposal scoring itself was wrong. Binary precursor scoring made all failing clusters tie, so tiny decoy clusters won by arbitrary cluster id.
+- **E9a v2:** proposal improved, but `spotlight_slot` reintroduced the old slot→raw bottleneck by expanding a 12-var MI proposal into a 47-var candidate.
+- **E9b:** using the MI proposal itself as the candidate bypassed that mapping error and recovered 5/8 agents, confirming that the serial peel idea was viable.
+
+The next question was not "can we overfit the toy sim?" but "which aspects of the sim are real obstacles versus artifacts of a bad world model?" That motivated the E9c/E9d environmental changes and the later agency-gate tests.
+
 **E9a (implemented):** MI at `proposal_mi_k=8` → pick best cluster by precursor → 3-slot pretrain+refine → one candidate → peel → repeat.
 
 ```bash
@@ -420,6 +436,12 @@ Settings: seed=1, T=4000, 50 pretrain + 25 refine, 12 decoys (20%), downstream K
 **Script:** `scripts/spotlight/run_spotlight_env_adaptions.py`  
 **Summary:** `results/spotlight/e9/spotlight_env_adaptions_summary.json`
 
+**Why these adaptions:** The E9b setting still had strong ring coupling and decoy-style background variables. That made it unclear whether misses were caused by the discovery method or by an unrealistic simulator where "environment" variables were actually downstream of agent actions. We therefore changed one aspect at a time:
+
+1. weaken A-A coupling so agents are less merged by the ring;
+2. add local environment variables to make sensors less trivially tied to internals/actions;
+3. add shared world structure to test whether common exogenous causes create false agent clusters.
+
 | Condition | Change | Recall | Pass-1 J | Admitted | N vars |
 |-----------|--------|--------|----------|----------|--------|
 | E9b baseline | ring-heavy | **0.625** | 0.50 | 5/8 | 60 |
@@ -445,6 +467,8 @@ Settings: seed=1, T=4000, 50 pretrain + 25 refine, 12 decoys (20%), downstream K
 
 **Spotlight (adapt1 + shared world, E9b):** recall **0.875** (7/8), pass-1 J=**1.0** vs old coupled-env adapt2 **0.125**.
 
+**Interpretation:** This was an ontology correction. The old per-agent `env{k}` was not really "environment" because it was partly driven by the agent's action. In UAD terms it behaved like an extended body/loop, so penalizing the detector for grouping it with agent variables was conceptually wrong. The exogenous shared world lets us test a cleaner distinction: agents may read world state, but they do not drive it. World-only clusters can then be identified by low agency signature and passive dynamics, not by names or metadata.
+
 ### E9e — exogenous benchmark defaults + agency gate (2026-05-27)
 
 **Changes:**
@@ -459,6 +483,8 @@ Settings: seed=1, T=4000, 50 pretrain + 25 refine, 12 decoys (20%), downstream K
 | E8 global (`--exogenous-benchmark`, K=30) | **0.875** | — | post-UAD recall@30 |
 | E9e spotlight (exogenous defaults) | **0.875** | **1.00** | 7/8 agents; `--require-agency-signature` → 0.750 |
 
+**Why the agency gate stayed off:** The gate was meant to distinguish passive world/decoy clusters from agent clusters without using names. It did that, but strict S+A+I before training also rejected partial agent chunks. Since the benchmark already had clean pass-1 behavior and the gate did not improve recall, the better lesson was to treat agency-role evidence as a ranking/refinement signal, not a hard admission gate.
+
 ### E10 — miss diagnosis + sweeps (2026-05-27)
 
 **Script:** `scripts/spotlight/run_spotlight_sweeps.py`  
@@ -471,6 +497,8 @@ Settings: seed=1, T=4000, 50 pretrain + 25 refine, 12 decoys (20%), downstream K
 3. We intentionally do **not** peel ground-truth agent vars; peel remains data-only (`cluster.var_indices`).
 
 **Production path:** expand peel set from refine alignment or grow cluster within MI partition (data-only).
+
+**Why diagnose before changing the method:** At 0.875 recall, a naive fix would have been to lower the Jaccard threshold or peel the full ground-truth agent on a hit. Both would hide the real failure. The diagnostics showed the detector had already proposed the missing agent cleanly early in the run; the miss came from serial ordering and cluster-only peel orphaning variables before that agent was selected. That made "oracle full-agent peel" an invalid but useful control, and pointed to data-only peel expansion/stitching as the real next method improvement.
 
 | Sweep | Setting | Recall | Missed |
 |-------|---------|--------|--------|
@@ -498,6 +526,8 @@ Small one-at-a-time sweep over coupling/noise/world/K found that lower coupling/
 
 **Default locked:** exogenous benchmark, `mi_cluster`, `proposal_mi_k=24`, agency gate **off**, cluster-only peel. This recovers **8/8** on the 8-agent benchmark without using ground-truth agent clusters. Gates optional for ablation; strict S+A+I not recommended.
 
+**Why K=24 helped:** Lowering noise or coupling did not consistently fix the orphan issue, which suggested the signal was already present. Raising proposal K made the MI partition fine enough that later serial passes could isolate remaining agent chunks before they were destroyed by earlier peels. The trade-off is visible in pass-1 J: K=24 gives less "whole-agent" first clusters than K=16, but better eventual coverage.
+
 ### E11 — richer fixed-coordinate agents (2026-05-27)
 
 **Simulator change:** `TraceSimulationConfig.agent_variant_mode="rich"` keeps fixed agent variables but makes per-role observations non-redundant:
@@ -507,6 +537,8 @@ Small one-at-a-time sweep over coupling/noise/world/K found that lower coupling/
 
 This is a complexity step before moving-agent invariants: the agent still occupies fixed variables, but its observable variables are no longer simple noisy copies.
 
+**Why this scaling step:** Adding more small agents was not the next hard problem: the method already scaled surprisingly well to more independent 6-var agents. The more important question was whether it could handle a single agent whose observed variables are heterogeneous parts of one dynamical system. The rich variant therefore keeps the coordinate system fixed but makes each agent internally non-trivial before we attempt moving/non-stationary agents.
+
 | Run | Vars/agent | K | Passes | Recall | Pass-1 J | Notes |
 |-----|------------|---|--------|--------|----------|-------|
 | `spotlight_e11_rich_agents_cpr3_k32.json` | 9 | 32 | 8 | 0.625 | 0.333 | finds 3-var role chunks; too few passes |
@@ -514,6 +546,26 @@ This is a complexity step before moving-agent invariants: the agent still occupi
 | `spotlight_e11_rich_agents_cpr3_k32_p16.json` | 9 | 32 | 16 | 0.875 | 0.333 | too fine; repeats chunks |
 
 **Interpretation:** richer agents are discoverable, but the unit of discovery becomes a role/subrole chunk (J≈3/9) rather than a whole agent. The next pipeline improvement is data-only stitching/growth of chunks into agent-level hypotheses.
+
+### E12 — hierarchical chunk fusion (2026-05-28)
+
+**Package:** `hierarchical_spotlight/`  
+**Input:** `results/spotlight/e11/spotlight_e11_rich_agents_cpr3_k24_p16.json`
+
+**Why hierarchy:** E11 changed the meaning of a successful local discovery. In the simple simulator, one spotlight chunk often was a whole agent. In the rich simulator, each chunk was more like an agency-bearing subcomponent: a sensor-like, internal-like, or action-like chart of the larger agent. That suggests a natural hierarchy:
+
+```text
+raw variables -> local chunks -> fused sub-agent graph -> larger agent hypotheses
+```
+
+E12 treats each admitted spotlight pass as a graph node and adds data-only fusion edges using lagged cross-MI (with optional UAD/precursor checks on the union). The evaluation then asks two separate questions:
+
+- **Graph coverage:** does every true agent appear somewhere in the graph?
+- **Clean coverage:** does every true agent appear in a node/component with limited extra agent/world/decoy contamination?
+
+The first permissive run used `min_cross_mi=0.05` and produced one giant component. That still had graph coverage, but it was not a meaningful hierarchy. Raising the default to `min_cross_mi=0.70` produced 8 components, each corresponding to one plausible agent-level grouping, while preserving `clean_graph_recall=1.0`.
+
+**Interpretation:** This confirms the richer-agent result should be read hierarchically: spotlight finds local agency charts; fusion begins to assemble those charts into larger agent hypotheses. The next hard case is non-stationary/moving agents, where "same agent" will mean an invariant identity across changing observed variables rather than a fixed variable set.
 
 ---
 
