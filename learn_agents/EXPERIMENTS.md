@@ -599,6 +599,158 @@ An early 6-pass attempt was invalid for hierarchy testing (fewer passes than age
 
 ---
 
+## E13 — amortized agency detection: MI window breaking-point baseline (2026-06-01)
+
+**Script:** `scripts/amortized/baseline_window_breaking_point.py`
+**Artifacts:** `results/amortized/baseline_window_breaking_point.{json,png}`
+
+**Why:** The driving target is now **short-duration / transient agents** (an agent that only exists for a brief window). All current estimators — CMI blanket validation, lagged-MI clustering, IRL goal inference — are properties of a *stationary window*, so they need many samples and average a transient agent out of existence. The proposed escape is **amortization**: train one agency detector across a pool of many varied (short- and long-lived) agents, then apply it to new traces without relearning each agent — the way a human recognizes "an agent" without re-deriving the concept per encounter.
+
+Before building any learned model, this experiment **locates the breaking point of the existing MI method** as the observation window `W` shrinks. That curve is the baseline the amortized detector must beat at short `W`, and the criterion is now quantified instead of asserted.
+
+**Hypothesis:** MI-based agent recovery is strong at long `W` and collapses below some window length; if the collapse is driven by sample count rather than agent complexity, the breaking `W` should be roughly **independent of agent kind**.
+
+**Method:** For an easy→hard spectrum of kinds, simulate one non-stationary-free (`episodic=False`) world per seed at `T=2000`, slice the first `W` steps, and run the repo's real proposal step (`mi_cluster_variable_labels`: per-column quantile discretization → lagged MI → agglomerative clustering) restricted to agent variables (`var_agent >= 0`, isolating duration from decoy/world rejection). Score agent separation by adjusted Rand index (ARI) and mean best-Jaccard against ground-truth agent ids. 5 seeds/kind; `W ∈ {2000, 1000, 500, 250, 125, 60}`.
+
+| Kind | W≥500 | W=250 | W=125 | W=60 |
+|------|-------|-------|-------|------|
+| `easy3_redundant` (3 agents) | **1.00** | 1.00 | 0.77 | 0.47 |
+| `med5_rich` (5 agents) | **1.00** | 1.00 | 0.73 | 0.60 |
+| `hard8_complex` (8 agents) | **1.00** | 0.96 | 0.73 | 0.52 |
+
+(ARI mean over 5 seeds; full mean±std and Jaccard in the JSON.)
+
+**Interpretation:** MI recovers agents perfectly down to ~`W=250`, then collapses sharply between `W=250` and `W=125`, reaching near-chance by `W=60`. The breaking point is **~`W≈125` regardless of agent kind** — easy 3-agent and hard 8-agent-complex break at essentially the same window. So for short durations the bottleneck is **statistical power (sample count), not agent complexity**, exactly as the stationary-window argument predicts.
+
+**Consequence for the amortized line:** the learned detector only has to win in the band **`W ∈ [60, 250]`** (MI falls 1.0 → 0.5 there); above `W=250` there is nothing to beat, and below ~60 may be below the information floor. Success criterion: trained on a pool and evaluated on **held-out agent kinds**, keep ARI well above this curve in `W ∈ [60, 250]` (e.g. beat ~0.73 at `W=125`), pushing the collapse point toward `W≈60`.
+
+**Next step:** a learned same-agent affinity model. All methods (MI, learned) emit the same permutation-invariant `N×N` affinity → identical downstream clustering, so comparisons stay apples-to-apples. Start with a **Siamese pairwise** encoder as the floor, then a **context-aware Set-Transformer / slot-attention** model that conditions on the whole channel set (Markov-blanket agency is conditional, so pairwise scoring has a generalization ceiling). Slot/affinity outputs are reduced to the same co-assignment matrix so slot index is never compared across worlds.
+
+### E13b — pooled Siamese + slot affinity (2026-06-01)
+
+**Package:** `amortized_agency/`
+**Script:** `scripts/amortized/run_pooled_experiment.py`
+**Artifacts:** `results/amortized/pooled_experiment_summary.json`, `siamese_model.pt`, `slot_model.pt`
+
+**Why:** Test whether amortization works in principle: train on a pool of varied short windows from **train kinds** (`easy3_redundant`, `med5_rich`), evaluate on **held-out kind** (`hard8_complex`) without retraining. Both learned models emit the same `N×N` co-assignment affinity as MI; downstream clustering is identical.
+
+**Training:** 120 episodes (60/kind), windows sampled from `{60, 125, 250}`, agent variables only. Siamese: pairwise BCE, 30 epochs. Slot: co-assignment BCE, 16 slots, 25 epochs. Channel encoder is a shared 1D conv (no variable-id embedding) for cross-world generalization.
+
+**Held-out `hard8_complex` (5 seeds):**
+
+| W | MI ARI | Siamese ARI | Slot ARI |
+|---|--------|-------------|----------|
+| 250 | 0.877 | 0.356 | 0.012 |
+| 125 | 0.677 | **0.630** | 0.012 |
+| 60 | 0.510 | 0.468 | 0.016 |
+
+(Jaccard at W=125: MI 0.653, Siamese **0.661**.)
+
+**Interpretation:**
+
+1. **Amortization is partially viable.** Siamese trained only on easy/medium kinds reaches **near-parity with MI on held-out complex agents at W=125** (ARI 0.63 vs 0.68; Jaccard slightly higher). On train kind `med5_rich` at W=60, Siamese **beats** MI (ARI 0.56 vs 0.55). The model learns transferable same-agent structure without seeing complex 8-agent worlds.
+
+2. **Siamese does not yet beat MI at W=60 on held-out kind** (0.47 vs 0.51). The target band improvement is real but incomplete — more pool diversity, context-aware models, or longer training may be needed.
+
+3. **Simple slot co-assignment failed** (ARI ~0.01). Flat co-assignment matrices did not yield usable cluster structure under agglomerative clustering; likely needs contrastive slot binding loss, sharper attention, or direct slot→agent supervision. Context-aware binding remains the right architecture direction but this implementation is not yet competitive.
+
+4. **Long-window regression:** Siamese is weak at W=250 on held-out (0.36) while MI stays strong — pairwise training at short/mixed windows may hurt long-window inference. Multi-scale encoders or explicit long-window episodes in the pool may fix this.
+
+**Command:**
+
+```bash
+.venv/bin/python scripts/amortized/run_pooled_experiment.py --device cpu \
+  --train-worlds 60 --siamese-epochs 30 --slot-epochs 25
+```
+
+### E13c — slot upgrades + train-long / detect-short (2026-06-01)
+
+**Package:** `amortized_agency/slot_model.py` (upgraded)
+**Default training:** windows `{500, 1000}`; evaluation windows `{250, 125, 60}`
+
+**Design clarification:** *Train long, detect short* is valid. The conv encoder accepts variable-length windows, so the pool can expose rich temporal dynamics (500–1000 steps) while inference runs on short slices (60–125). That is separate from *cross-channel context at detection time*: a context-aware model sees **all N channels in the episode simultaneously** (self-attention / slot competition), implementing the conditional nature of blanket agency — not more timesteps at inference.
+
+**Slot upgrades implemented:**
+
+1. Correct slot-attention axis (softmax over variables, standard orientation).
+2. Per-variable slot profile → cosine affinity at inference (replaces flat co-assignment).
+3. Multi-term training: co-assign BCE + agent cohesion + profile contrastive + slot sharpness + reconstruction.
+4. Inference temperature sharpening (`--slot-temp 0.35`).
+
+**Held-out `hard8_complex` after upgrades (fast run, 20 slot epochs):**
+
+| W | MI ARI | Siamese ARI | Slot ARI |
+|---|--------|-------------|----------|
+| 250 | 0.908 | 0.297 | 0.069 |
+| 125 | 0.669 | 0.531 | **0.141** |
+| 60 | 0.551 | 0.373 | **0.176** |
+
+**Full run** (60 worlds, train W∈{500,1000}, 40 slot epochs): slot **regressed** (held-out W=125 ARI 0.029; W=60 ARI 0.074). Siamese held-out W=125 ARI 0.551. Longer slot training with current loss weights did not improve over the shorter run — likely loss imbalance / overfitting; hyperparameter sweep needed.
+
+**Interpretation:**
+
+- Slot went from ~chance (ARI 0.01) to **partial signal** (0.14–0.18 at short W) after architectural fixes — direction is right, not yet competitive with MI (0.51–0.68) or Siamese (0.37–0.55).
+- **Siamese remains the stronger pooled baseline** on held-out kind at W=125.
+- **Train-long / detect-short** is now the default; Siamese still weak at W=250 on held-out when trained only on long windows — the encoder may need explicit multi-scale or short-window finetuning episodes in the pool.
+
+**Command (upgraded slot defaults):**
+
+```bash
+.venv/bin/python scripts/amortized/run_pooled_experiment.py --device cpu \
+  --train-windows 500,1000 --train-worlds 60 --slot-epochs 20 --siamese-epochs 25
+```
+
+### E13d — slot objective fixes + context-aware model (2026-06-01)
+
+**Packages:** `amortized_agency/slot_model.py` (rewritten), `amortized_agency/context_model.py` (new)
+
+**Why:** E13b/c slot attention sat at ~chance. A careful audit found a root-cause bug plus a representational ceiling. This experiment fixes the objective to be provably stable, then isolates and removes the real bottleneck.
+
+**Slot fixes applied (1–5):**
+
+1. Softmax restored to **over slots** (canonical competition); E13c had inverted it to over-variables, which made the BCE target unreachable (co-assignment values ~0.003 vs target 1).
+2. Per-variable profile normalized over K; **same profile-dot affinity used for both training target and inference** (removed train/inference mismatch and the inference-only temperature hack).
+3. Sharpness loss corrected to per-variable entropy over slots (commit each variable to one slot) instead of the previous term that drove each slot to a single variable.
+4. Contrastive loss vectorized (supervised-contrastive, no per-variable Python loop).
+5. Optional shared-Gaussian sampled slots for exchangeability/anti-collapse.
+
+Reconstruction was **dropped**: its optimum (soft mixing to reconstruct per-variable detail) conflicts with hard clustering. The remaining terms share one global optimum (each agent in a distinct slot, one-hot variable assignment), so training is stable under arbitrarily many epochs — no early stopping.
+
+**Diagnostic result (decisive):**
+
+- After the fixes, **BCE-only with fixed slots still floors at loss = ln 2 ≈ 0.693 with train ARI ≈ chance** — i.e. it converges cleanly to "predict 0.5 for every pair." The objective is now well-posed and stable; the failure is representational, not optimization.
+- Bypassing slots (direct pairwise cosine BCE) overfits training only weakly with the per-channel encoder (train ARI 0.22) but reaches **train ARI 0.80 with a cross-channel encoder**.
+
+**Conclusion:** two separate causes. (a) The **slot-attention readout** is the wrong inductive bias here — routing N variables through K competing slots cannot express same-agent membership; direct pairwise affinity can. (b) The **per-channel, time-pooled encoder is relational-blind** — agent membership is cross-channel correlation, which it discards. Both are needed: cross-channel context **and** a pairwise (not slot) readout.
+
+**`ContextualAffinityModel`** implements this: a cross-channel attention encoder (channels as tokens, attending over time tokens) feeding a direct pairwise Gram affinity, trained with the balanced co-assignment BCE.
+
+**Held-out `hard8_complex` (5 seeds, train W∈{500,1000}):**
+
+| W | MI | Siamese | Slot | **Context** |
+|---|-----|---------|------|-------------|
+| 250 | **0.877** | 0.253 | 0.009 | 0.656 |
+| 125 | **0.677** | 0.523 | 0.018 | 0.542 |
+| 60 | 0.510 | 0.453 | 0.014 | **0.461** |
+
+Train-kind transfer is strong too: on `med5_rich` W=250, context **0.739** vs Siamese 0.214; on `easy3_redundant` W=60, context **0.659** vs MI 0.675 (parity).
+
+**Interpretation:**
+
+- **Context is now the clear best learned method**, beating Siamese at every held-out window and roughly matching it at W=60. The slot model is confirmed a dead end for this readout; it remains in the repo as a documented negative result.
+- **MI is still the overall short-window leader** on held-out complex agents (0.68 vs 0.54 at W=125). Amortization has not yet beaten MI in the target band — but the gap closed substantially and the context model generalizes across kinds and window lengths far better than Siamese, while MI must be recomputed per trace.
+- **Context degrades more gracefully than Siamese at long W** (0.656 vs 0.253 at W=250), so the train-long/detect-short regime no longer hurts it the way it hurt Siamese.
+
+**Command:**
+
+```bash
+.venv/bin/python scripts/amortized/run_pooled_experiment.py --device cpu \
+  --train-windows 500,1000 --train-worlds 40 --context-epochs 40 \
+  --siamese-epochs 25 --slot-epochs 25
+```
+
+---
+
 ## Code map
 
 | Component | Path |
@@ -610,6 +762,7 @@ An early 6-pass attempt was invalid for hierarchy testing (fewer passes than age
 | Decoy ablation | `scripts/decoys/decoy_ablation_sweep.py` |
 | E12 hierarchical fusion | `hierarchical_spotlight/` |
 | E12b complex hierarchy sweep | `scripts/hierarchical/run_hierarchical_e12b_sweep.py` |
+| E13 amortized agency | `amortized_agency/`, `scripts/amortized/` |
 | Strict UAD / MI roles | `agency_detect/markov_blanket.py` |
 
 ---

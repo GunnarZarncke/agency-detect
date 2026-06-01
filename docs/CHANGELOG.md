@@ -59,3 +59,38 @@ See [`learn_agents/EXPERIMENTS.md#e12b--complex-fixed-agent-hierarchy-sample-202
 
 Current direction: moving/non-stationary agents will require identity as an invariant over local charts, rather than a fixed raw variable subset.
 
+---
+
+## 2026-06-01 — Amortized Agency Detection: Baseline (E13)
+
+See [`learn_agents/EXPERIMENTS.md#e13--amortized-agency-detection-mi-window-breaking-point-baseline-2026-06-01`](../learn_agents/EXPERIMENTS.md#e13--amortized-agency-detection-mi-window-breaking-point-baseline-2026-06-01) and [`docs/conversations/2026-06-01-amortized-agency-baseline.md`](conversations/2026-06-01-amortized-agency-baseline.md).
+
+- Reprioritized toward **short-duration / transient agents**: the goal is one agency detector trained across a pool of varied agents, applied to new traces without relearning each agent. Moving/non-stationary agents are deferred to a later line.
+- Added `scripts/amortized/baseline_window_breaking_point.py`: measures where the existing MI proposal step (`mi_cluster_variable_labels`) loses agent separation as the observation window `W` shrinks, across an easy→hard kind spectrum.
+- Result: MI recovery is perfect to ~`W=250`, collapses between `W=250` and `W=125`, near-chance by `W=60` — and the breaking point (~`W≈125`) is **independent of agent kind**. For short windows the bottleneck is sample count, not complexity.
+- Sets the quantified target band `W ∈ [60, 250]` for the planned learned same-agent affinity model (Siamese floor → context-aware Set-Transformer / slot attention), evaluated on held-out kinds.
+
+### E13b — pooled Siamese + slot affinity
+
+See [`learn_agents/EXPERIMENTS.md#e13b--pooled-siamese--slot-affinity-2026-06-01`](../learn_agents/EXPERIMENTS.md#e13b--pooled-siamese--slot-affinity-2026-06-01).
+
+- Added `amortized_agency/` package and `scripts/amortized/run_pooled_experiment.py`.
+- Trained Siamese (pairwise) and slot-attention (co-assignment) on train kinds; held-out `hard8_complex`.
+- Siamese reaches near-parity with MI at `W=125` on held-out kind (ARI 0.63 vs 0.68); beats MI on train kind at `W=60`. Simple slot co-assignment failed (~chance ARI).
+
+### E13c — slot upgrades, train-long / detect-short
+
+See [`learn_agents/EXPERIMENTS.md#e13c--slot-upgrades--train-long--detect-short-2026-06-01`](../learn_agents/EXPERIMENTS.md#e13c--slot-upgrades--train-long--detect-short-2026-06-01).
+
+- Default training windows `{500,1000}`; eval at `{250,125,60}`.
+- Slot fixes: correct attention axis, profile-cosine affinity, contrastive/cohesion/recon losses.
+- Slot improved from ARI ~0.01 to ~0.14–0.18 at short W (not yet competitive); Siamese still stronger on held-out.
+
+### E13d — stable slot objective + context-aware model
+
+See [`learn_agents/EXPERIMENTS.md#e13d--slot-objective-fixes--context-aware-model-2026-06-01`](../learn_agents/EXPERIMENTS.md#e13d--slot-objective-fixes--context-aware-model-2026-06-01).
+
+- Applied slot fixes #1–5 (canonical slot-competition softmax, unified train/inference affinity, corrected sharpness, vectorized contrastive, optional sampled slots); dropped conflicting reconstruction. Objective now converges stably with no early stopping.
+- Diagnostics proved two causes for slot failure: the slot readout cannot express same-agent membership, and the per-channel encoder is relational-blind. BCE-only floors at ln 2 (chance); cross-channel pairwise overfits training (ARI 0.80).
+- Added `amortized_agency/context_model.py`: cross-channel attention encoder + direct pairwise affinity. On held-out `hard8_complex` it is the best learned method (W=250 ARI 0.66 vs Siamese 0.25), degrades gracefully at long W, but MI still leads the short-window band (W=125: MI 0.68 vs context 0.54).
+
