@@ -25,4 +25,6 @@ ALL_KINDS: List[Kind] = [
 TRAIN_KINDS: List[Kind] = [k for k in ALL_KINDS if k.name != "hard8_complex"]
 HELDOUT_KINDS: List[Kind] = [k for k in ALL_KINDS if k.name == "hard8_complex"]
 
+# E13 MI ceiling: use REFERENCE_WINDOWS for primary benchmarks; EVAL_WINDOWS for
+# the short-window band where MI collapses (see amortized_agency/benchmark.py).
 EVAL_WINDOWS: List[int] = [250, 125, 60]

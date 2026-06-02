@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import List, Tuple
+from dataclasses import dataclass, replace
+from typing import Dict, List, Optional
 
 import numpy as np
 
 from learn_agents.learn_agents import TraceSimulationConfig, simulate_known_agent_trace
 
+from amortized_agency.benchmark import EVAL_T_STEPS
 from amortized_agency.kinds import Kind
 
 
@@ -20,8 +21,15 @@ class Episode:
     seed: int
 
 
-def simulate_episode(kind: Kind, window_len: int, seed: int, t_steps: int | None = None) -> Episode:
-    t = t_steps if t_steps is not None else max(window_len, 500)
+def simulate_episode(
+    kind: Kind,
+    window_len: int,
+    seed: int,
+    t_steps: int | None = None,
+    overrides: Optional[Dict[str, float]] = None,
+) -> Episode:
+    # Match E13 MI baseline: long horizon then slice [:window_len] (see benchmark.EVAL_T_STEPS).
+    t = t_steps if t_steps is not None else max(window_len, EVAL_T_STEPS)
     cfg = TraceSimulationConfig(
         T=t,
         num_agents=kind.num_agents,
@@ -32,6 +40,8 @@ def simulate_episode(kind: Kind, window_len: int, seed: int, t_steps: int | None
         episodic=False,
         seed=seed,
     )
+    if overrides:
+        cfg = replace(cfg, **overrides)
     result = simulate_known_agent_trace(cfg)
     var_agent = np.asarray(result.metadata["var_agent"], dtype=np.int64)
     agent_cols = np.where(var_agent >= 0)[0]
@@ -58,7 +68,7 @@ def generate_pool(
         for i in range(n_worlds):
             seed = seed_offset + k_idx * 10_000 + i
             w = int(gen.choice(window_choices)) if window_choices else window_len
-            t_steps = max(w, window_len, 500)
+            t_steps = max(w, window_len, EVAL_T_STEPS)
             episodes.append(simulate_episode(kind, w, seed=seed, t_steps=t_steps))
     return episodes
 

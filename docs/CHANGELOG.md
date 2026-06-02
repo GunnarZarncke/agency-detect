@@ -94,3 +94,23 @@ See [`learn_agents/EXPERIMENTS.md#e13d--slot-objective-fixes--context-aware-mode
 - Diagnostics proved two causes for slot failure: the slot readout cannot express same-agent membership, and the per-channel encoder is relational-blind. BCE-only floors at ln 2 (chance); cross-channel pairwise overfits training (ARI 0.80).
 - Added `amortized_agency/context_model.py`: cross-channel attention encoder + direct pairwise affinity. On held-out `hard8_complex` it is the best learned method (W=250 ARI 0.66 vs Siamese 0.25), degrades gracefully at long W, but MI still leads the short-window band (W=125: MI 0.68 vs context 0.54).
 
+### E13e — method-trend sweep across test-time parameters
+
+See [`learn_agents/EXPERIMENTS.md#e13e--method-trend-sweep-across-test-time-parameters-2026-06-01`](../learn_agents/EXPERIMENTS.md#e13e--method-trend-sweep-across-test-time-parameters-2026-06-01).
+
+- Added `scripts/amortized/run_method_sweep.py`: train learned models once, then vary one test-time parameter at a time (window, observation+process noise, agent count) on complex agents. `simulate_episode` gained a config-`overrides` hook.
+- **Crossover at W≈70**: MI is monotone in window (chance at W=30, ~0.96 at W=400) and overtakes the learned models above it, but **below ~W=70 the amortized models win** (W=30: context/Siamese ≈0.4 vs MI 0.13) — the transient regime the project targets.
+- **MI and context are noise-robust** (flat across a 16× noise increase); **Siamese is noise-fragile** (0.59→0.39). Context exploits extra samples (rises to 0.76 at W=400); Siamese is flat in W.
+- **Agent count is a training-distribution effect**: learned models match/beat MI at in-distribution n=3, but fall to ~0.46 at n=8/12 (past the 3/5-agent pool) while MI holds 0.69–0.79. Clear next lever: broaden the pool over agent count.
+- **Compute scaling** (`run_compute_scaling.py`): MI is ~O(N²) per trace (47.8 s at N=216 vs ~39 ms for context); learned models are ~linear in N and W (~10–60 ms). MI is flat in W but does not scale for many-channel / many-trace diagnostics; amortization pays once at train time.
+
+### E13f — reference-regime benchmark protocol
+
+- Primary amortized target is **gap-to-MI at W≥250** (E13 MI ceiling), not beating weak MI at short W. Added `amortized_agency/benchmark.py`, `run_reference_benchmark.py`, and `--mode reference|trends|both` on `run_method_sweep.py`.
+
+### E13g — learned-only sweeps and model scales
+
+- Routine benchmarks skip per-trace MI; `benchmark.MI_REFERENCE_ARI` supplies frozen gaps (hard8 W=250 → 0.964).
+- Added `model_presets.py` (`base`/`large`/`xl` context encoders) and `run_learned_sweep.py` to grid scale × train worlds × epochs.
+- `--run-mi` opt-in on reference/pooled/sweep scripts; default is learned-only.
+

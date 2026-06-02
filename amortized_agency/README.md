@@ -19,19 +19,32 @@ downstream agglomerative clustering → comparable ARI / Jaccard.
 | `metrics.py` | ARI, mean best-Jaccard |
 | `evaluate.py` | Cross-method evaluation on kinds / windows |
 
+## Benchmark protocol
+
+1. **MI ceiling is frozen** (E13, `benchmark.MI_REFERENCE_ARI`): hard8 @ W=250 → **0.964**.
+   Routine sweeps **do not run MI** (~300× slower); report `gap_to_mi` vs this table.
+2. **Primary work:** learned model sweeps — larger context encoders (`base` / `large` / `xl`),
+   more training worlds, epochs — to close the gap at W ∈ {250, 500}.
+3. **MI scripts** (`baseline_window_breaking_point.py`, `--run-mi`) are for occasional
+   re-validation only.
+4. **Breaking band** (W=125, 60): secondary; amortization may beat weak MI there.
+
 ## Scripts
 
 ```bash
-# MI breaking-point baseline (no learning)
+# Main loop: context scale × train worlds × epochs (no MI)
+.venv/bin/python scripts/amortized/run_learned_sweep.py --device cpu \
+  --scales base,large,xl --train-worlds 40,80 --context-epochs 40,60
+
+# Reference eval (learned only; frozen MI gaps) — add --run-mi to re-check live MI
+.venv/bin/python scripts/amortized/run_reference_benchmark.py --device cpu
+
+# One-off MI ceiling curve (slow)
 .venv/bin/python scripts/amortized/baseline_window_breaking_point.py
 
-# Train Siamese + slot on pool; evaluate vs MI (held-out kinds)
-.venv/bin/python scripts/amortized/run_pooled_experiment.py --device cpu
-```
-
-# Train long (500–1000 steps), detect short (250/125/60) — default after E13c
+# Pooled train + eval (learned only by default)
 .venv/bin/python scripts/amortized/run_pooled_experiment.py --device cpu \
-  --train-windows 500,1000 --slot-epochs 20
+  --train-windows 500,1000 --context-epochs 40
 ```
 
 Results: `results/amortized/`

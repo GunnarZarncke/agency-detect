@@ -27,9 +27,20 @@ class ContextualAffinityModel(nn.Module):
     readout could not express.
     """
 
-    def __init__(self, window: int, enc_dim: int = 64):
+    def __init__(
+        self,
+        window: int,
+        enc_dim: int = 64,
+        conv_ch: int = 32,
+        n_tokens: int = 16,
+        n_heads: int = 4,
+        n_layers: int = 2,
+    ):
         super().__init__()
-        self.encoder = CrossChannelEncoder(window, enc_dim=enc_dim)
+        self.encoder = CrossChannelEncoder(
+            window, enc_dim=enc_dim, conv_ch=conv_ch,
+            n_tokens=n_tokens, n_heads=n_heads, n_layers=n_layers,
+        )
         self.proj = nn.Linear(enc_dim, enc_dim)
 
     def embed(self, x: torch.Tensor) -> torch.Tensor:

@@ -11,6 +11,7 @@ from amortized_agency.metrics import score_clustering
 from amortized_agency.context_model import ContextualAffinityModel
 from amortized_agency.siamese import SiameseAffinityModel
 from amortized_agency.slot_model import SlotAttentionAffinity
+from amortized_agency.benchmark import EVAL_T_STEPS
 from amortized_agency.worlds import Episode, simulate_episode
 
 MethodName = Literal["mi", "siamese", "slot", "context"]
@@ -66,7 +67,7 @@ def evaluate_kind(
     t_steps: int | None = None,
 ) -> List[Dict]:
     rows: List[Dict] = []
-    t_max = max(windows) if t_steps is None else t_steps
+    t_max = max(max(windows), EVAL_T_STEPS) if t_steps is None else t_steps
     for window in windows:
         for method in methods:
             aris, jaccs = [], []

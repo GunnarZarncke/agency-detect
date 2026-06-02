@@ -105,6 +105,11 @@ def main() -> None:
     parser.add_argument("--device", type=str, default=None)
     parser.add_argument("--fast", action="store_true")
     parser.add_argument(
+        "--run-mi",
+        action="store_true",
+        help="Evaluate per-trace MI (slow). Default: learned methods only.",
+    )
+    parser.add_argument(
         "--out-dir",
         type=str,
         default=str(REPO_ROOT / "results" / "amortized"),
@@ -172,7 +177,7 @@ def main() -> None:
     )
 
     seeds = list(range(args.eval_seeds))
-    methods = ["mi", "siamese", "slot", "context"]
+    methods = ["mi", "siamese", "slot", "context"] if args.run_mi else ["siamese", "slot", "context"]
     rows: List[Dict] = []
     for kind in ALL_KINDS:
         kind_rows = evaluate_kind(
@@ -184,7 +189,7 @@ def main() -> None:
             slot=slot,
             context=context,
             device=device,
-            t_steps=max(windows),
+            t_steps=None,
         )
         rows.extend(kind_rows)
 
