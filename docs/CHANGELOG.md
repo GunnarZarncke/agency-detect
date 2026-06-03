@@ -113,5 +113,5 @@ See [`learn_agents/EXPERIMENTS.md#e13e--method-trend-sweep-across-test-time-para
 - Routine benchmarks skip per-trace MI; `benchmark.MI_REFERENCE_ARI` supplies frozen gaps (hard8 W=250 → 0.964).
 - Added `model_presets.py` (`base`/`large`/`xl` context encoders) and `run_learned_sweep.py` to grid scale × train worlds × epochs (with train/eval/infer timing).
 - `--run-mi` opt-in on reference/pooled/sweep scripts; default is learned-only.
-- **Full sweep (12 configs):** best `large` + 80 worlds + 40 epochs → held-out hard8 W=250 ARI **0.867**, gap **0.097**, infer **44 ms** (MI_ref 0.964, MI ~5.6 s). XL did not beat large.
+- **Full sweep (12 configs, ~3.6 h CPU):** best `xl` + 40 worlds + 60 epochs → held-out hard8 W=250 ARI **0.810**, gap **0.154**, infer **148 ms** (MI_ref 0.964). `large` 80/60 close (gap 0.159, 44 ms infer). Results seed-sensitive across runs.
 

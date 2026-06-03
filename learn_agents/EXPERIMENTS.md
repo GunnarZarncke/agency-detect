@@ -863,24 +863,24 @@ MI is the most *accurate* per-trace estimator, but accuracy is not free — it r
 
 | scale | worlds | epochs | params | train (s) | infer (ms) | hard8 ARI | gap |
 |-------|--------|--------|--------|-----------|------------|-----------|-----|
-| **large** | **80** | **40** | 460k | 780 | 44 | **0.867** | **0.097** |
-| large | 80 | 60 | 460k | 1033 | 44 | 0.836 | 0.128 |
-| xl | 80 | 40 | 2.4M | 1986 | 148 | 0.822 | 0.142 |
-| xl | 80 | 60 | 2.4M | 4179 | 220 | 0.816 | 0.148 |
-| xl | 40 | 40 | 2.4M | 1006 | 148 | 0.734 | 0.230 |
-| base | 80 | 60 | 83k | 460 | 18 | 0.727 | 0.237 |
-| base | 40 | 40 | 83k | 158 | 18 | 0.717 | 0.247 |
-| base | 80 | 40 | 83k | 307 | 19 | 0.701 | 0.263 |
-| large | 40 | 60 | 460k | 600 | 49 | 0.701 | 0.263 |
-| xl | 40 | 60 | 2.4M | 1521 | 148 | 0.672 | 0.292 |
-| base | 40 | 60 | 83k | 231 | 18 | 0.644 | 0.320 |
-| large | 40 | 40 | 460k | 389 | 46 | 0.601 | 0.363 |
+| **xl** | **40** | **60** | 2.4M | 1496 | 148 | **0.810** | **0.154** |
+| large | 80 | 60 | 460k | 1023 | 44 | 0.805 | 0.159 |
+| xl | 80 | 40 | 2.4M | 1967 | 146 | 0.745 | 0.219 |
+| xl | 40 | 40 | 2.4M | 1000 | 145 | 0.743 | 0.221 |
+| large | 40 | 40 | 460k | 673 | 95 | 0.719 | 0.245 |
+| large | 80 | 40 | 460k | 684 | 43 | 0.717 | 0.247 |
+| large | 40 | 60 | 460k | 985 | 43 | 0.704 | 0.260 |
+| base | 40 | 60 | 83k | 426 | 41 | 0.682 | 0.282 |
+| xl | 80 | 60 | 2.4M | 2895 | 141 | 0.675 | 0.289 |
+| base | 80 | 60 | 83k | 830 | 39 | 0.669 | 0.295 |
+| base | 80 | 40 | 83k | 554 | 41 | 0.655 | 0.309 |
+| base | 40 | 40 | 83k | 281 | 39 | 0.613 | 0.351 |
 
 **Interpretation:**
 
-- **Best config:** `large`, 80 worlds/kind, 40 epochs — gap **0.097** (ARI 0.867 vs MI_ref 0.964), inference **44 ms/trace** vs MI ~5.6 s at the same setting (E13e).
-- **XL did not beat large** on held-out hard8 despite 5× parameters and ~3× inference time; more capacity + longer train (4179 s) still gap 0.148.
-- **More training worlds helps** (80 vs 40) consistently; **base is too small** (gap ≥ 0.24).
+- **Best config (this run):** `xl`, 40 worlds/kind, 60 epochs — gap **0.154** (ARI 0.810 vs MI_ref 0.964), inference **148 ms/trace** vs MI ~5.6 s (E13e). `large` 80/60 is close (gap 0.159, **44 ms** infer).
+- **Training is seed-sensitive:** an earlier partial read of this sweep showed `large`/80/40 at gap 0.097; the final 12-config pass did not reproduce that — treat best row as run-specific until multi-seed training sweeps.
+- **XL edges large slightly on gap** here but at ~3× inference ms; **base** remains far from ceiling (gap ≥ 0.28).
 - **Runtime lesson confirmed:** report train_s and infer_ms every row; skip MI in the loop; use frozen ceiling for gaps.
 
 Artifacts: `results/amortized/learned_sweep_summary.json`, `learned_sweep_full.log` (gitignored).
