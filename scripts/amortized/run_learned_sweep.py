@@ -115,11 +115,11 @@ def main() -> None:
 
     sweep_rows: List[Dict] = []
     grid = list(itertools.product(scales, worlds_list, epochs_list))
-    print(f"Device: {device}  grid size: {len(grid)}  (no MI — frozen reference gaps)")
+    print(f"Device: {device}  grid size: {len(grid)}  (no MI — frozen reference gaps)", flush=True)
 
     for scale, n_worlds, epochs in grid:
         tag = f"scale={scale}_worlds={n_worlds}_ep={epochs}"
-        print(f"\n=== {tag} ===")
+        print(f"\n=== {tag} ===", flush=True)
         t0 = time.perf_counter()
         train_episodes = generate_pool(
             TRAIN_KINDS, n_worlds, 1000, window_choices=[500, 1000]

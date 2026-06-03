@@ -859,16 +859,31 @@ MI is the most *accurate* per-trace estimator, but accuracy is not free — it r
 
 **Protocol:** `run_learned_sweep.py` grids `base` / `large` / `xl` context encoders × train worlds × epochs; reports `gap_context`, `train_seconds`, `eval_seconds`, `held_out_w250_infer_ms_median`.
 
-**Fast smoke (base, 20 worlds, 15 epochs, 3 seeds):**
+**Full grid** (2026-06-03, CPU, 5 seeds, frozen MI_ref=0.964, no live MI). Sorted by held-out `hard8_complex` W=250 `gap_context`:
 
-| | value |
-|---|-------|
-| held-out hard8 W=250 ARI | 0.494 |
-| gap vs MI_ref 0.964 | 0.470 |
-| train | 33 s |
-| infer (hard8 W=250, median/trace) | ~20 ms |
+| scale | worlds | epochs | params | train (s) | infer (ms) | hard8 ARI | gap |
+|-------|--------|--------|--------|-----------|------------|-----------|-----|
+| **large** | **80** | **40** | 460k | 780 | 44 | **0.867** | **0.097** |
+| large | 80 | 60 | 460k | 1033 | 44 | 0.836 | 0.128 |
+| xl | 80 | 40 | 2.4M | 1986 | 148 | 0.822 | 0.142 |
+| xl | 80 | 60 | 2.4M | 4179 | 220 | 0.816 | 0.148 |
+| xl | 40 | 40 | 2.4M | 1006 | 148 | 0.734 | 0.230 |
+| base | 80 | 60 | 83k | 460 | 18 | 0.727 | 0.237 |
+| base | 40 | 40 | 83k | 158 | 18 | 0.717 | 0.247 |
+| base | 80 | 40 | 83k | 307 | 19 | 0.701 | 0.263 |
+| large | 40 | 60 | 460k | 600 | 49 | 0.701 | 0.263 |
+| xl | 40 | 60 | 2.4M | 1521 | 148 | 0.672 | 0.292 |
+| base | 40 | 60 | 83k | 231 | 18 | 0.644 | 0.320 |
+| large | 40 | 40 | 460k | 389 | 46 | 0.601 | 0.363 |
 
-**Full grid** (`base,large,xl` × `40,80` worlds × `40,60` epochs): see `results/amortized/learned_sweep_summary.json` after `run_learned_sweep.py` completes (12 configs; results gitignored, table updated in this file).
+**Interpretation:**
+
+- **Best config:** `large`, 80 worlds/kind, 40 epochs — gap **0.097** (ARI 0.867 vs MI_ref 0.964), inference **44 ms/trace** vs MI ~5.6 s at the same setting (E13e).
+- **XL did not beat large** on held-out hard8 despite 5× parameters and ~3× inference time; more capacity + longer train (4179 s) still gap 0.148.
+- **More training worlds helps** (80 vs 40) consistently; **base is too small** (gap ≥ 0.24).
+- **Runtime lesson confirmed:** report train_s and infer_ms every row; skip MI in the loop; use frozen ceiling for gaps.
+
+Artifacts: `results/amortized/learned_sweep_summary.json`, `learned_sweep_full.log` (gitignored).
 
 **Command:**
 
