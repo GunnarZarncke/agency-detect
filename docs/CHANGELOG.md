@@ -115,3 +115,23 @@ See [`learn_agents/EXPERIMENTS.md#e13e--method-trend-sweep-across-test-time-para
 - `--run-mi` opt-in on reference/pooled/sweep scripts; default is learned-only.
 - **Full sweep (12 configs, ~3.6 h CPU):** best `xl` + 40 worlds + 60 epochs → held-out hard8 W=250 ARI **0.810**, gap **0.154**, infer **148 ms** (MI_ref 0.964). `large` 80/60 close (gap 0.159, 44 ms infer). Results seed-sensitive across runs.
 
+### E14 — telemetry extensions (sim); ClusterData rejected
+
+See [`learn_agents/EXPERIMENTS.md#e14--telemetry-extensions-sim-real-data-anchor-rejected-2026-06-03`](../learn_agents/EXPERIMENTS.md#e14--telemetry-extensions-sim-real-data-anchor-rejected-2026-06-03).
+
+- Sim: periodic driver + heavy-tailed bursts in `TraceSimulationConfig`; MI detectability matrix passes for extensions (`telemetry_extension_detectability.py`).
+- **Google ClusterData 2019** trialed as real anchor; rejected (job usage metrics are comoving processes, not blanket-valid agents). Adapter/downloader removed.
+
+### E15 — external POMDP trace families
+
+See [`learn_agents/EXPERIMENTS.md#e15--external-pomdp-trace-families-2026-06-04`](../learn_agents/EXPERIMENTS.md#e15--external-pomdp-trace-families-2026-06-04).
+
+- Added trace loggers: partial CartPole (`physics_pomdp.py`), 5×5 RockSample (`rock_sample.py`), 3×3/5×5 multi-agent grid POMDP (`grid_pomdp.py`) via `external_traces.py`.
+- Detectability: `external_pomdp_detectability.py` — physics and RockSample MI ARI 1.0 at available T; grids mixed (stepping stone toward Melting Pot + learned/UAD).
+- Roadmap staged: Melting Pot (structured obs) next; D4RL/robotics deferred.
+
+### Agent detectability summary table
+
+- Added `scripts/learn_agents/agent_ari_table.py`: live MI ARI + timing; learned+UAD from cached spotlight JSON only (no batch re-run).
+- Documented full family table in `learn_agents/EXPERIMENTS.md` (pool, E14 telemetry, E15 external POMDPs).
+

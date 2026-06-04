@@ -39,6 +39,14 @@ class SpotlightConfig:
     world_to_sensor_strength: float = 0.08
     world_ar1_rho: float = 0.96
     world_ar1_sigma: float = 0.10
+    episodic: bool = False
+    episode_len: int = 900
+    episode_gap: int = 300
+    shared_period: int = 0
+    shared_periodic_strength: float = 0.0
+    innovation_dist: str = "gauss"
+    innovation_strength: float = 0.6
+    innovation_df: float = 4.0
 
     # --- Peel loop ---
     max_passes: int = 8

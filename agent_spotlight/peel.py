@@ -52,7 +52,14 @@ def _sim_config(cfg: SpotlightConfig) -> TraceSimulationConfig:
         world_to_sensor_strength=cfg.world_to_sensor_strength,
         world_ar1_rho=cfg.world_ar1_rho,
         world_ar1_sigma=cfg.world_ar1_sigma,
-        episodic=False,
+        episodic=cfg.episodic,
+        episode_len=cfg.episode_len,
+        episode_gap=cfg.episode_gap,
+        shared_period=cfg.shared_period,
+        shared_periodic_strength=cfg.shared_periodic_strength,
+        innovation_dist=cfg.innovation_dist,
+        innovation_strength=cfg.innovation_strength,
+        innovation_df=cfg.innovation_df,
     )
 
 

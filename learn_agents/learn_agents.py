@@ -1129,6 +1129,14 @@ class TraceSimulationConfig:
     decoy_confound_weight: float = 1.0
     agent_variant_mode: str = "redundant"  # redundant | rich | complex
     agent_variant_delay: int = 2
+    # --- Telemetry-like extensions (bursty load, diurnal driver). Defaults reproduce prior kinds. ---
+    shared_period: int = 0  # >0: add a periodic (diurnal) component to the shared driver
+    shared_periodic_strength: float = 0.0  # amplitude of the periodic shared component
+    innovation_dist: str = "gauss"  # gauss | t | shock : per-agent sensor-burst distribution
+    innovation_strength: float = 0.6  # amplitude of heavy-tailed per-agent bursts added to the sensor
+    innovation_df: float = 4.0  # Student-t dof when innovation_dist == "t"
+    innovation_shock_prob: float = 0.02  # per-step shock probability when innovation_dist == "shock"
+    innovation_shock_scale: float = 5.0  # shock magnitude (x process noise) when innovation_dist == "shock"
 
 
 @dataclass
@@ -1142,6 +1150,25 @@ def _ar1(T: int, rho: float, sigma: float, rng: np.random.Generator) -> np.ndarr
     for t in range(1, T):
         x[t] = rho * x[t - 1] + sigma * rng.normal()
     return x
+
+
+def _innovations(T: int, K: int, cfg: "TraceSimulationConfig", rng: np.random.Generator) -> np.ndarray:
+    """Unit-variance latent process innovations, heavy-tailed when configured.
+
+    Only used when cfg.innovation_dist != "gauss"; the Gaussian path keeps the
+    original per-step rng.normal() draws so existing traces are unchanged.
+    """
+    dist = cfg.innovation_dist.lower()
+    if dist == "t":
+        df = max(float(cfg.innovation_df), 2.1)
+        x = rng.standard_t(df, size=(T, K))
+        return (x * np.sqrt((df - 2.0) / df)).astype(np.float32)  # rescale to unit variance
+    if dist == "shock":
+        base = rng.normal(size=(T, K))
+        hit = rng.random((T, K)) < cfg.innovation_shock_prob
+        base = base + hit * rng.normal(size=(T, K)) * cfg.innovation_shock_scale
+        return (base / (base.std() + 1e-6)).astype(np.float32)
+    return rng.normal(size=(T, K)).astype(np.float32)
 
 
 def _episode_mask(cfg: TraceSimulationConfig, rng: np.random.Generator) -> np.ndarray:
@@ -1228,8 +1255,19 @@ def simulate_known_agent_trace(cfg: TraceSimulationConfig = TraceSimulationConfi
     T, K = cfg.T, cfg.num_agents
 
     global_confound = _ar1(T, rho=0.985, sigma=0.25, rng=rng)
+    if cfg.shared_periodic_strength > 0.0 and cfg.shared_period > 0:
+        phase = float(rng.uniform(0.0, 2.0 * np.pi))
+        t_idx = np.arange(T, dtype=np.float32)
+        global_confound = global_confound + (
+            cfg.shared_periodic_strength * np.sin(2.0 * np.pi * t_idx / float(cfg.shared_period) + phase)
+        ).astype(np.float32)
     local_env = np.stack([_ar1(T, rho=0.96 - 0.02 * (k % 3), sigma=0.18, rng=rng) for k in range(K)], axis=1)
     active = _episode_mask(cfg, rng)
+
+    # Heavy-tailed per-agent load bursts added directly to the sensor.
+    # Added post-AR so the tails survive smoothing; per-agent so cluster structure is preserved.
+    heavy = cfg.innovation_dist.lower() != "gauss"
+    burst = _innovations(T, K, cfg, rng) if heavy else None
 
     n_local_world = max(int(cfg.env_vars_per_agent), 0)
     n_world = max(int(cfg.world_vars), 0)
@@ -1287,6 +1325,7 @@ def simulate_known_agent_trace(cfg: TraceSimulationConfig = TraceSimulationConfi
                 + cfg.interaction_strength * incoming[k]
                 + cfg.confound_strength * global_confound[t]
                 + cfg.process_noise * rng.normal()
+                + (cfg.innovation_strength * burst[t, k] if heavy else 0.0)
             )
             h_drive = 0.82 * h[t - 1, k] + 0.55 * s[t, k] + 0.20 * a[t - 1, k]
             h[t, k] = on * np.tanh(h_drive + cfg.process_noise * rng.normal()) + (1.0 - on) * 0.92 * h[t - 1, k]

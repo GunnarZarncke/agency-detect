@@ -16,3 +16,6 @@ sphinx-rtd-theme>=1.0
 jupyter>=1.0.0
 matplotlib>=3.0.0  # For visualization in analysis scripts
 
+# E15 external physics baseline (optional; rock/grid are stdlib+numpy only)
+gymnasium>=0.29.0
+
