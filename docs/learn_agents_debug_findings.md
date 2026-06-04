@@ -1,6 +1,6 @@
 # learn_agents / latent-UAD — analysis summary
 
-**Full experiment log (chronological, settings, artifacts):** [`learn_agents/EXPERIMENTS.md`](../learn_agents/EXPERIMENTS.md)  
+**Full experiment log (chronological, settings, artifacts):** [`docs/EXPERIMENTS.md`](EXPERIMENTS.md)  
 **Result file index:** [`results/README.md`](../results/README.md)
 
 This document is the **interpretation layer**. The experiment log is the **record of what was run**.

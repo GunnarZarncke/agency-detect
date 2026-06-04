@@ -4,7 +4,7 @@ Date range: 2026-05-27 to 2026-05-28
 
 This is a compact record of reasoning, decisions, and actions from the long
 spotlight/hierarchy development conversation. Detailed experimental results live
-in [`learn_agents/EXPERIMENTS.md`](../../learn_agents/EXPERIMENTS.md).
+in [`docs/EXPERIMENTS.md`](../EXPERIMENTS.md).
 
 ## Initial Problem
 
@@ -95,5 +95,5 @@ agent-like components. Metrics now distinguish:
   thresholding.
 - Introduce moving/egocentric agents and validate UAD in an aligned local frame.
 - Keep `docs/CHANGELOG.md` as the brief chronological index and
-  `learn_agents/EXPERIMENTS.md` as the canonical experiment narrative.
+  `docs/EXPERIMENTS.md` as the canonical experiment narrative.
 

@@ -5,7 +5,7 @@ sessions. Use these when a conversation produced architectural choices, experime
 pivots, or follow-up direction that should outlive the chat.
 
 Detailed experiment tables and metrics belong in
-[`learn_agents/EXPERIMENTS.md`](../../learn_agents/EXPERIMENTS.md). Brief
+[`docs/EXPERIMENTS.md`](../EXPERIMENTS.md). Brief
 milestones belong in [`docs/CHANGELOG.md`](../CHANGELOG.md).
 
 ## When To Write One
@@ -49,4 +49,4 @@ docs and artifacts instead of duplicating tables or full result dumps.
 
 - Add or update a brief entry in `docs/CHANGELOG.md` if the session changed repo
   direction or shipped a milestone.
-- Put detailed metrics and run tables in `learn_agents/EXPERIMENTS.md`.
+- Put detailed metrics and run tables in `docs/EXPERIMENTS.md`.

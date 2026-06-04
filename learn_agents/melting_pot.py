@@ -47,7 +47,7 @@ def _require_meltingpot():
         raise ImportError(
             "meltingpot is not installed. Install optional deps, e.g.\n"
             "  pip install 'dm-env' meltingpot\n"
-            "See learn_agents/EXPERIMENTS.md (E16) and requirements-dev.txt."
+            "See docs/EXPERIMENTS.md (E16) and requirements-dev.txt."
         ) from e
     return substrate
 

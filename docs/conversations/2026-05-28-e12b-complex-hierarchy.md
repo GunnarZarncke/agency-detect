@@ -4,7 +4,7 @@ Date: 2026-05-28
 
 Compact record of the E12b stress test after E12 rich-agent fusion. Detailed
 metrics live in
-[`learn_agents/EXPERIMENTS.md`](../../learn_agents/EXPERIMENTS.md#e12b--complex-fixed-agent-hierarchy-sample-2026-05-28).
+[`docs/EXPERIMENTS.md`](../EXPERIMENTS.md#e12b--complex-fixed-agent-hierarchy-sample-2026-05-28).
 
 ## Initial Problem
 

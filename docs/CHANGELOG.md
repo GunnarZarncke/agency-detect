@@ -3,7 +3,7 @@
 Chronological, high-level record of repo and experiment milestones.
 
 For detailed hypotheses, failures, reasoning, and tables, see
-[`learn_agents/EXPERIMENTS.md`](../learn_agents/EXPERIMENTS.md). For compact
+[`EXPERIMENTS.md`](EXPERIMENTS.md). For compact
 conversation-level decisions and rationale, see [`docs/conversations/README.md`](conversations/README.md).
 
 ---
@@ -19,7 +19,7 @@ conversation-level decisions and rationale, see [`docs/conversations/README.md`]
 
 ## 2026-05-27 — Serial Spotlight Line (E9-E11)
 
-See [`learn_agents/EXPERIMENTS.md#e9--serial-spotlight-agent_spotlight`](../learn_agents/EXPERIMENTS.md#e9--serial-spotlight-agent_spotlight).
+See [`EXPERIMENTS.md#e9--serial-spotlight-agent_spotlight`](EXPERIMENTS.md#e9--serial-spotlight-agent_spotlight).
 
 - E8 showed that global latent slots mixed agents before UAD validation could help; E9 introduced serial spotlight: propose one MI cluster, refine locally, validate, peel, repeat.
 - E9a isolated two bottlenecks: binary precursor scoring picked decoys, then `spotlight_slot` expanded good MI proposals into huge mixed candidates.
@@ -39,7 +39,7 @@ Key packages and scripts:
 
 ## 2026-05-28 — Hierarchical Spotlight (E12)
 
-See [`hierarchical_spotlight/README.md`](../hierarchical_spotlight/README.md) and [`learn_agents/EXPERIMENTS.md#e12--hierarchical-chunk-fusion-2026-05-28`](../learn_agents/EXPERIMENTS.md#e12--hierarchical-chunk-fusion-2026-05-28).
+See [`hierarchical_spotlight/README.md`](../hierarchical_spotlight/README.md) and [`EXPERIMENTS.md#e12--hierarchical-chunk-fusion-2026-05-28`](EXPERIMENTS.md#e12--hierarchical-chunk-fusion-2026-05-28).
 
 - Added `hierarchical_spotlight/` as a second-stage experiment: spotlight chunks become graph nodes; compatible chunks are fused into higher-level agent hypotheses.
 - Added timestamped JSON/DOT/PNG Graphviz output under `results/hierarchical/e12/`.
@@ -51,7 +51,7 @@ See [`hierarchical_spotlight/README.md`](../hierarchical_spotlight/README.md) an
 
 ### E12b — complex fixed-agent hierarchy
 
-See [`learn_agents/EXPERIMENTS.md#e12b--complex-fixed-agent-hierarchy-sample-2026-05-28`](../learn_agents/EXPERIMENTS.md#e12b--complex-fixed-agent-hierarchy-sample-2026-05-28).
+See [`EXPERIMENTS.md#e12b--complex-fixed-agent-hierarchy-sample-2026-05-28`](EXPERIMENTS.md#e12b--complex-fixed-agent-hierarchy-sample-2026-05-28).
 
 - Added `agent_variant_mode="complex"` so role channels are heterogeneous views, not lockstep copies.
 - Added `scripts/hierarchical/run_hierarchical_e12b_sweep.py` with parallel case execution, MPS device selection, and per-stage timing.
@@ -63,7 +63,7 @@ Current direction: moving/non-stationary agents will require identity as an inva
 
 ## 2026-06-01 — Amortized Agency Detection: Baseline (E13)
 
-See [`learn_agents/EXPERIMENTS.md#e13--amortized-agency-detection-mi-window-breaking-point-baseline-2026-06-01`](../learn_agents/EXPERIMENTS.md#e13--amortized-agency-detection-mi-window-breaking-point-baseline-2026-06-01) and [`docs/conversations/2026-06-01-amortized-agency-baseline.md`](conversations/2026-06-01-amortized-agency-baseline.md).
+See [`EXPERIMENTS.md#e13--amortized-agency-detection-mi-window-breaking-point-baseline-2026-06-01`](EXPERIMENTS.md#e13--amortized-agency-detection-mi-window-breaking-point-baseline-2026-06-01) and [`docs/conversations/2026-06-01-amortized-agency-baseline.md`](conversations/2026-06-01-amortized-agency-baseline.md).
 
 - Reprioritized toward **short-duration / transient agents**: the goal is one agency detector trained across a pool of varied agents, applied to new traces without relearning each agent. Moving/non-stationary agents are deferred to a later line.
 - Added `scripts/amortized/baseline_window_breaking_point.py`: measures where the existing MI proposal step (`mi_cluster_variable_labels`) loses agent separation as the observation window `W` shrinks, across an easy→hard kind spectrum.
@@ -72,7 +72,7 @@ See [`learn_agents/EXPERIMENTS.md#e13--amortized-agency-detection-mi-window-brea
 
 ### E13b — pooled Siamese + slot affinity
 
-See [`learn_agents/EXPERIMENTS.md#e13b--pooled-siamese--slot-affinity-2026-06-01`](../learn_agents/EXPERIMENTS.md#e13b--pooled-siamese--slot-affinity-2026-06-01).
+See [`EXPERIMENTS.md#e13b--pooled-siamese--slot-affinity-2026-06-01`](EXPERIMENTS.md#e13b--pooled-siamese--slot-affinity-2026-06-01).
 
 - Added `amortized_agency/` package and `scripts/amortized/run_pooled_experiment.py`.
 - Trained Siamese (pairwise) and slot-attention (co-assignment) on train kinds; held-out `hard8_complex`.
@@ -80,7 +80,7 @@ See [`learn_agents/EXPERIMENTS.md#e13b--pooled-siamese--slot-affinity-2026-06-01
 
 ### E13c — slot upgrades, train-long / detect-short
 
-See [`learn_agents/EXPERIMENTS.md#e13c--slot-upgrades--train-long--detect-short-2026-06-01`](../learn_agents/EXPERIMENTS.md#e13c--slot-upgrades--train-long--detect-short-2026-06-01).
+See [`EXPERIMENTS.md#e13c--slot-upgrades--train-long--detect-short-2026-06-01`](EXPERIMENTS.md#e13c--slot-upgrades--train-long--detect-short-2026-06-01).
 
 - Default training windows `{500,1000}`; eval at `{250,125,60}`.
 - Slot fixes: correct attention axis, profile-cosine affinity, contrastive/cohesion/recon losses.
@@ -88,7 +88,7 @@ See [`learn_agents/EXPERIMENTS.md#e13c--slot-upgrades--train-long--detect-short-
 
 ### E13d — stable slot objective + context-aware model
 
-See [`learn_agents/EXPERIMENTS.md#e13d--slot-objective-fixes--context-aware-model-2026-06-01`](../learn_agents/EXPERIMENTS.md#e13d--slot-objective-fixes--context-aware-model-2026-06-01).
+See [`EXPERIMENTS.md#e13d--slot-objective-fixes--context-aware-model-2026-06-01`](EXPERIMENTS.md#e13d--slot-objective-fixes--context-aware-model-2026-06-01).
 
 - Applied slot fixes #1–5 (canonical slot-competition softmax, unified train/inference affinity, corrected sharpness, vectorized contrastive, optional sampled slots); dropped conflicting reconstruction. Objective now converges stably with no early stopping.
 - Diagnostics proved two causes for slot failure: the slot readout cannot express same-agent membership, and the per-channel encoder is relational-blind. BCE-only floors at ln 2 (chance); cross-channel pairwise overfits training (ARI 0.80).
@@ -96,7 +96,7 @@ See [`learn_agents/EXPERIMENTS.md#e13d--slot-objective-fixes--context-aware-mode
 
 ### E13e — method-trend sweep across test-time parameters
 
-See [`learn_agents/EXPERIMENTS.md#e13e--method-trend-sweep-across-test-time-parameters-2026-06-01`](../learn_agents/EXPERIMENTS.md#e13e--method-trend-sweep-across-test-time-parameters-2026-06-01).
+See [`EXPERIMENTS.md#e13e--method-trend-sweep-across-test-time-parameters-2026-06-01`](EXPERIMENTS.md#e13e--method-trend-sweep-across-test-time-parameters-2026-06-01).
 
 - Added `scripts/amortized/run_method_sweep.py`: train learned models once, then vary one test-time parameter at a time (window, observation+process noise, agent count) on complex agents. `simulate_episode` gained a config-`overrides` hook.
 - **Crossover at W≈70**: MI is monotone in window (chance at W=30, ~0.96 at W=400) and overtakes the learned models above it, but **below ~W=70 the amortized models win** (W=30: context/Siamese ≈0.4 vs MI 0.13) — the transient regime the project targets.
@@ -117,14 +117,14 @@ See [`learn_agents/EXPERIMENTS.md#e13e--method-trend-sweep-across-test-time-para
 
 ### E14 — telemetry extensions (sim); ClusterData rejected
 
-See [`learn_agents/EXPERIMENTS.md#e14--telemetry-extensions-sim-real-data-anchor-rejected-2026-06-03`](../learn_agents/EXPERIMENTS.md#e14--telemetry-extensions-sim-real-data-anchor-rejected-2026-06-03).
+See [`EXPERIMENTS.md#e14--telemetry-extensions-sim-real-data-anchor-rejected-2026-06-03`](EXPERIMENTS.md#e14--telemetry-extensions-sim-real-data-anchor-rejected-2026-06-03).
 
 - Sim: periodic driver + heavy-tailed bursts in `TraceSimulationConfig`; MI detectability matrix passes for extensions (`telemetry_extension_detectability.py`).
 - **Google ClusterData 2019** trialed as real anchor; rejected (job usage metrics are comoving processes, not blanket-valid agents). Adapter/downloader removed.
 
 ### E15 — external POMDP trace families
 
-See [`learn_agents/EXPERIMENTS.md#e15--external-pomdp-trace-families-2026-06-04`](../learn_agents/EXPERIMENTS.md#e15--external-pomdp-trace-families-2026-06-04).
+See [`EXPERIMENTS.md#e15--external-pomdp-trace-families-2026-06-04`](EXPERIMENTS.md#e15--external-pomdp-trace-families-2026-06-04).
 
 - Added trace loggers: partial CartPole (`physics_pomdp.py`), 5×5 RockSample (`rock_sample.py`), 3×3/5×5 multi-agent grid POMDP (`grid_pomdp.py`) via `external_traces.py`.
 - Detectability: `external_pomdp_detectability.py` — physics and RockSample MI ARI 1.0 at available T; grids mixed (stepping stone toward Melting Pot + learned/UAD).
@@ -133,14 +133,18 @@ See [`learn_agents/EXPERIMENTS.md#e15--external-pomdp-trace-families-2026-06-04`
 ### Agent detectability summary table
 
 - Added `scripts/learn_agents/agent_ari_table.py`: live MI ARI + timing; learned+UAD from cached spotlight JSON only (no batch re-run).
-- Documented full family table in `learn_agents/EXPERIMENTS.md` (pool, E14 telemetry, E15 external POMDPs).
+- Documented full family table in `EXPERIMENTS.md` (pool, E14 telemetry, E15 external POMDPs).
 
 ### E16 — extended amortized pool, transfer, and mixed detection
 
-See [`learn_agents/EXPERIMENTS.md`](../learn_agents/EXPERIMENTS.md#e14e16--2026-06-04-summary-telemetry-externals-detectability-transfer).
+See [`EXPERIMENTS.md`](EXPERIMENTS.md#e14e16--2026-06-04-summary-telemetry-externals-detectability-transfer).
 
 - Extended pool wiring (`external_registry.py`, `kinds.py` `EXTENDED_*`, `worlds.py` external backend); smoke test `check_extended_pool.py`; `safe_results.py` archives JSON before overwrite.
 - **E16b transfer** (`run_dataset_vs_baseline.py`): sim-trained context encoder transfers perfectly to single-agent physics/rock (degenerate n=1) but **fails on multi-agent grids** (ctx ~0 vs MI 0.82). Adding grid3 to training and 2× epochs (`ablate_grid_context_epochs.py`) barely helps (ctx 0.03→0.08) — not a training-duration issue.
 - **Multi-agent + mixed detection** (`physics_pomdp.roll_cartpole_multi`, `external_traces.merge_agent_traces`, `mixed_detection.py`): heterogeneous plants (rock + grid) separate cleanly, but **CartPole is a degenerate probe for co-movement MI** — random → transient, balanced controller → regulated-flat variables (good-regulator effect). Prefer agents with persistent distinctive dynamics.
 - Melting Pot remains scaffold-only (`melting_pot.py`, `verify_external_deps.py`).
+
+### Documentation — experiment log location
+
+- Moved canonical experiment log to [`docs/EXPERIMENTS.md`](EXPERIMENTS.md) (from `learn_agents/`); added relocation note at top; `learn_agents/EXPERIMENTS.md` is a redirect stub. Updated cross-links in `PROJECT_INSTRUCTIONS.md`, `CHANGELOG.md`, conversation summaries, and package READMEs.
 

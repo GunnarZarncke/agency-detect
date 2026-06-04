@@ -5,7 +5,7 @@ Date: 2026-06-01
 Compact record of the pivot toward transient-agent detection via amortization,
 and the MI window breaking-point baseline that anchors it. Detailed metrics live
 in
-[`learn_agents/EXPERIMENTS.md`](../../learn_agents/EXPERIMENTS.md#e13--amortized-agency-detection-mi-window-breaking-point-baseline-2026-06-01).
+[`docs/EXPERIMENTS.md`](../EXPERIMENTS.md#e13--amortized-agency-detection-mi-window-breaking-point-baseline-2026-06-01).
 
 ## Initial Problem
 

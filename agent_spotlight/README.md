@@ -2,7 +2,7 @@
 
 Serial **spotlight** agent discovery: propose one MI cluster at a time, refine with small slot capacity, validate, peel, repeat.
 
-Replaces global N-slot competition (see E8 in [`learn_agents/EXPERIMENTS.md`](../learn_agents/EXPERIMENTS.md)) with a human-inspired **one-agent-at-a-time** loop.
+Replaces global N-slot competition (see E8 in [`docs/EXPERIMENTS.md`](../docs/EXPERIMENTS.md)) with a human-inspired **one-agent-at-a-time** loop.
 
 ## Architecture
 
