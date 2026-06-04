@@ -25,7 +25,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from learn_agents.grid_pomdp import GridPomdpConfig, roll_grid_pomdp  # noqa: E402
 from learn_agents.learn_agents import SimulationResult, mi_cluster_variable_labels, oracle_uad_scores  # noqa: E402
-from learn_agents.physics_pomdp import roll_cartpole_partial_obs  # noqa: E402
+from learn_agents.physics_pomdp import roll_cartpole_multi, roll_cartpole_partial_obs  # noqa: E402
 from learn_agents.rock_sample import RockSampleConfig, roll_rock_sample  # noqa: E402
 
 WINDOWS_DEFAULT = [50, 100, 150, 250]
@@ -56,6 +56,7 @@ def _oracle_summary(result: SimulationResult) -> Dict[str, float]:
 
 BUILDERS: Dict[str, Callable[[int], SimulationResult]] = {
     "physics": lambda seed: roll_cartpole_partial_obs(seed=seed),
+    "physics3": lambda seed: roll_cartpole_multi(seed=seed, num_agents=3, n_decoy_env=8),
     "rock": lambda seed: roll_rock_sample(RockSampleConfig(seed=seed)),
     "grid3": lambda seed: roll_grid_pomdp(
         GridPomdpConfig(grid=3, view=3, num_agents=2, max_steps=250, seed=seed)
@@ -120,12 +121,14 @@ def main() -> None:
         type=Path,
         default=REPO_ROOT / "results/learn_agents/e15_external_pomdp_detectability.json",
     )
+    p.add_argument("--force", action="store_true", help="Overwrite --out in place")
     args = p.parse_args()
     sources = [s.strip() for s in args.sources.split(",") if s.strip()]
     payload = run(sources, args.seeds, args.windows)
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(payload, indent=2))
-    print("wrote", args.out)
+    from learn_agents.safe_results import write_json
+
+    written = write_json(payload, args.out, force=args.force)
+    print("wrote", written)
     for name, s in payload["summary_max_window"].items():
         print(f"  {name}: ARI={s['ari_mean']:.3f}+-{s['ari_std']:.3f} (n={s['n']})")
 

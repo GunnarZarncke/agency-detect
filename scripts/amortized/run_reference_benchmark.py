@@ -34,7 +34,13 @@ from amortized_agency.benchmark import (  # noqa: E402
 )
 from amortized_agency.cluster import labels_from_affinity  # noqa: E402
 from amortized_agency.context_model import ContextTrainConfig, ContextualAffinityModel, train_context  # noqa: E402
-from amortized_agency.kinds import ALL_KINDS, TRAIN_KINDS, Kind  # noqa: E402
+from amortized_agency.kinds import (  # noqa: E402
+    ALL_KINDS,
+    EXTENDED_ALL_KINDS,
+    EXTENDED_TRAIN_KINDS,
+    TRAIN_KINDS,
+    Kind,
+)
 from amortized_agency.metrics import score_clustering  # noqa: E402
 from amortized_agency.siamese import SiameseAffinityModel, train_siamese  # noqa: E402
 from amortized_agency.worlds import generate_pool, simulate_episode  # noqa: E402
@@ -108,6 +114,11 @@ def main() -> None:
         help="Run per-trace MI (slow). Default: frozen E13 reference for gaps only.",
     )
     parser.add_argument("--out-dir", type=str, default=str(REPO_ROOT / "results" / "amortized"))
+    parser.add_argument(
+        "--extended-pool",
+        action="store_true",
+        help="Train/eval on E16 pool (sim + E15 externals + melting_pot). Not run by default.",
+    )
     args = parser.parse_args()
 
     if args.fast:
@@ -129,8 +140,10 @@ def main() -> None:
 
     print(f"Device: {device}  reference_windows={REFERENCE_WINDOWS}")
     print(f"Eval windows: {eval_windows}  seeds={seeds}")
-    train_episodes = generate_pool(TRAIN_KINDS, args.train_worlds, 1000, window_choices=[500, 1000])
-    print(f"Training pool: {len(train_episodes)} episodes")
+    train_kinds = EXTENDED_TRAIN_KINDS if args.extended_pool else TRAIN_KINDS
+    eval_kinds = EXTENDED_ALL_KINDS if args.extended_pool else ALL_KINDS
+    train_episodes = generate_pool(train_kinds, args.train_worlds, 1000, window_choices=[500, 1000])
+    print(f"Training pool: {len(train_episodes)} episodes ({'extended' if args.extended_pool else 'default'})")
 
     siamese = SiameseAffinityModel(window=1000).to(device)
     train_siamese(
@@ -151,8 +164,8 @@ def main() -> None:
     if not args.run_mi:
         print("MI skipped — using frozen E13 reference ARIs for gap_to_mi")
     print("\n=== reference benchmark (gap_to_mi = MI_ref − learned) ===")
-    for kind in ALL_KINDS:
-        held = kind.name == "hard8_complex"
+    for kind in eval_kinds:
+        held = kind.name in ("hard8_complex", "grid_pomdp_5x5", "melting_pot_cooking_ring")
         for w in eval_windows:
             row = eval_cell(kind, w, seeds, siamese, context, device, run_mi=args.run_mi)
             row.update({
@@ -186,8 +199,9 @@ def main() -> None:
         "benchmark": "reference",
         "reference_windows": REFERENCE_WINDOWS,
         "mi_reference_note": "E13: MI ARI ~1.0 at W>=250 train kinds, ~0.96 held-out hard8",
-        "train_kinds": [k.name for k in TRAIN_KINDS],
-        "eval_kinds": [k.name for k in ALL_KINDS],
+        "extended_pool": args.extended_pool,
+        "train_kinds": [k.name for k in train_kinds],
+        "eval_kinds": [k.name for k in eval_kinds],
         "eval_windows": eval_windows,
         "eval_seeds": seeds,
         "run_mi": args.run_mi,

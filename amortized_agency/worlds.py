@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 
 import numpy as np
 
-from learn_agents.learn_agents import TraceSimulationConfig, simulate_known_agent_trace
+from learn_agents.learn_agents import SimulationResult, TraceSimulationConfig, simulate_known_agent_trace
 
 from amortized_agency.benchmark import EVAL_T_STEPS
 from amortized_agency.kinds import Kind
@@ -19,6 +19,27 @@ class Episode:
     agent_ids: np.ndarray  # [N] ground-truth agent id per column
     kind: str
     seed: int
+    trace_T: int = 0  # full trace length before slicing (external may be short)
+
+
+def episode_from_result(
+    result: SimulationResult,
+    kind: Kind,
+    window_len: int,
+    seed: int,
+) -> Episode:
+    trace = result.trace
+    var_agent = np.asarray(result.metadata["var_agent"], dtype=np.int64)
+    agent_cols = np.where(var_agent >= 0)[0]
+    w = min(window_len, trace.shape[0])
+    sub = trace[:w, agent_cols]
+    return Episode(
+        window=sub.astype(np.float32),
+        agent_ids=var_agent[agent_cols],
+        kind=kind.name,
+        seed=seed,
+        trace_T=int(trace.shape[0]),
+    )
 
 
 def simulate_episode(
@@ -30,6 +51,13 @@ def simulate_episode(
 ) -> Episode:
     # Match E13 MI baseline: long horizon then slice [:window_len] (see benchmark.EVAL_T_STEPS).
     t = t_steps if t_steps is not None else max(window_len, EVAL_T_STEPS)
+
+    if kind.backend == "external":
+        from learn_agents.external_registry import build_external_trace
+
+        result = build_external_trace(kind.external_key or "", seed=seed, t_steps=t)
+        return episode_from_result(result, kind, window_len, seed)
+
     cfg = TraceSimulationConfig(
         T=t,
         num_agents=kind.num_agents,
@@ -43,15 +71,7 @@ def simulate_episode(
     if overrides:
         cfg = replace(cfg, **overrides)
     result = simulate_known_agent_trace(cfg)
-    var_agent = np.asarray(result.metadata["var_agent"], dtype=np.int64)
-    agent_cols = np.where(var_agent >= 0)[0]
-    sub = result.trace[:window_len, agent_cols]
-    return Episode(
-        window=sub.astype(np.float32),
-        agent_ids=var_agent[agent_cols],
-        kind=kind.name,
-        seed=seed,
-    )
+    return episode_from_result(result, kind, window_len, seed)
 
 
 def generate_pool(
@@ -69,6 +89,9 @@ def generate_pool(
             seed = seed_offset + k_idx * 10_000 + i
             w = int(gen.choice(window_choices)) if window_choices else window_len
             t_steps = max(w, window_len, EVAL_T_STEPS)
+            if kind.backend == "external" and kind.name.startswith("physics_cartpole"):
+                # Short physics rollouts: do not require T=2000 simulation.
+                t_steps = max(w, 500)
             episodes.append(simulate_episode(kind, w, seed=seed, t_steps=t_steps))
     return episodes
 

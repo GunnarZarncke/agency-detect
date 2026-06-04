@@ -132,6 +132,7 @@ def main() -> None:
     parser.add_argument("--seeds", type=int, default=5)
     parser.add_argument("--windows", type=int, nargs="+", default=[500, 250])
     parser.add_argument("--out-dir", type=str, default=str(REPO_ROOT / "results" / "learn_agents" / "telemetry_extensions"))
+    parser.add_argument("--force", action="store_true", help="Overwrite detectability JSON in place")
     args = parser.parse_args()
 
     seeds = list(range(args.seeds))
@@ -139,9 +140,11 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     summary = run(seeds, args.windows)
+    from learn_agents.safe_results import write_json
+
     out_json = out_dir / "telemetry_extension_detectability.json"
-    out_json.write_text(json.dumps(summary, indent=2))
-    print(f"\nWrote {out_json}")
+    written = write_json(summary, out_json, force=args.force)
+    print(f"\nWrote {written}")
 
 
 if __name__ == "__main__":

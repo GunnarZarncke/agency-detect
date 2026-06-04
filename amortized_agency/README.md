@@ -10,8 +10,8 @@ downstream agglomerative clustering → comparable ARI / Jaccard.
 
 | Module | Role |
 |--------|------|
-| `kinds.py` | Agent kind definitions; train vs held-out split |
-| `worlds.py` | Simulator episodes (agent variables only) |
+| `kinds.py` | Agent kind definitions; train vs held-out split; `EXTENDED_*` pool (E16) |
+| `worlds.py` | Episodes from sim or external traces (`backend=external`) |
 | `siamese.py` | Pairwise Siamese baseline (per-channel encoder) |
 | `slot_model.py` | Slot attention + `CrossChannelEncoder` (documented negative result for the slot readout) |
 | `context_model.py` | Cross-channel encoder → direct pairwise affinity (best learned method) |
@@ -38,6 +38,12 @@ downstream agglomerative clustering → comparable ARI / Jaccard.
 
 # Reference eval (learned only; frozen MI gaps) — add --run-mi to re-check live MI
 .venv/bin/python scripts/amortized/run_reference_benchmark.py --device cpu
+
+# Extended pool wiring check (builds episodes only; no training)
+.venv/bin/python scripts/amortized/check_extended_pool.py
+
+# Extended pool benchmark (when ready; not part of default E13 protocol yet)
+# .venv/bin/python scripts/amortized/run_reference_benchmark.py --device cpu --extended-pool
 
 # One-off MI ceiling curve (slow)
 .venv/bin/python scripts/amortized/baseline_window_breaking_point.py

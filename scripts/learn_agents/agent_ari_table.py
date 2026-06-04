@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""MI vs learned+UAD variable ARI for all agent families (no live spotlight).
+"""MI vs learned+UAD variable ARI for all agent families.
 
 MI: measured live (simulate + mi_cluster_variable_labels), with per-trace timing.
-Learned+UAD: from cached spotlight JSON artifacts only (serial peel + UAD); never run here.
+Learned+UAD: cached spotlight JSON when available; ``--run-spotlight-missing`` runs live
+peels for families without cache (saves under ``results/learn_agents/spotlight_runs/``).
 """
 
 from __future__ import annotations
@@ -67,13 +68,12 @@ SPOTLIGHT_CACHE: Dict[str, List[str]] = {
         str(p.relative_to(REPO_ROOT))
         for p in (REPO_ROOT / "results/spotlight/e12b").glob("spotlight_complex_*.json")
     ),
-    "med5_rich_proxy_rich8": [
+    "med5_rich": [
         "results/spotlight/e11/spotlight_e11_rich_agents_cpr3_k24_p16.json",
     ],
-    "benchmark_8agent_redundant_decoy20": [
-        "results/spotlight/e9/spotlight_mi_cluster_e8_decoy20.json",
-    ],
 }
+
+SPOTLIGHT_RUNS_DIR = REPO_ROOT / "results/learn_agents/spotlight_runs"
 
 
 def _mi_ari(trace: np.ndarray, var_agent: np.ndarray, num_agents: int, window: int) -> float:
@@ -162,6 +162,63 @@ def _telemetry_mi_from_cache(combo: str) -> Optional[float]:
     return None
 
 
+def _spotlight_cfg(overrides: Dict, seed: int, *, fast: bool) -> "SpotlightConfig":
+    from dataclasses import replace
+
+    from agent_spotlight.config import SpotlightConfig
+
+    n = int(overrides["num_agents"])
+    epoch_kw = dict(pretrain_epochs=25, refine_epochs=20) if fast else dict()
+    sim_keys = {
+        "num_agents",
+        "copies_per_role",
+        "decoy_vars",
+        "agent_variant_mode",
+        "interaction_strength",
+        "episodic",
+        "episode_len",
+        "episode_gap",
+        "shared_period",
+        "shared_periodic_strength",
+        "innovation_dist",
+        "innovation_strength",
+        "innovation_df",
+    }
+    spot_kw = {k: overrides[k] for k in sim_keys if k in overrides}
+    return replace(
+        SpotlightConfig(verbose=False, seed=seed, T=EVAL_T_STEPS, **epoch_kw),
+        max_passes=n,
+        proposal_mi_k=max(12, n * 2),
+        **spot_kw,
+    )
+
+
+def _run_spotlight_live(
+    name: str,
+    overrides: Dict,
+    seed: int,
+    *,
+    fast: bool,
+) -> Dict[str, Any]:
+    from agent_spotlight.peel import run_spotlight_peel
+
+    t0 = time.perf_counter()
+    cfg = _spotlight_cfg(overrides, seed, fast=fast)
+    report = run_spotlight_peel(cfg)
+    elapsed = time.perf_counter() - t0
+    SPOTLIGHT_RUNS_DIR.mkdir(parents=True, exist_ok=True)
+    out = SPOTLIGHT_RUNS_DIR / f"{name}_seed{seed}.json"
+    out.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    return {
+        "learned_uad_ari_mean": _spotlight_ari(report),
+        "learned_uad_ari_std": 0.0,
+        "learned_uad_recall_mean": float(report["summary"]["cumulative_recall"]),
+        "learned_uad_sec_mean": float(report.get("timing", {}).get("peel_total_sec", elapsed)),
+        "learned_uad_sources": [str(out.relative_to(REPO_ROOT))],
+        "learned_uad_note": f"live spotlight seed={seed}",
+    }
+
+
 def _simulate_cfg(overrides: Dict, seed: int) -> tuple[np.ndarray, np.ndarray, int, float]:
     t0 = time.perf_counter()
     cfg = TraceSimulationConfig(T=EVAL_T_STEPS, seed=seed, **overrides)
@@ -178,6 +235,8 @@ def eval_sim_row(
     *,
     spotlight_paths: Optional[List[str]] = None,
     mi_cached: Optional[float] = None,
+    run_spotlight_missing: bool = False,
+    spotlight_fast: bool = True,
 ) -> Dict[str, Any]:
     mi_aris: List[float] = []
     mi_seconds: List[float] = []
@@ -205,7 +264,31 @@ def eval_sim_row(
         row["mi_ari_frozen_e13"] = frozen
 
     cache = _load_spotlight_stats(spotlight_paths or [])
-    if cache:
+    if cache and not run_spotlight_missing:
+        row.update(cache)
+    elif run_spotlight_missing and not (spotlight_paths or []):
+        lu_aris: List[float] = []
+        lu_secs: List[float] = []
+        recalls: List[float] = []
+        sources: List[str] = []
+        for seed in seeds:
+            live = _run_spotlight_live(name, overrides, seed, fast=spotlight_fast)
+            lu_aris.append(live["learned_uad_ari_mean"])
+            lu_secs.append(live["learned_uad_sec_mean"])
+            recalls.append(live["learned_uad_recall_mean"])
+            sources.extend(live["learned_uad_sources"])
+        row.update(
+            {
+                "learned_uad_ari_mean": float(np.mean(lu_aris)),
+                "learned_uad_ari_std": float(np.std(lu_aris)),
+                "learned_uad_recall_mean": float(np.mean(recalls)),
+                "learned_uad_sec_mean": float(np.mean(lu_secs)),
+                "learned_uad_sec_std": float(np.std(lu_secs)),
+                "learned_uad_sources": sources,
+                "learned_uad_note": f"live spotlight ({len(seeds)} seeds)",
+            }
+        )
+    elif cache:
         row.update(cache)
     else:
         row["learned_uad_ari_mean"] = None
@@ -244,7 +327,12 @@ def eval_external_row(name: str, builder: Callable[[int], Any], seeds: Sequence[
     }
 
 
-def run_all(seeds: Sequence[int]) -> List[Dict]:
+def run_all(
+    seeds: Sequence[int],
+    *,
+    run_spotlight_missing: bool = False,
+    spotlight_fast: bool = True,
+) -> List[Dict]:
     rows: List[Dict] = []
     pool = {
         "easy3_redundant": dict(
@@ -274,13 +362,23 @@ def run_all(seeds: Sequence[int]) -> List[Dict]:
     }
     spotlight_map = {
         "easy3_redundant": [],
-        "med5_rich": SPOTLIGHT_CACHE.get("med5_rich_proxy_rich8", []),
+        "med5_rich": SPOTLIGHT_CACHE.get("med5_rich", []),
         "hard8_complex": SPOTLIGHT_CACHE.get("hard8_complex", []),
     }
     for name, ov in pool.items():
         print(f"=== {name} ===", flush=True)
+        paths = spotlight_map.get(name, [])
+        if run_spotlight_missing and not paths:
+            print("  (running live spotlight)", flush=True)
         rows.append(
-            eval_sim_row(name, ov, seeds, spotlight_paths=spotlight_map.get(name))
+            eval_sim_row(
+                name,
+                ov,
+                seeds,
+                spotlight_paths=paths,
+                run_spotlight_missing=run_spotlight_missing,
+                spotlight_fast=spotlight_fast,
+            )
         )
         r = rows[-1]
         lu = r.get("learned_uad_ari_mean")
@@ -294,7 +392,16 @@ def run_all(seeds: Sequence[int]) -> List[Dict]:
         print(f"=== {name} ===", flush=True)
         ov = {**E14_BASE, **E14_EXTENSIONS[name]}
         cached_mi = _telemetry_mi_from_cache(name)
-        rows.append(eval_sim_row(name, ov, seeds, mi_cached=cached_mi))
+        rows.append(
+            eval_sim_row(
+                name,
+                ov,
+                seeds,
+                mi_cached=cached_mi,
+                run_spotlight_missing=run_spotlight_missing,
+                spotlight_fast=spotlight_fast,
+            )
+        )
         r = rows[-1]
         print(f"  MI ARI={r['mi_ari_mean']:.3f}  ({r['mi_sec_mean']:.2f}s/trace)", flush=True)
 
@@ -338,7 +445,7 @@ def _fmt_sec(mean: Optional[float]) -> str:
 
 def markdown_table(rows: List[Dict]) -> str:
     lines = [
-        "| Agent family | n | MI ARI @W=250 | MI time / trace | Learned+UAD ARI | LU time (cached) | Notes |",
+        "| Agent family | n | MI ARI @W=250 | MI time / trace | Learned+UAD ARI | LU time | Notes |",
         "|---|---:|---:|---:|---:|---:|---|",
     ]
     for r in rows:
@@ -369,8 +476,27 @@ def main() -> None:
         type=Path,
         default=REPO_ROOT / "results/learn_agents/agent_ari_table.json",
     )
+    p.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite --out in place (default: archive existing, write timestamped file)",
+    )
+    p.add_argument(
+        "--run-spotlight-missing",
+        action="store_true",
+        help="Run live spotlight for families without cached JSON (slow)",
+    )
+    p.add_argument(
+        "--no-spotlight-fast",
+        action="store_true",
+        help="Use full spotlight train epochs (50/40) when running live",
+    )
     args = p.parse_args()
-    rows = run_all(args.seeds)
+    rows = run_all(
+        args.seeds,
+        run_spotlight_missing=args.run_spotlight_missing,
+        spotlight_fast=not args.no_spotlight_fast,
+    )
     md = markdown_table(rows)
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -378,13 +504,18 @@ def main() -> None:
         "eval_t_steps": EVAL_T_STEPS,
         "seeds": list(args.seeds),
         "mi_protocol": "mi_cluster_variable_labels on agent cols, trace[:W]; timed per seed",
-        "learned_uad_protocol": "cached agent_spotlight peels only (no live runs)",
+        "learned_uad_protocol": (
+            "cached + live spotlight for missing families"
+            if args.run_spotlight_missing
+            else "cached agent_spotlight peels only"
+        ),
         "markdown_table": md,
         "rows": rows,
     }
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(payload, indent=2))
-    print(f"\nWrote {args.out}\n")
+    from learn_agents.safe_results import write_json
+
+    written = write_json(payload, args.out, force=args.force)
+    print(f"\nWrote {written}\n")
     print(md)
 
 

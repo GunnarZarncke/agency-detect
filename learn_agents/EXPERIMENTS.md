@@ -900,63 +900,67 @@ Artifacts: `results/amortized/learned_sweep_summary.json`, `learned_sweep_full.l
 
 **Real-data directions (if pursued later):** Prefer traces with **explicit per-actor observation + action channels** and falsifiable blankets — e.g. multi-agent RL / sim logs (PettingZoo, Melting Pot, SMAC), robotics state–action datasets (D4RL-style separate proprioception vs motor command), or logged control stacks with plant/controller variable split. Infrastructure telemetry (ClusterData, S3E, generic metrics) ranks low for agency.
 
-### E15 — external POMDP trace families (2026-06-04)
+### E14–E16 — 2026-06-04 summary (telemetry, externals, detectability, transfer)
 
-**Goal:** Bridge the telemetry sim toward **real agent structure** (S/A/I roles, blanket-testable traces) in small steps: physics baseline → RockSample → synthetic grids → Melting Pot → robotics later.
+**E14 (sim):** Optional periodic driver + heavy-tailed innovations on telemetry sim; MI detectability passes at W≥250 (`telemetry_extension_detectability.py`). ClusterData rejected (no S/A/I agency).
 
-**Shared packaging:** `learn_agents/external_traces.py` builds `SimulationResult` with `var_agent`, `var_role`, `role_indices`, `agent_clusters`, plus light **env decoys** so `oracle_uad_scores` has external columns on single-agent runs.
+**E15–E16 (externals + pool):** `external_traces.pack_trace` adds env decoys on the **full** trace; **MI and amortized eval cluster agent columns only** (decoys stripped in `worlds.episode_from_result`). Single-agent physics/rock with n=1 is a **degenerate** test (one cluster always correct); success there is weak evidence.
 
-| Stage | Source | Roles | Horizon | MI @ max W (3 seeds) | Notes |
-|-------|--------|-------|---------|----------------------|-------|
-| **A** | `physics_pomdp.py` — CartPole-v1 partial obs | S=velocities, I=position/angle, A=force | ~16–23 steps (one rollout) | **1.00** (3 seeds) | Short but one continuous dynamical episode; regulator discoverable; **pool candidate** |
-| **B** | `rock_sample.py` — 5×5, K=3 | S=noisy sense reading, I=pos+rock flags, A=move/sample/sense | ~72–100 | **1.00** | POMDP with real latent; longer than card games |
-| **C1** | `grid_pomdp.py` — 3×3, 2 agents | S=egocentric 3×3 channel means, I=(x,y), A=move/harvest | 250 | **~0.82** (1/3 seeds weak) | Melting-Pot **stepping stone** |
-| **C2** | `grid_pomdp.py` — 5×5, 2 agents | same | 250 | **~0.40–0.7** (MI mixed) | Harder for parameter-free MI; target for **learned + UAD** path |
-| **D** | Melting Pot (structured obs, not RGB) | per-actor S/A/I from sim state | 1000+ | TBD | After grid bridge validates training + blanket checks |
-| **Later** | D4RL / robotics logs | proprio vs motor split | long | TBD | Deferred; **I** often ill-defined in raw logs |
+**Scripts / artifacts:**
 
-**Detectability script:** `scripts/learn_agents/external_pomdp_detectability.py` — MI ARI on agent columns + `oracle_uad_scores` separation ratios. Artifacts: `results/learn_agents/e15_external_pomdp_detectability.json`.
+| Script | Role | Artifact |
+|--------|------|----------|
+| `external_pomdp_detectability.py` | MI @ multiple W on externals | `e15_external_pomdp_detectability.json` |
+| `agent_ari_table.py` | MI + learned+UAD on sim + externals | `agent_ari_table.json` (~2 h with live spotlight) |
+| `run_dataset_vs_baseline.py` | Context transfer @ W=250 | `dataset_vs_baseline.json`, `dataset_vs_baseline_extended.json` |
+| `check_extended_pool.py` | Smoke build, no training | — |
+| `ablate_grid_context_epochs.py` | 2× train epochs ablation on grid3 | `ablate_grid_epochs_*.json` |
 
-**Command:**
+**Regimes (one table):** W=250 unless noted; eval seeds 0–2; amortized train defaults **40 worlds/kind**, **40 context / 25 siamese epochs** unless ablation.
+
+| Family | Regime | n | decoys (full trace) | T_med | MI ARI | LU ARI | ctx train | Notes |
+|--------|--------|--:|---:|---:|---:|---:|---:|-------|
+| easy3_redundant | sim pool, episodic=False | 3 | 6 | 2000 | 1.00 | 0.18±0.26 | 0.90 / 0.76† | MI 0.8 s; LU live 29 s |
+| med5_rich | sim pool | 5 | 8 | 2000 | 1.00 | 1.00 | 0.55 / 0.67† | LU = E11 8-agent proxy |
+| hard8_complex | sim held-out | 8 | 8 | 2000 | 0.94 | 1.00 | 0.72 / 0.52† | LU cache ~5.2 min |
+| telemetry_* | E14 extensions, 5 agents | 5 | 8 | 2000 | 0.80–1.00 | 0.35–0.65 | — | regime/all LU use **episodic=True** sim |
+| physics_cartpole | 1 pole, partial obs | 1 | 4 | ~16–24 | 1.00 | — | 1.00 | trivial n=1; ~30 ms MI |
+| physics_cartpole_x3 | 3 parallel poles + per-agent drive | 3 | 8 | ~28 | ~0 | — | 0.05–0.14 | MI merges poles; ctx non-trivial (not 1.0) |
+| rock_sample_5x5 | 5×5 POMDP | 1 | 4 | ~81 | 1.00 | — | 1.00 | trivial n=1 |
+| grid_pomdp_3x3 | 2 agents, ego 3×3 | 2 | 4 | 250 | 0.82±0.25 | — | ~0 / **0.12**† | MI ~230 ms; **main failure** |
+| grid_pomdp_5x5 | 2 agents, 5×5 | 2 | 4 | 250 | 0.40±0.30 | — | ~0 / 0.01† | held-out size |
+
+† **ctx train:** sim-only (`easy3+med5`) / **extended** (`+physics, rock, grid3`). Extended run ~12 min (`dataset_vs_baseline_extended.json`).
+
+**Transfer readout (E16b):** Grids: MI separates agents partially; context encoder stays near chance even **in-distribution** (extended train: grid3 ctx **0.12**, MI **0.82**). Physics/rock ctx=1.0 is **weak evidence** (n=1, amortized path drops decoys). `physics_cartpole_x3`: MI≈0, ctx≈0.05–0.14 — genuinely hard.
+
+**Grid failure — simplest ablation (2026-06-04):** `ablate_grid_context_epochs.py` doubles context/siamese epochs (40→80, 25→50); grid3 ctx **0.027 → 0.084** (MI unchanged 0.824). **Training duration alone does not explain the gap.** Next tests: oversample grid worlds in pool, then encoder scale (`run_learned_sweep` xl). Likely drivers: mixed pool dominated by sim statistics (redundant role copies) vs 14 egocentric channels; short-window slice on long sim vs full grid T=250.
+
+**Extended train wall time:** ~12 min/run (200 episodes, 5 kinds, CPU); 2× ablation ~33 min total.
+
+**Harder physics:** `physics_cartpole_x3` — three independent CartPoles, 8 env decoys on full trace (`physics_pomdp.roll_cartpole_multi`).
 
 ```bash
-.venv/bin/pip install gymnasium   # physics only
-.venv/bin/python scripts/learn_agents/external_pomdp_detectability.py --seeds 0 1 2
+.venv/bin/python scripts/learn_agents/agent_ari_table.py --seeds 0 1 2 --run-spotlight-missing --force
+.venv/bin/python scripts/learn_agents/external_pomdp_detectability.py --sources physics physics3 grid3 grid5 --seeds 0 1 2
+.venv/bin/python scripts/amortized/run_dataset_vs_baseline.py --eval-seeds 3 --force
+.venv/bin/python scripts/amortized/run_dataset_vs_baseline.py --extended-pool --run-mi --force
+.venv/bin/python scripts/amortized/ablate_grid_context_epochs.py --force
+.venv/bin/python scripts/amortized/check_extended_pool.py
 ```
 
-**Pool / amortized:** Physics and RockSample are natural `Kind` extensions (fixed S/A/I layout, no oracle hole cards). Grid families feed the same pipeline once context training tolerates weaker MI ceilings. Do **not** concatenate short episodes; each physics rollout is one env episode.
+**Mixed heterogeneous detection (2026-06-04):** `scripts/learn_agents/mixed_detection.py` — one trace, 4 agents: CartPole(1) + RockSample(1) + grid3(2), padded to T=250, 8 decoys, fixed K=4. Artifact `results/learn_agents/mixed_detection.json`. Tests whether MI separates **different** plants (not identical poles).
 
-**Rejected for this line:** RLCard/Hanabi (wrong **I** semantics, short episodes), ClusterData (no S/A/I agency).
+| Pole policy | overall MI ARI (5 seeds) | per-agent: pole / rock / grid×2 |
+|-------------|--------------------------:|----------------------------------|
+| random (short, dies ~20 steps) | 0.31 ± 0.34 | 0 / ~1 / ~1 (pole padded-dead) |
+| balance (controller, full 250) | **0.60 ± 0.26** | **0** / 1 / 1 |
 
-### Agent detectability summary — MI vs learned+UAD (2026-06-04)
+**Finding — heterogeneous plants ARE separable, but CartPole is a degenerate probe for co-movement MI.** Rock + both grid agents cluster cleanly (per-agent ARI 1.0). The pole stays at **0 regardless of episode length** for two compounding reasons: (1) **random** action → transient agent (absent in long windows); (2) **balance** controller → the regulated variables (angle, angular velocity) are driven near-flat, so the agent's own channels stop co-moving (good-regulator effect), and its few smooth channels **merge with the other smooth low-channel agent (rock)**. MI co-movement clustering needs an agent whose channels sustain a distinctive correlated dance; a regulated 1-DOF controller does not provide one. Oracle ε-blanket sep ratios for the balanced pole are ~0.89–0.96 (poor) — even the blanket/role test is low-evidence for this tiny system.
 
-**Protocol:** `W=250`, `T=2000` sim traces (`episodic=False` for pool kinds). **MI** = `mi_cluster_variable_labels` on agent columns (live, timed per seed). **Learned+UAD** = serial `agent_spotlight` peel (MI propose → refine → UAD); **not re-run here** — ARI/recall/timing from cached JSON only. Regenerate:
+**Implication:** prefer agents with persistent, distinctive internal dynamics (grid / foraging / pursuit / Melting Pot); treat CartPole as an edge case, not a canonical agent. Controllers, if targeted, need the S→A→I role/blanket path, not co-movement MI.
 
-```bash
-.venv/bin/python scripts/learn_agents/agent_ari_table.py --seeds 0 1 2
-```
-
-Artifact: `results/learn_agents/agent_ari_table.json` (includes markdown).
-
-| Agent family | n | MI ARI @W=250 | MI time / trace | Learned+UAD ARI | LU time (cached) | Notes |
-|---|---:|---:|---:|---:|---:|---|
-| easy3_redundant | 3 | 1.000 | 1.4 s | — | — | no cached spotlight run |
-| med5_rich | 5 | 1.000 | 2.5 s | 1.000 | — | LU proxy: rich 8-agent E11 run; recall=1.00 |
-| hard8_complex | 8 | 0.940 ± 0.085 | 6.1 s | 1.000 | 5.2 min | E12b complex peels (6 runs); recall=1.00 |
-| telemetry_none | 5 | 1.000 | 2.7 s | — | — | |
-| telemetry_periodic | 5 | 1.000 | 2.3 s | — | — | |
-| telemetry_heavytail | 5 | 1.000 | 2.1 s | — | — | 5-seed cache MI≈0.97 |
-| telemetry_regime | 5 | 1.000 | 2.4 s | — | — | |
-| telemetry_saturate | 5 | 0.899 ± 0.143 | 2.9 s | — | — | 5-seed cache MI≈0.88 |
-| telemetry_all | 5 | 0.801 ± 0.242 | 2.4 s | — | — | 5-seed cache MI≈0.87 |
-| physics_cartpole | 1 | 1.000 | 23 ms | — | — | external; spotlight TBD |
-| rock_sample_5x5 | 1 | 1.000 | 14 ms | — | — | external; spotlight TBD |
-| grid_pomdp_3x3 | 2 | 0.824 ± 0.248 | 197 ms | — | — | external; spotlight TBD |
-| grid_pomdp_5x5 | 2 | 0.395 ± 0.296 | 195 ms | — | — | external; spotlight TBD |
-
-**Timing notes:** MI cost scales ~linearly in agent-channel count (~0.7 s / 27 vars → ~6 s / 72 vars at W=250). Cached spotlight peels for `hard8_complex` average **~5 min/trace** (E12b, 16 passes, MPS). A full multi-family spotlight sweep would be **~1.5–3 h** on CPU (`--fast`); this table intentionally skips that.
-
-**Gaps:** No cached learned+UAD for easy3, telemetry extensions, or E15 externals yet. `med5_rich` LU row uses one **rich 8-agent** E11 artifact (proxy, not exact 5-agent med5).
+**Deferred:** episodic telemetry ablation; Melting Pot install + obs map; spotlight on externals; grid transfer ablations.
 
 ---
 
@@ -975,5 +979,8 @@ Artifact: `results/learn_agents/agent_ari_table.json` (includes markdown).
 | E12 hierarchical fusion | `hierarchical_spotlight/` |
 | E12b complex hierarchy sweep | `scripts/hierarchical/run_hierarchical_e12b_sweep.py` |
 | E13 amortized agency | `amortized_agency/`, `scripts/amortized/` |
+| E16 extended pool + Melting Pot | `learn_agents/external_registry.py`, `melting_pot.py`, `amortized_agency/kinds.py`, `scripts/amortized/check_extended_pool.py` |
+| E16b dataset vs sim baseline | `scripts/amortized/run_dataset_vs_baseline.py`, `ablate_grid_context_epochs.py` |
+| Multi-agent physics | `learn_agents/physics_pomdp.py` (`roll_cartpole_multi`) |
 | Strict UAD / MI roles | `agency_detect/markov_blanket.py` |
 

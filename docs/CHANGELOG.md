@@ -135,3 +135,12 @@ See [`learn_agents/EXPERIMENTS.md#e15--external-pomdp-trace-families-2026-06-04`
 - Added `scripts/learn_agents/agent_ari_table.py`: live MI ARI + timing; learned+UAD from cached spotlight JSON only (no batch re-run).
 - Documented full family table in `learn_agents/EXPERIMENTS.md` (pool, E14 telemetry, E15 external POMDPs).
 
+### E16 — extended amortized pool, transfer, and mixed detection
+
+See [`learn_agents/EXPERIMENTS.md`](../learn_agents/EXPERIMENTS.md#e14e16--2026-06-04-summary-telemetry-externals-detectability-transfer).
+
+- Extended pool wiring (`external_registry.py`, `kinds.py` `EXTENDED_*`, `worlds.py` external backend); smoke test `check_extended_pool.py`; `safe_results.py` archives JSON before overwrite.
+- **E16b transfer** (`run_dataset_vs_baseline.py`): sim-trained context encoder transfers perfectly to single-agent physics/rock (degenerate n=1) but **fails on multi-agent grids** (ctx ~0 vs MI 0.82). Adding grid3 to training and 2× epochs (`ablate_grid_context_epochs.py`) barely helps (ctx 0.03→0.08) — not a training-duration issue.
+- **Multi-agent + mixed detection** (`physics_pomdp.roll_cartpole_multi`, `external_traces.merge_agent_traces`, `mixed_detection.py`): heterogeneous plants (rock + grid) separate cleanly, but **CartPole is a degenerate probe for co-movement MI** — random → transient, balanced controller → regulated-flat variables (good-regulator effect). Prefer agents with persistent distinctive dynamics.
+- Melting Pot remains scaffold-only (`melting_pot.py`, `verify_external_deps.py`).
+
