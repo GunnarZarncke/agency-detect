@@ -11,6 +11,7 @@ This repository is a research codebase for unsupervised agent discovery. Prefer 
 ## Documentation
 
 - Detailed experiment narrative: `docs/EXPERIMENTS.md`
+- Interpretation (E0–E8 focus): `docs/FINDINGS.md`
 - Chronological milestones: `docs/CHANGELOG.md`
 - Conversation summaries (reasoning and decisions): see
   [`docs/conversations/README.md`](docs/conversations/README.md). Write a new

@@ -147,4 +147,5 @@ See [`EXPERIMENTS.md`](EXPERIMENTS.md#e14e16--2026-06-04-summary-telemetry-exter
 ### Documentation — experiment log location
 
 - Moved canonical experiment log to [`docs/EXPERIMENTS.md`](EXPERIMENTS.md) (from `learn_agents/`); added relocation note at top; `learn_agents/EXPERIMENTS.md` is a redirect stub. Updated cross-links in `PROJECT_INSTRUCTIONS.md`, `CHANGELOG.md`, conversation summaries, and package READMEs.
+- Renamed [`docs/FINDINGS.md`](FINDINGS.md) from `learn_agents_debug_findings.md`; EXPERIMENTS.md now lists pre–E0 work (`agency_detect/`, `examples/`, CMI research, etc.).
 

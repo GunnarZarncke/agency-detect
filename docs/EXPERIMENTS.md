@@ -1,13 +1,32 @@
 # Experiment log (agency-detect)
 
-**Location:** `docs/EXPERIMENTS.md` (moved here from `learn_agents/EXPERIMENTS.md`, 2026-06-04). One chronological notebook for the **whole repo**, not only the `learn_agents/` package.
+Chronological notebook for the **numbered experiment line** (E0 onward). Records **why** each run was done, **settings**, **results**, and **artifact paths**.
 
-**Why it starts with `learn_agents` (E0–E8):** Work began on the telemetry simulator in `learn_agents/learn_agents.py`—latent slots, strict UAD, decoy ablations, and the six-stage debug protocol. **Later sections** cover other stages as they were added: **`agent_spotlight`** (E9–E11), **`hierarchical_spotlight`** (E12), **`amortized_agency`** (E13), telemetry extensions and external POMDPs (E14–E16). Earlier experiment IDs are unchanged; only the file path moved.
+**Documentation map**
 
-**Also see:** [`CHANGELOG.md`](CHANGELOG.md) (milestones), [`learn_agents_debug_findings.md`](learn_agents_debug_findings.md) (interpretation), [`conversations/README.md`](conversations/README.md) (session summaries).
+| Doc | Role |
+|-----|------|
+| **This file** (`docs/EXPERIMENTS.md`) | Run log from E0 (May 2026); later sections add E9 spotlight, E12 hierarchy, E13 amortized, E14–E16 externals |
+| [`FINDINGS.md`](FINDINGS.md) | Cross-cutting interpretation (mainly E0–E8 latent-UAD / decoys) |
+| [`CHANGELOG.md`](CHANGELOG.md) | Short milestones |
+| [`conversations/`](conversations/README.md) | Session summaries (why, not full tables) |
+| [`results/README.md`](../results/README.md) | Artifact paths by experiment id |
 
-Chronological record of **why** each experiment was run, **settings**, **results**, and **artifact paths**.
-Analysis and recommendations: [`learn_agents_debug_findings.md`](learn_agents_debug_findings.md).
+Moved here from `learn_agents/EXPERIMENTS.md` (2026-06-04). Experiment ids (E0, E9, …) are unchanged.
+
+**Work before this log** — not given E-numbers here; lives in other packages and docs:
+
+| Stage | Location | What |
+|-------|----------|------|
+| **Core UAD** | `agency_detect/` | `AgentDetector`, lagged-MI clustering, Markov-blanket validation (`markov_blanket.py`, `detection.py`); decoupled solar-panel / factory traces (`agents.py`) |
+| **Quickstart** | `examples/basic_detection.py`, `detect.py` | End-to-end detection on decoupled multi-agent sim |
+| **Design notes** | `dev.md`, root `README.md` | Original two-domain → multi-agent narrative; API examples |
+| **Tests** | `tests/test_mi_*.py`, `test_validation_fix.py`, `test_threshold.py` | Detector and estimator regression tests |
+| **CMI research** | `scripts/research/cmi/` | k-NN vs discrete plug-in study (May 2026); production path uses Laplace discrete CMI |
+| **Papers** | `docs/papers/` | Theory write-ups (not experiment runs) |
+
+**This log starts at E0** when the **telemetry simulator** in `learn_agents/learn_agents.py` became the main research vehicle (latent slots + strict UAD). Packages added later are documented in later sections: `agent_spotlight/` (E9), `hierarchical_spotlight/` (E12), `amortized_agency/` (E13).
+
 
 **Default simulator (clean regime)** unless noted:
 
