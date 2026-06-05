@@ -53,6 +53,12 @@ def main() -> None:
         default="both",
         help="critical outcomes: system-wide (global), per-process (owned), or both",
     )
+    parser.add_argument(
+        "--segment-mode",
+        choices=["auto", "full", "segmented"],
+        default="auto",
+        help="auto: segment when T>=250; full: whole trace; segmented: always window",
+    )
     args = parser.parse_args()
 
     if args.score_only:
@@ -78,7 +84,7 @@ def main() -> None:
 
     scenarios = ["global", "owned"] if args.scenario == "both" else [args.scenario]
     scenario_results = {
-        s: _score_scenario(run_dir, s, args.seed) for s in scenarios
+        s: _score_scenario(run_dir, s, args.seed, args.segment_mode) for s in scenarios
     }
 
     payload = {
@@ -102,9 +108,9 @@ def main() -> None:
             )
 
 
-def _score_scenario(run_dir: Path, scenario: str, seed: int) -> dict:
+def _score_scenario(run_dir: Path, scenario: str, seed: int, segment_mode: str) -> dict:
     result = pack_machine_run(run_dir, seed=seed, scenario=scenario)
-    summary = score_simulation(result, seed=seed)
+    summary = score_simulation(result, seed=seed, segment_mode=segment_mode)
     per_agent = []
     gt = summary.get("ground_truth") or {}
     agents = summary.get("agents") or {}
@@ -129,6 +135,7 @@ def _score_scenario(run_dir: Path, scenario: str, seed: int) -> dict:
 
     return {
         "scenario": scenario,
+        "segment_mode": summary.get("segment_mode"),
         "T": summary.get("T"),
         "pooled_auroc": pooled,
         "agent_accuracy": f"{correct}/{len(per_agent)}",

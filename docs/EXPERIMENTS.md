@@ -1080,6 +1080,7 @@ Physics rollouts use `pack_trace(..., normalize=False)` so variance ratios are m
 - **Selectivity:** OR on high-|Δo| vs low-|Δo| windows (pipeline-style confound strip)
 - **Flag:** strong defense path (`OR≥1.40`, `infl>0`) or strong-OR path (`OR≥1.65`); **or** control path (`|infl|≥0.25`, selectivity ≥0.78) for regulators/pursuit; **or** driver path (`|infl|≥0.30`, bypasses selectivity) for resource attackers (E19b)
 - **Per agent:** flagged if **any** outcome flags (not only highest combined score)
+- **Segmentation (E19c):** on long sparse traces (`segment_mode=auto`), score sliding + activity windows; segment flag only if partial influence materially beats full-trace (`intention_detect/segmentation.py`)
 
 **Sim families (5 seeds, T=2000, raw trace):**
 
@@ -1193,9 +1194,56 @@ Run `machine_runs/20260605T073554Z`. Collection succeeded; scoring initially cra
 
 Physical signal confirmed: CPU mean 44.8% (0–90%), RAM Δ12 pp, mem held up to 2560 MB.
 
-**20-min run (v2, both scenarios):** in progress at doc commit — update table below when complete.
+**20-min run (v2, both scenarios):** `machine_runs/20260605T143100Z`, T=1200.
 
-**Reproduce:**
+| Scenario | AUROC | Agent acc | Per-agent |
+|----------|-------|-----------|-----------|
+| **global** | 0.333 | **3/5** | mem_grabber ✓; fixed_worker ✓; bystander ✓; cpu_regulator ✗; deadline_burster ✗ |
+| **owned** | 0.667 | **4/5** | deadline_burster ✓; mem_grabber ✓; fixed_worker ✓; bystander ✓; cpu_regulator ✗ |
+
+Longer run regressed vs 150 s smoke (global 4/5, AUROC 1.0): over 20 min OS churn and higher stressor duty dilute full-trace partial CPU influence for burster/regulator (`|infl|≈0.01` on CPU). RAM driver (mem_grabber) remains stable; confound controls hold (no bystander FP on full-trace score). **Owned scenario** separates better (4/5) — per-process attribution is easier than global beyond-footprint.
+
+### E19c — auto segmentation for episodic long runs (2026-06-05)
+
+**Why:** Full-trace linear partial influence **averages over idle ticks**; episodic agents (12–52% active) lose SNR as T grows even when burst windows remain informative.
+
+**Package:** `intention_detect/segmentation.py`; CLI `--segment-mode auto|full|segmented` (default **auto**).
+
+**Auto-calibration (no manual window size):**
+
+| Knob | Rule |
+|------|------|
+| Enable | `T≥250` and sparse agent mix (min active duty &lt;22%, median &lt;40%), **or** `metadata["prefer_segment_scoring"]` (E19 packs set this) |
+| Window `W` | `clip(T/6, 80, 300)`, step `W/2` |
+| Activity threshold | `median(action) + coef·std(action)`; coef rises for sparser agents; constant agents → sliding windows only |
+| Segment flag | Full-trace flag **or** segment flag when `\|infl_seg\| ≥ max(0.25, \|infl_full\|×1.1 + 0.02)` (blocks OR-only window false positives) |
+
+**Re-score of E19b 20-min run** (`20260605T143100Z`) with `segment_mode=auto`:
+
+| Scenario | Full-trace (E19b) | Segmented (E19c) |
+|----------|-------------------|------------------|
+| global AUROC / acc | 0.333 / **3/5** | **0.667** / **3/5** |
+| owned AUROC / acc | 0.667 / **4/5** | (same run; owned benefits less — dense per-process channels) |
+
+Segmentation **improves ranking** on global (AUROC 0.33→0.67) without re-collection; agent accuracy unchanged at 3/5 because `deadline_burster` best window still reaches only `|infl|≈0.07` (below 0.25 floor). E18 sim regression unchanged (AUROC **0.941**).
+
+**Reproduce segmentation:**
+
+```bash
+.venv/bin/python scripts/intention/run_machine_dataset.py \
+  --score-only results/intention/machine_runs/<timestamp> \
+  --scenario both --segment-mode auto
+```
+
+**Open ends (E19):**
+
+1. **Global CPU influencers** — regulator/burster: raise burst SNR or lower segment influence floor when `|infl_seg| ≫ |infl_full|` (relative gain).
+2. **Activity-only windows** — score burst-aligned segments only (not all sliding windows) to reduce OR-driven segment noise.
+3. **Richer world controls** — continuous stressor load channel, not just 0/1 flag.
+4. **Owned vs global gap** — owned 4/5 vs global 3/5 confirms ops worry (beyond-footprint attribution) is strictly harder.
+5. **Wire E18 into spotlight** post-UAD; optional EIS compression gain (Option A).
+
+**Reproduce collection:**
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install psutil numpy
@@ -1210,7 +1258,7 @@ Score an existing run:
   --score-only results/intention/machine_runs/<timestamp> --scenario both
 ```
 
-**Conclusion so far:** Off-simulator failure was **measurement design and detector semantics** (defender-only flags, weak agent effects), not lack of data or learned-model training. Revised harness produces strong global signals; driver-path + any-outcome fixes close the semantic gap for resource *attackers*. Homeostatic cpu_regulator remains the hardest case (anti-correlates with stressor; weak partial influence on global CPU).
+**Conclusion so far:** Off-simulator failure was **measurement design, episodic aggregation, and detector semantics** — not lack of data or training. v2 harness + driver path + segmentation close most gaps for RAM drivers and confounds; **global CPU attribution** (regulator, burster) remains open.
 
 ---
 
@@ -1232,7 +1280,7 @@ Score an existing run:
 | E16 extended pool + Melting Pot | `learn_agents/external_registry.py`, `melting_pot.py`, `amortized_agency/kinds.py`, `scripts/amortized/check_extended_pool.py` |
 | E16b dataset vs sim baseline | `scripts/amortized/run_dataset_vs_baseline.py`, `ablate_grid_context_epochs.py` |
 | E17 regulation probe (Option D) | `learn_agents/regulation_probe.py`, `physics_pomdp.py` (track policy), `scripts/learn_agents/run_regulation_probe.py` |
-| E18 outcome influence | `intention_detect/`, `scripts/intention/run_outcome_influence.py` |
+| E18 outcome influence | `intention_detect/`, `intention_detect/segmentation.py`, `scripts/intention/run_outcome_influence.py` |
 | E19 real-machine dataset | `data_collect/`, `scripts/intention/run_machine_dataset.py` |
 | Multi-agent physics | `learn_agents/physics_pomdp.py` (`roll_cartpole_multi`) |
 | Strict UAD / MI roles | `agency_detect/markov_blanket.py` |

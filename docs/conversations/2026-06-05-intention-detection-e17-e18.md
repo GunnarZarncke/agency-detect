@@ -20,44 +20,32 @@ was never implemented. Three framings:
 - Ship **Option D (E17)** first; then **outcome-influence (E18)** on sim/physics.
 - **Do not z-score** regulation/outcome eval traces.
 - **E19:** real-machine dataset with confounds (stressor + schedule-correlated bystander).
-- Two outcome scenarios: **global** (system CPU/RAM — the ops worry) vs **owned**
-  (per-process baseline — boring but useful control).
-- Random-filled RAM allocations, multi-core multi-second burns, 1 Hz sampling.
+- Two outcome scenarios: **global** (system CPU/RAM) vs **owned** (per-process baseline).
+- Random-filled RAM, multi-core multi-second burns, 1 Hz sampling.
+- **Segmentation (E19c):** auto window + activity calibration for long episodic traces.
 
 ## E17 / E18 (shipped)
 
-- E17: balance CartPole flagged 100%; track/telemetry/rock/grid not — homeostasis only.
-- E18: pooled AUROC **0.941** on sim + physics; complementary to E17.
+- E17: balance CartPole flagged 100%; track/telemetry/rock/grid not.
+- E18: pooled AUROC **0.941** on sim + physics.
+- Follow-ups: driver path (`|infl|≥0.30`), any-outcome aggregation, auto segmentation — sim AUROC unchanged.
 
 ## E19 — Real machine
 
-### v1 run (T=1800, first harness)
+| Phase | Result |
+|-------|--------|
+| **E19a v1** | 2/5 — SNR/aliasing/defense-only semantics |
+| **E19b v2** | Smoke global 4/5 AUROC 1.0; 20-min global 3/5, owned 4/5 |
+| **E19c segment** | Re-score 20-min: global AUROC 0.33→**0.67**, acc still 3/5 |
 
-**2/5 accuracy, AUROC 0.333.** Not a training or data-quantity failure (detector is
-statistical; T=1800 ample). Diagnosis:
+**Why longer runs hurt (full-trace):** episodic agents active 12–52% of ticks; pooling idle mass dilutes partial influence — not a data-quantity problem.
 
-- Agent CPU/RAM effects **below 1 Hz noise floor** (1-core ≈12.5%, 400 MB ≈1.6% of 24 GB).
-- Sub-second bursts aliased; stressor dominated global CPU.
-- **Defense-only flag logic** missed RAM *drivers* (`infl<0`); bystander false-positive on flat RAM noise.
-- Scoring script bug (str/int agent keys); per-agent flag used max-combined outcome only.
+**What works:** mem_grabber on global RAM; confound negatives (fixed_worker, bystander on strict segment rules); owned per-process attribution.
 
-### v2 harness + detector fixes
-
-**Harness:** 2.5 GB random-filled RAM (Δ~3 GB global), 2-core full-tick bursts 4–10+ s,
-per-process owned channels, `--scenario global|owned|both`.
-
-**Detector (`evaluate.py`):**
-
-- **Driver path:** `|influence| ≥ 0.30` flags regardless of sign.
-- **Any-outcome:** flag if any critical outcome flags (not only highest combined).
-- E18 regression: AUROC still **0.941**.
-
-**150 s smoke:** global AUROC **1.0**, agent acc **4/5** (regulator miss; no FP on bystander/fixed).
-
-**20-min v2 run:** launched after fixes; results pending in EXPERIMENTS.md.
+**Still open:** global CPU for regulator/burster (best segment `|infl|≈0.07` &lt; 0.25).
 
 ## Follow-Up
 
-1. Record 20-min v2 results; tune cpu_regulator if still missed.
-2. Optional EIS (Option A) on oracle clusters.
-3. Wire E18 into spotlight post-UAD; bridge deployment-pipeline traces.
+1. Segment-relative influence floor or activity-only windows for CPU bursts.
+2. Continuous stressor control channel.
+3. Optional EIS (Option A); wire E18 into spotlight post-UAD.

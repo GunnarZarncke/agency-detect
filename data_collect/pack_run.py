@@ -133,5 +133,6 @@ def pack_machine_run(
         str(i): gt for i, (_name, gt) in enumerate(AGENT_SPECS)
     }
     meta["agent_labels"] = {str(i): name for i, (name, _gt) in enumerate(AGENT_SPECS)}
+    meta["prefer_segment_scoring"] = True
     meta["run_dir"] = str(run_dir)
     return result

@@ -12,6 +12,7 @@ from learn_agents.learn_agents import SimulationResult
 from intention_detect.defense import defense_odds_ratio
 from intention_detect.influence import _series, influence_from_trace
 from intention_detect.outcomes import CriticalOutcome, control_indices, parse_critical_outcomes
+from intention_detect.segmentation import calibrate_segment_params, segment_ranges, should_segment
 
 
 @dataclass(frozen=True)
@@ -25,6 +26,32 @@ class OutcomeInfluenceScore:
     selectivity: float
     combined: float
     flagged: bool
+    segment_start: int = 0
+    segment_end: int = 0
+    n_segments: int = 1
+
+
+def _apply_flag(
+    infl: float,
+    or_point: float,
+    or_low: float,
+    selectivity: float,
+    *,
+    or_threshold: float,
+    or_low_min: float,
+    selectivity_min: float,
+    influence_min: float,
+    influence_strong_min: float,
+) -> bool:
+    defense_path = (
+        (or_point >= or_threshold and or_low >= or_low_min and infl > 0.0)
+        or (or_point >= 1.65 and or_low >= 1.15)
+    )
+    strong = abs(infl) >= influence_strong_min
+    control_path = abs(infl) >= influence_min and (
+        selectivity >= min(selectivity_min, 0.78) or strong
+    )
+    return bool(defense_path or control_path)
 
 
 def _action_composite(trace: np.ndarray, action_indices: Sequence[int]) -> np.ndarray:
@@ -81,17 +108,17 @@ def score_agent_outcome(
     )
 
     combined = max(or_point / or_threshold, abs(infl) / influence_min, selectivity / selectivity_min)
-    defense_path = (
-        (or_point >= or_threshold and or_low >= or_low_min and infl > 0.0)
-        or (or_point >= 1.65 and or_low >= 1.15)
+    flagged = _apply_flag(
+        infl,
+        or_point,
+        or_low,
+        selectivity,
+        or_threshold=or_threshold,
+        or_low_min=or_low_min,
+        selectivity_min=selectivity_min,
+        influence_min=influence_min,
+        influence_strong_min=influence_strong_min,
     )
-    # A large-magnitude influence is its own evidence (driver OR defender), so it
-    # bypasses the selectivity confound-strip; weaker influence still needs selectivity.
-    strong = abs(infl) >= influence_strong_min
-    control_path = abs(infl) >= influence_min and (
-        selectivity >= min(selectivity_min, 0.78) or strong
-    )
-    flagged = bool(defense_path or control_path)
 
     return OutcomeInfluenceScore(
         agent=int(agent),
@@ -103,6 +130,87 @@ def score_agent_outcome(
         selectivity=float(selectivity),
         combined=float(combined),
         flagged=bool(flagged),
+        segment_start=0,
+        segment_end=int(trace.shape[0]),
+        n_segments=1,
+    )
+
+
+def score_agent_outcome_segmented(
+    trace: np.ndarray,
+    metadata: Mapping[str, object],
+    agent: int,
+    outcome: CriticalOutcome,
+    *,
+    or_threshold: float = 1.40,
+    or_low_min: float = 1.08,
+    selectivity_min: float = 1.05,
+    influence_min: float = 0.25,
+    influence_strong_min: float = 0.30,
+    bad_quantile: float = 0.80,
+    seed: int = 0,
+) -> OutcomeInfluenceScore:
+    """Score over auto-calibrated windows; flag if full trace or any segment flags."""
+    role_indices = metadata["role_indices"]
+    action_idx = list(role_indices.get((agent, "action"), []))
+    action = _action_composite(trace, action_idx)
+    T = trace.shape[0]
+    params = calibrate_segment_params(T, action)
+    ranges = segment_ranges(T, action, params)
+
+    kw = dict(
+        or_threshold=or_threshold,
+        or_low_min=or_low_min,
+        selectivity_min=selectivity_min,
+        influence_min=influence_min,
+        influence_strong_min=influence_strong_min,
+        bad_quantile=bad_quantile,
+    )
+    full = score_agent_outcome(trace, metadata, agent, outcome, seed=seed, **kw)
+    if len(ranges) <= 1:
+        return full
+
+    best = full
+    any_flagged = full.flagged
+    for seg_i, (start, end) in enumerate(ranges):
+        if end - start < 40:
+            continue
+        seg = score_agent_outcome(
+            trace[start:end], metadata, agent, outcome, seed=seed + seg_i, **kw
+        )
+        seg_boost = seg.flagged and abs(seg.influence) >= max(
+            influence_min, abs(full.influence) * 1.1 + 0.02
+        ) and (seg.combined >= full.combined or abs(seg.influence) >= influence_strong_min)
+        any_flagged = any_flagged or seg_boost
+        if seg.combined > best.combined or (seg.flagged and not best.flagged):
+            best = OutcomeInfluenceScore(
+                agent=seg.agent,
+                outcome_name=seg.outcome_name,
+                outcome_index=seg.outcome_index,
+                influence=seg.influence,
+                defense_or=seg.defense_or,
+                defense_or_low=seg.defense_or_low,
+                selectivity=seg.selectivity,
+                combined=seg.combined,
+                flagged=seg.flagged,
+                segment_start=start,
+                segment_end=end,
+                n_segments=len(ranges),
+            )
+
+    return OutcomeInfluenceScore(
+        agent=best.agent,
+        outcome_name=best.outcome_name,
+        outcome_index=best.outcome_index,
+        influence=best.influence,
+        defense_or=best.defense_or,
+        defense_or_low=best.defense_or_low,
+        selectivity=best.selectivity,
+        combined=max(best.combined, full.combined),
+        flagged=any_flagged,
+        segment_start=best.segment_start,
+        segment_end=best.segment_end,
+        n_segments=len(ranges),
     )
 
 
@@ -116,6 +224,8 @@ def score_simulation(
     influence_strong_min: float = 0.30,
     bad_quantile: float = 0.80,
     min_T: int = 80,
+    segment_mode: str = "auto",
+    segment_min_T: int = 250,
     seed: int = 0,
 ) -> Dict[str, object]:
     trace = result.trace
@@ -127,6 +237,11 @@ def score_simulation(
     if not outcomes:
         return {"T": int(trace.shape[0]), "skipped": "no_critical_outcomes", "agents": {}}
 
+    use_segments = segment_mode == "segmented" or (
+        segment_mode == "auto" and should_segment(trace, meta, min_T=segment_min_T)
+    )
+    score_fn = score_agent_outcome_segmented if use_segments else score_agent_outcome
+
     agent_clusters = meta.get("agent_clusters", {})
     agents = sorted(agent_clusters.keys()) if agent_clusters else sorted(
         {int(k[0]) for k in meta["role_indices"] if k[0] >= 0}
@@ -136,7 +251,7 @@ def score_simulation(
     flagged: List[int] = []
     for agent in agents:
         scores = [
-            score_agent_outcome(
+            score_fn(
                 trace,
                 meta,
                 int(agent),
@@ -153,8 +268,6 @@ def score_simulation(
         ]
         if not scores:
             continue
-        # An agent is flagged if it influences ANY critical outcome; report the
-        # flagged outcome when present, else the highest-combined one.
         flagged_scores = [s for s in scores if s.flagged]
         any_flagged = bool(flagged_scores)
         best = max(flagged_scores or scores, key=lambda s: s.combined)
@@ -164,6 +277,7 @@ def score_simulation(
             "max_combined": max(s.combined for s in scores),
             "flagged": any_flagged,
             "best_outcome": best.outcome_name,
+            "segment_mode": "segmented" if use_segments else "full",
             "scores": [asdict(s) for s in scores],
         }
 
@@ -172,6 +286,7 @@ def score_simulation(
     return {
         "T": int(trace.shape[0]),
         "n_outcomes": len(outcomes),
+        "segment_mode": "segmented" if use_segments else "full",
         "flagged_agents": flagged,
         "agents": per_agent,
         "ground_truth": {str(k): bool(v) for k, v in gt.items()},
