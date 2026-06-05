@@ -21,6 +21,7 @@ The latent model is a **candidate proposer**, not a final agent identifier. Prim
 1. **No variable names for S/A/I classification** — names/metadata only for scoring (`agency_detect/markov_blanket.py` uses MI-only roles).
 2. **No fixed agent count for MI init** (from E7) — `mi_partition_search()` sweeps K via MDL (λ=0.02); legacy fixed K = `num_agents` available via `--mi-fixed-k-agents`.
 3. **Strict UAD is falsification**, not sole success criterion — high `strict_count` with low precision observed at 8 agents.
+4. **The random-partition contrast needs a densely-coupled background to be informative** (E20). Low blanket loss `I(I_{t+1};E_{t+1}|S,A)≈0` is achieved by *both* a true autonomous subsystem *and* a fully disconnected/isolated noise variable. The contrast (candidate vs random same-size cuts) only discriminates when most surrounding variables are mutually coupled, so random cuts leak (high loss) while the blanket stays low — the regime of a real brain. In a substrate with many independent variables, random cuts also score low and the contrast collapses (observed directly on synthetic toys: an isolated decoy scores as "blanket-like" as the agent). Practical consequence: a blanket score must be paired with a **predictive-coupling / internal-dynamics term** so disconnected sets cannot pass on low CMI alone.
 
 ---
 

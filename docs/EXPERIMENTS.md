@@ -1262,6 +1262,47 @@ Score an existing run:
 
 ---
 
+## E20 — UAD on real C. elegans whole-brain data (WormWideWeb) (2026-06-06)
+
+**Why:** apply Unsupervised Agent Discovery to real *C. elegans* calcium imaging (Atanas & Kim 2023). Tests whether the blanket criterion finds a statistically distinguishable agentive subsystem in a real, densely-coupled nervous system with no ground truth. Scoped plan + scaffold: [`uad_worm/README.md`](../uad_worm/README.md); planning/M0–M1 in CHANGELOG 2026-06-05.
+
+**Package / scripts:**
+
+| Component | Path |
+|-----------|------|
+| CMI + blanket loss + nulls + synthetic | `uad_worm/{cmi,blanket,nulls,synth}.py` |
+| Ingestion (fetch/cache/provenance) | `uad_worm/data.py` |
+| Preprocess + whiten (M2) | `uad_worm/preprocess.py` |
+| Candidates: lagged-corr communities + anchor (M3) | `uad_worm/candidates.py` |
+| Roles + E-reduced blanket loss + pooled LOAO (M4) | `uad_worm/score.py` |
+| Random-class-set null + behavior gain (M5/M6) | `uad_worm/evaluate.py` |
+| Runner / probe | `scripts/worm/run_discovery.py`, `scripts/worm/probe.py` |
+
+**v1 method:** pool the same `neuron_class`-defined candidate across 8 NeuroPAL-Baseline animals (T≈1600 @ 0.6 s); whiten (temporal derivative) to reduce GCaMP autocorrelation; assign S/A/I roles by lagged influence to/from the rest of the brain; reduce the external set to PCs; score blanket loss `I(I_{t+1};E_{t+1}|S_t,A_t)` against a random-partition contrast; leave-one-animal-out is the headline.
+
+**Headline result (negative, robust).** Locomotor command-circuit anchor (`AIB AVA AVB AVD AVE PVC RIB RIM`): pooled `pass_rate 0/8`, **leave-one-animal-out 0/8**, combined p≈0.36. It is marginally below biologically-matched random *class sets* (random-class-set null z=−1.35, p≈0.10) but **not** below random same-size *neuron* partitions (median p≈0.5). Unsupervised recurrent candidate is worse (z=+2.56). Behavior-prediction gain small (anchor +0.013, recurrent +0.065).
+
+**Probe (`scripts/worm/probe.py`) — why 0/8:** ruled out the obvious knobs.
+
+| Probe | Result | Verdict |
+|-------|--------|---------|
+| P1 null reference (all-neuron vs labeled-only) | median p 0.41 vs 0.37 | not a null-reference artifact |
+| P2 representation (whitened vs raw) | raw median p 0.58 (worse) | whitened is better but still 0/8 |
+| P3 external rank (ext_dim 4→20) | pass 0→1/8, median p stays ≈0.5 | more E-PCs sharpen slightly, not decisive |
+
+The command-circuit blanket loss sits **in the middle** of the random same-size partition distribution across every configuration ⇒ a **genuine** negative, not a tuning artifact: at the class level, lag-1, Gaussian-CMI, PC-reduced, the command circuit is not a distinguishable Markov blanket in this cohort.
+
+**Open ends (E20):** (1) timescale — lag-1 at 0.6 s may miss slower behavioral dynamics; try multi-lag conditioning. (2) nonlinearity — Gaussian CMI may miss nonlinear dependence (kNN/kernel CMI). (3) class-level pooling forces one shared set; per-animal discovered subsystems may separate even when the fixed anchor does not. (4) add a predictive-coupling term so low blanket loss alone can't reward disconnected sets. (5) M7 memory localization (deferred).
+
+**Reproduce:**
+
+```bash
+PYTHONPATH=. .venv/bin/python scripts/worm/run_discovery.py --max-animals 8 --n-perm 100
+PYTHONPATH=. .venv/bin/python scripts/worm/probe.py
+```
+
+---
+
 ## Code map
 
 | Component | Path |

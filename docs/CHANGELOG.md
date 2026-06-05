@@ -203,3 +203,27 @@ Session summary: [`conversations/2026-06-05-intention-detection-e17-e18.md`](con
 
 Session summary: [`conversations/2026-06-05-06-uad-worm-celegans.md`](conversations/2026-06-05-06-uad-worm-celegans.md).
 
+---
+
+## 2026-06-06 — uad_worm (E20): M2–M6 + first real-data result (negative)
+
+- **M2–M6 shipped** (`uad_worm/{preprocess,candidates,score,evaluate}.py` +
+  `scripts/worm/{run_discovery,probe}.py`): whitening, lagged-corr class communities +
+  command-circuit anchor, operational S/A/I roles + E-reduced blanket loss + pooled
+  leave-one-animal-out, random-class-set null + behavior-prediction gain. **25 worm tests green.**
+- **First real-data run** (8 NeuroPAL-Baseline animals): command-circuit anchor scores
+  **0/8 on leave-one-animal-out**, combined p≈0.36; marginally below random *class sets*
+  (z=−1.35, p≈0.10) but middle-of-the-pack vs random *neuron* partitions (median p≈0.5).
+- **Probe (`scripts/worm/probe.py`)** rules out null-reference (labeled-only vs all-neuron
+  identical), representation (whitened beats raw but still 0/8), and external rank (ext_dim
+  4→20 barely moves it). The negative is **genuine**, not a tuning artifact.
+- **Plan correction:** M5 "circular-shift → blanket null" is invalid (drives loss→0); the
+  valid additional blanket null is the random-class-set null. README updated.
+- **Methodology (repo-wide, `FINDINGS.md` #4):** the random-partition contrast needs a
+  densely-coupled background to discriminate — isolated noise variables also score low
+  blanket loss, so a blanket score must be paired with a predictive-coupling term.
+- E20 logged in [`EXPERIMENTS.md`](EXPERIMENTS.md). This dataset is **not** added to the
+  general agent-detection pool.
+
+Session summary: [`conversations/2026-06-06-uad-worm-m2-m6-results.md`](conversations/2026-06-06-uad-worm-m2-m6-results.md).
+

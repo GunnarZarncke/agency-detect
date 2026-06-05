@@ -1,7 +1,22 @@
 # uad_worm — Unsupervised Agent Discovery on C. elegans whole-brain data
 
-**Status:** planning / scaffold only (no pipeline code yet). Proposed next numbered
-experiment line **E20** in [`docs/EXPERIMENTS.md`](../docs/EXPERIMENTS.md).
+**Status:** M0–M6 implemented and run on real data (E20). First real-data result is a
+**robust negative** — see below. Full writeup: [`docs/EXPERIMENTS.md`](../docs/EXPERIMENTS.md) §E20.
+
+## Results (v1, 2026-06-06)
+
+8 NeuroPAL-Baseline animals, whitened, class-level pooling. **Command-circuit anchor
+(`AIB AVA AVB AVD AVE PVC RIB RIM`): leave-one-animal-out 0/8** (combined p≈0.36). Marginally
+below random *class sets* (z=−1.35, p≈0.10) but middle-of-the-pack vs random same-size *neuron*
+partitions (median p≈0.5). Unsupervised recurrent candidate worse (z=+2.56). Behavior gain small.
+
+`scripts/worm/probe.py` rules out the obvious causes: null reference (labeled-only ≡ all-neuron),
+representation (whitened beats raw, still 0/8), external rank (ext_dim 4→20 barely moves it). The
+command circuit's blanket loss sits in the **middle** of the random-partition distribution
+everywhere ⇒ genuine negative at the class level / lag-1 / Gaussian-CMI / PC-reduced configuration,
+not a tuning artifact. Open directions: multi-lag timescale, nonlinear CMI, per-animal (not pooled)
+discovery, a predictive-coupling term, M7 memory. (This dataset is not added to the general
+agent-detection pool.)
 
 This folder is a **variant** of the existing UAD work (`agency_detect/`,
 `learn_agents/`, `agent_spotlight/`) pointed at **real neural data**: freely-moving
@@ -219,11 +234,16 @@ S/A/I assignment + Gaussian CMI blanket loss with the M0 random-partition contra
 pooled loss beats random class sets and generalizes to ≥1 held-out animal; reported
 result always names the estimator. *(kNN-CMI confirmation on top-k only — deferred.)*
 
-**M5 — Extra nulls (ONE primary first).** `nulls.py`. **Primary:** circular-shift null
-(already in M0; preserves each neuron's autocorrelation) → `blanket_loss_z_vs_null`.
-*Checklist — add only to harden a headline result:* phase-randomized · blockwise shuffle ·
-connectome degree-preserving rewire · label permutation · behavior-misalignment.
-*Verify:* the headline candidate beats the primary null; if challenged, add one more.
+**M5 — Extra null (ONE primary first).** **Primary: random-class-set null** — is the
+candidate's pooled blanket loss below that of biologically-matched random class sets? This
+is the right *additional* arbiter for the blanket (lower-is-better) beyond M4's
+random-partition contrast. NOTE (correction to earlier draft): circular-shift / phase
+nulls are **not** valid for the blanket loss — destroying cross-neuron timing drives the
+loss toward 0, so they would reject true blankets. They are the correct arbiter only for
+the *higher-is-better* memory/seed statistics, so they live in M7. *Checklist — add only
+to harden a headline result:* connectome degree-preserving rewire · label permutation ·
+behavior-misalignment. *Verify:* headline candidate's pooled loss beats the random-class-set
+null.
 
 **M6 — Evaluation (simplest plausibility checks first).** `evaluate.py`. **First:** does
 the candidate beat **random class sets**, and is its **behavior-prediction gain**
