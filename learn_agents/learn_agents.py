@@ -1137,6 +1137,16 @@ class TraceSimulationConfig:
     innovation_df: float = 4.0  # Student-t dof when innovation_dist == "t"
     innovation_shock_prob: float = 0.02  # per-step shock probability when innovation_dist == "shock"
     innovation_shock_scale: float = 5.0  # shock magnitude (x process noise) when innovation_dist == "shock"
+    # --- Labeled resource / critical outcomes (E18 outcome-influence line) ---
+    resource_vars: int = 0  # resource.cpu / resource.memory style channels (var_agent=-1)
+    resource_ar1_rho: float = 0.95
+    resource_ar1_sigma: float = 0.12
+    resource_all_agent_leak: float = 0.0  # weak coupling from all agent actions (0 for clean eval)
+    resource_action_coupling: float = 0.50  # self-preserving agent action -> resource
+    resource_threat_level: float = 0.55  # latent load above this is "bad" for self-preservation
+    self_preserving_agent: int = -1  # agent index that ramps action when resource threatened
+    self_preservation_strength: float = 1.10
+    normalize_trace: bool = True  # set False for outcome-influence eval (variance ratios)
 
 
 @dataclass
@@ -1271,10 +1281,12 @@ def simulate_known_agent_trace(cfg: TraceSimulationConfig = TraceSimulationConfi
 
     n_local_world = max(int(cfg.env_vars_per_agent), 0)
     n_world = max(int(cfg.world_vars), 0)
+    n_resource = max(int(cfg.resource_vars), 0)
     local_world = (
         np.zeros((T, K, n_local_world), dtype=np.float32) if n_local_world else None
     )
     world_latent = np.zeros((T, n_world), dtype=np.float32) if n_world else None
+    resource_latent = np.zeros((T, n_resource), dtype=np.float32) if n_resource else None
 
     direct_adjacency = np.zeros((K, K), dtype=np.float32)  # entry [target, source]
     for k in range(K):
@@ -1307,6 +1319,27 @@ def simulate_known_agent_trace(cfg: TraceSimulationConfig = TraceSimulationConfi
                     )
 
         incoming = a[t - 1] @ direct_adjacency.T
+        if resource_latent is not None:
+            for j in range(n_resource):
+                resource_latent[t, j] = (
+                    cfg.resource_ar1_rho * resource_latent[t - 1, j]
+                    + cfg.resource_ar1_sigma * rng.normal()
+                    + 0.12 * global_confound[t]
+                    + cfg.resource_all_agent_leak * float(a[t - 1].sum())
+                )
+                sp = cfg.self_preserving_agent
+                if sp >= 0 and 0 <= sp < K:
+                    threat = max(0.0, float(resource_latent[t - 1, j]) - cfg.resource_threat_level)
+                    resource_latent[t, j] -= cfg.resource_action_coupling * float(a[t - 1, sp]) * threat
+
+        sp_agent = cfg.self_preserving_agent
+        resource_threat = 0.0
+        if resource_latent is not None and sp_agent >= 0:
+            resource_threat = max(
+                0.0,
+                float(resource_latent[t - 1].mean()) - cfg.resource_threat_level,
+            )
+
         for k in range(K):
             on = active[t, k]
             local_world_sensor = 0.0
@@ -1329,7 +1362,10 @@ def simulate_known_agent_trace(cfg: TraceSimulationConfig = TraceSimulationConfi
             )
             h_drive = 0.82 * h[t - 1, k] + 0.55 * s[t, k] + 0.20 * a[t - 1, k]
             h[t, k] = on * np.tanh(h_drive + cfg.process_noise * rng.normal()) + (1.0 - on) * 0.92 * h[t - 1, k]
-            a[t, k] = on * np.tanh(1.25 * h[t, k] - 0.25 * s[t, k] + policy_bias[k] + cfg.process_noise * rng.normal())
+            action_drive = 1.25 * h[t, k] - 0.25 * s[t, k] + policy_bias[k]
+            if k == sp_agent and sp_agent >= 0:
+                action_drive += cfg.self_preservation_strength * resource_threat
+            a[t, k] = on * np.tanh(action_drive + cfg.process_noise * rng.normal())
 
     columns = []
     var_names = []
@@ -1434,15 +1470,42 @@ def simulate_known_agent_trace(cfg: TraceSimulationConfig = TraceSimulationConfi
             add_var(f"world.shared{j}", -1, "world_shared", coef * base + noise)
             world_var_indices.append(len(columns) - 1)
 
+    resource_var_indices: list = []
+    resource_names = ("cpu", "memory", "queue", "disk")
+    if resource_latent is not None:
+        for j in range(n_resource):
+            base = resource_latent[:, j]
+            coef = rng.normal(1.0, 0.06)
+            noise = cfg.observation_noise * rng.normal(size=T)
+            label = resource_names[j % len(resource_names)]
+            suffix = f"{j // len(resource_names)}" if j >= len(resource_names) else ""
+            add_var(f"resource.{label}{suffix}", -1, "resource", coef * base + noise)
+            resource_var_indices.append(len(columns) - 1)
+
     for j in range(cfg.decoy_vars):
         values, role = _decoy_series(cfg, j, global_confound, T, rng)
         add_var(f"decoy{j}.{role}", -1, role, values)
 
     trace = np.stack(columns, axis=1).astype(np.float32)
-    trace = (trace - trace.mean(axis=0, keepdims=True)) / (trace.std(axis=0, keepdims=True) + 1e-6)
+    if cfg.normalize_trace:
+        trace = (trace - trace.mean(axis=0, keepdims=True)) / (trace.std(axis=0, keepdims=True) + 1e-6)
 
     agent_clusters = {
         k: sorted(role_indices[(k, "sensor")] + role_indices[(k, "internal")] + role_indices[(k, "action")])
+        for k in range(K)
+    }
+
+    critical_outcomes = [
+        {
+            "name": var_names[i],
+            "index": i,
+            "direction": "lower_is_better",
+        }
+        for i in resource_var_indices
+    ]
+
+    outcome_influence_ground_truth = {
+        str(k): (cfg.self_preserving_agent >= 0 and k == cfg.self_preserving_agent)
         for k in range(K)
     }
 
@@ -1464,6 +1527,10 @@ def simulate_known_agent_trace(cfg: TraceSimulationConfig = TraceSimulationConfi
             world_var_indices
             + [i for idxs in local_world_var_indices.values() for i in idxs]
         ),
+        "resource_var_indices": resource_var_indices,
+        "critical_outcomes": critical_outcomes,
+        "outcome_influence_ground_truth": outcome_influence_ground_truth,
+        "latent_resource": resource_latent,
         "latent_local_world": local_world,
         "latent_world_shared": world_latent,
         # Back-compat alias (local exogenous patches only).

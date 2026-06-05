@@ -150,3 +150,32 @@ See [`EXPERIMENTS.md`](EXPERIMENTS.md#e14e16--2026-06-04-summary-telemetry-exter
 - Renamed [`docs/FINDINGS.md`](FINDINGS.md) from `learn_agents_debug_findings.md`; EXPERIMENTS.md now lists pre–E0 work (`agency_detect/`, `examples/`, CMI research, etc.).
 - Session summary: [`conversations/2026-06-04-external-pool-mixed-detection-docs.md`](conversations/2026-06-04-external-pool-mixed-detection-docs.md).
 
+---
+
+## 2026-06-05 — Intention detection line (E17 Option D)
+
+See [`EXPERIMENTS.md#e17--option-d-homeostatic-regulation-probe-2026-06-05`](EXPERIMENTS.md#e17--option-d-homeostatic-regulation-probe-2026-06-05).
+
+- Added **Option D** regulation probe (`learn_agents/regulation_probe.py`): flatness × compensation on paired S/A/I channels; flags homeostatic agents only when internal variance is suppressed relative to sensor drive.
+- Added **`physics_cartpole_track`** (nonzero setpoint controller) as contrast to balance; registered in extended pool; `pack_trace(..., normalize=False)` for physics/outcome eval.
+- **Result:** balance flagged 100% (R≈0.66); track, telemetry, rock, grid not flagged — confirms probe scope is maintenance/regulation, not pursuit or reactive dynamics.
+- **Next:** wire E18 into spotlight; bridge deployment-pipeline traces.
+
+### E18 — outcome-influence on labeled critical variables
+
+See [`EXPERIMENTS.md#e18--outcome-influence-detection-on-labeled-critical-variables-2026-06-05`](EXPERIMENTS.md#e18--outcome-influence-detection-on-labeled-critical-variables-2026-06-05).
+
+- **`intention_detect/`** — partial influence \(A \to \Delta O \mid W\), defense OR + selectivity; dual-path flag (resource defense vs control).
+- Telemetry **`resource.cpu` / `resource.memory`** + optional **`self_preserving_agent`**; eval on raw traces (`normalize_trace=False`).
+- **Pooled AUROC 0.941** (n=40); agent-level accuracy 14/15 reactive, 13/15 self-preserving, 5/5 CartPole balance/track.
+
+### E19 — real-machine outcome-influence harness
+
+See [`EXPERIMENTS.md#e19--real-machine-outcome-influence-dataset-2026-06-05`](EXPERIMENTS.md#e19--real-machine-outcome-influence-dataset-2026-06-05).
+
+- **`data_collect/`** — multiprocess CPU/RAM stressor + five shell-style agents (regulator, burster, mem grabber, fixed worker, schedule-correlated bystander); parent recorder samples system metrics at 1 Hz.
+- **`scripts/intention/run_machine_dataset.py`** — collect, pack to `SimulationResult`, score with E18 (`psutil` in `requirements-dev.txt`).
+- **Run budget:** up to 4 cores, 30 min default. Harness smoke-tested; full collection in progress at commit time.
+
+Session summary: [`conversations/2026-06-05-intention-detection-e17-e18.md`](conversations/2026-06-05-intention-detection-e17-e18.md).
+

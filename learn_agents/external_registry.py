@@ -20,6 +20,11 @@ def _physics(seed: int, t_steps: int) -> SimulationResult:
     return roll_cartpole_partial_obs(seed=seed)
 
 
+def _physics_track(seed: int, t_steps: int) -> SimulationResult:
+    del t_steps
+    return roll_cartpole_partial_obs(seed=seed, policy="track", theta_ref=0.12, normalize=False)
+
+
 def _physics_x3(seed: int, t_steps: int) -> SimulationResult:
     del t_steps
     return roll_cartpole_multi(seed=seed, num_agents=3, n_decoy_env=8)
@@ -51,6 +56,7 @@ def _melting_pot_ring(seed: int, t_steps: int) -> SimulationResult:
 
 EXTERNAL_BUILDERS: Dict[str, ExternalBuilder] = {
     "physics_cartpole": _physics,
+    "physics_cartpole_track": _physics_track,
     "physics_cartpole_x3": _physics_x3,
     "rock_sample_5x5": _rock,
     "grid_pomdp_3x3": _grid3,

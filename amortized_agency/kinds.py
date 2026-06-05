@@ -47,6 +47,14 @@ EXTERNAL_KINDS: List[Kind] = [
         decoy_vars=4,
     ),
     Kind(
+        "physics_cartpole_track",
+        num_agents=1,
+        variant_mode="external",
+        backend="external",
+        external_key="physics_cartpole_track",
+        decoy_vars=4,
+    ),
+    Kind(
         "physics_cartpole_x3",
         num_agents=3,
         variant_mode="external",
@@ -91,7 +99,7 @@ EXTERNAL_KINDS: List[Kind] = [
 EXTENDED_TRAIN_KINDS: List[Kind] = TRAIN_KINDS + [
     k
     for k in EXTERNAL_KINDS
-    if k.name in ("physics_cartpole", "rock_sample_5x5", "grid_pomdp_3x3")
+    if k.name in ("physics_cartpole", "physics_cartpole_track", "rock_sample_5x5", "grid_pomdp_3x3")
 ]
 
 EXTENDED_HELDOUT_KINDS: List[Kind] = HELDOUT_KINDS + [

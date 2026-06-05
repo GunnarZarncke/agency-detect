@@ -30,8 +30,9 @@ def pack_trace(
     source: str,
     n_decoy_env: int = 4,
     rng: np.random.Generator | None = None,
+    normalize: bool = True,
 ) -> SimulationResult:
-    """Stack columns, add optional env decoys for blanket tests, z-score per column."""
+    """Stack columns, add optional env decoys for blanket tests, optionally z-score per column."""
     rng = rng or np.random.default_rng(seed)
     T = int(columns[0].values.shape[0])
     cols: List[np.ndarray] = []
@@ -60,7 +61,8 @@ def pack_trace(
         add(TraceColumn(f"env.{j}", -1, "env", env))
 
     trace = np.stack(cols, axis=1).astype(np.float32)
-    trace = (trace - trace.mean(axis=0, keepdims=True)) / (trace.std(axis=0, keepdims=True) + 1e-6)
+    if normalize:
+        trace = (trace - trace.mean(axis=0, keepdims=True)) / (trace.std(axis=0, keepdims=True) + 1e-6)
 
     agent_clusters = {
         k: sorted(

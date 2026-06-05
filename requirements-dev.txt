@@ -19,6 +19,9 @@ matplotlib>=3.0.0  # For visualization in analysis scripts
 # E15 external physics baseline (optional; rock/grid are stdlib+numpy only)
 gymnasium>=0.29.0
 
+# E19 real-machine trace collection
+psutil>=5.9.0
+
 # E16 Melting Pot (optional; heavy deps — install before --melting-pot checks)
 # dm-env>=1.6
 # meltingpot>=3.0.0

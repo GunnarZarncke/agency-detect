@@ -30,19 +30,34 @@ def _balance_action(full: np.ndarray, rng: np.random.Generator) -> int:
     return 1 if signal > 0 else 0
 
 
+def _track_action(full: np.ndarray, rng: np.random.Generator, *, theta_ref: float) -> int:
+    """Track a nonzero pole angle (pursuit / setpoint tracking, not homeostasis at zero)."""
+    error = full[2] - theta_ref
+    signal = 1.5 * error + 0.6 * full[3]
+    if rng.random() < 0.03:
+        return int(rng.integers(0, 2))
+    return 1 if signal > 0 else 0
+
+
 def roll_cartpole_partial_obs(
     *,
     seed: int = 0,
     max_steps: int = 500,
     n_episodes: int = 1,
     policy: str = "random",
+    theta_ref: float = 0.12,
+    normalize: bool = False,
 ) -> SimulationResult:
-    """One CartPole-v1 episode. ``policy='balance'`` runs a stabilizing controller
-    (long, agentic episodes); ``policy='random'`` is the short falling-pole baseline."""
+    """One CartPole-v1 episode.
+
+    ``policy='balance'`` — stabilizing controller (homeostatic, long episodes).
+    ``policy='track'`` — tracks ``theta_ref`` (intentional, non-suppressed internal).
+    ``policy='random'`` — short falling-pole baseline.
+    """
     if n_episodes != 1:
         raise ValueError("use n_episodes=1 for a single continuous physics trace (no synthetic concat)")
-    if policy not in ("random", "balance"):
-        raise ValueError(f"policy must be 'random' or 'balance', got {policy!r}")
+    if policy not in ("random", "balance", "track"):
+        raise ValueError(f"policy must be 'random', 'balance', or 'track', got {policy!r}")
     env = gym.make("CartPole-v1")
     obs, _ = env.reset(seed=seed)
     rng = np.random.default_rng(seed)
@@ -52,7 +67,12 @@ def roll_cartpole_partial_obs(
         # full = [x, x_dot, theta, theta_dot]
         s_list.append([full[1], full[3]])
         i_list.append([full[0], full[2]])
-        action = _balance_action(full, rng) if policy == "balance" else int(env.action_space.sample())
+        if policy == "balance":
+            action = _balance_action(full, rng)
+        elif policy == "track":
+            action = _track_action(full, rng, theta_ref=theta_ref)
+        else:
+            action = int(env.action_space.sample())
         a_list.append([float(action)])
         obs, _reward, term, trunc, _ = env.step(action)
         if term or trunc:
@@ -65,7 +85,10 @@ def roll_cartpole_partial_obs(
         TraceColumn("agent0.internal.pole_ang", 0, "internal", np.array(i_list)[:, 1]),
         TraceColumn("agent0.action.force", 0, "action", np.array(a_list)[:, 0]),
     ]
-    return pack_trace(cols, num_agents=1, seed=seed, source="physics_cartpole_v1")
+    source = f"physics_cartpole_v1_{policy}"
+    if policy == "track":
+        source = f"physics_cartpole_v1_track_ref{theta_ref:.2f}"
+    return pack_trace(cols, num_agents=1, seed=seed, source=source, normalize=normalize)
 
 
 def roll_cartpole_multi(

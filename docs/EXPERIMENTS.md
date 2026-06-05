@@ -6,7 +6,7 @@ Chronological notebook for the **numbered experiment line** (E0 onward). Records
 
 | Doc | Role |
 |-----|------|
-| **This file** (`docs/EXPERIMENTS.md`) | Run log from E0 (May 2026); later sections add E9 spotlight, E12 hierarchy, E13 amortized, E14–E16 externals |
+| **This file** (`docs/EXPERIMENTS.md`) | Run log from E0 (May 2026); later sections add E9 spotlight, E12 hierarchy, E13 amortized, E14–E16 externals, **E17–E19 intention detection** |
 | [`FINDINGS.md`](FINDINGS.md) | Cross-cutting interpretation (mainly E0–E8 latent-UAD / decoys) |
 | [`CHANGELOG.md`](CHANGELOG.md) | Short milestones |
 | [`conversations/`](conversations/README.md) | Session summaries (why, not full tables) |
@@ -1004,6 +1004,160 @@ Artifacts: `results/amortized/learned_sweep_summary.json`, `learned_sweep_full.l
 
 ---
 
+## E17 — Option D: homeostatic regulation probe (2026-06-05)
+
+**Why:** Start the **intention-detection** derivative line with the smallest falsifiable test: does a data-only probe detect *disturbance-rejection regulation* (good-regulator / setpoint maintenance) without labels or known rewards? Option D scopes **homeostasis**, not pursuit or navigation — complementary to later EIS/compression-gain (Option A).
+
+**Package / scripts:**
+
+| Component | Path |
+|-----------|------|
+| Regulation probe | `learn_agents/regulation_probe.py` |
+| CartPole track variant | `learn_agents/physics_pomdp.py` (`policy="track"`, `theta_ref=0.12`) |
+| External kind | `physics_cartpole_track` in `external_registry.py`, `amortized_agency/kinds.py` |
+| Eval script | `scripts/learn_agents/run_regulation_probe.py` |
+| Tests | `tests/test_regulation_probe.py` |
+
+**Probe (per agent, paired internal↔sensor by index):**
+
+- **Flatness** `F = max(0, 1 − Var(internal)/Var(paired_sensor))`
+- **Compensation** `K = max(0, −corr(a_{t−1}, s_t))`
+- **Regulation** `R = F × K`, forced to **0** when `Var(internal)/Var(sensor) > 0.012` (actively maintained internal, not suppressed)
+- **Flag** when `max_internal R ≥ 0.15` and trace `T ≥ 80`
+
+Physics rollouts use `pack_trace(..., normalize=False)` so variance ratios are meaningful (per-column z-score was collapsing all `F` to 0).
+
+**CartPole track:** tracks `θ_ref=0.12` rad (below env failure threshold ~0.209). Contrast pair with `policy="balance"` on the same S/A/I layout.
+
+**Settings:** 5 seeds `{0…4}`; telemetry kinds use default sim (`episodic=False`, `T=2000`); physics `normalize=False`.
+
+**Artifact:** `results/intention/e17_regulation_probe.json`
+
+| Family | Mean max R | Flagged rate | Interpretation |
+|--------|------------|--------------|----------------|
+| **physics_cartpole_balance** | **0.660 ± 0.016** | **100%** | homeostatic positive control ✓ |
+| physics_cartpole_track | 0.000 | 0% | intentional but **active** internal (ratio ~0.6–0.8) ✓ |
+| physics_cartpole_random | 0.000 | 0% | short / unregulated ✓ |
+| telemetry easy3 / med5 / hard8 | 0.000 | 0% | reactive, no setpoint — negative control ✓ |
+| rock_sample_5x5 | 0.015 | 0% | navigation, not homeostatic ✓ |
+| grid_pomdp_3x3 | 0.000 | 0% | random policy, not homeostatic ✓ |
+
+**Balance detail (seed 0):** `pole_ang` paired with `pole_ang_v` — F≈0.997, K≈0.685, R≈0.683, active_ratio≈0.003.
+
+**Track detail (seed 0):** same pairing — F≈0.98, K≈0.77 but active_ratio≈0.62 → R zeroed (not flagged).
+
+**Conclusion:** Option D **works as scoped**: flags homeostatic regulation (balance), rejects reactive telemetry and pursuit-style track. It does **not** detect achievement/pursuit intentions — that is the gap for **Option A** (EIS compression gain / goal-conditioned action likelihood).
+
+**Reproduce:**
+
+```bash
+.venv/bin/python scripts/learn_agents/run_regulation_probe.py --seeds 0 1 2 3 4
+```
+
+**Next:** E19 real-machine eval; optional EIS compression gain (Option A); wire E18 into spotlight.
+
+---
+
+## E18 — Outcome-influence detection on labeled critical variables (2026-06-05)
+
+**Why:** Operational intention detection for ops-style traces: label critical outcomes (`resource.cpu`, pole angle, …) and test whether each agent cluster **defends or steers** those variables after controlling for exogenous world state. Complements E17 (internal homeostasis only).
+
+**Package / scripts:**
+
+| Component | Path |
+|-----------|------|
+| Outcome influence | `intention_detect/` (`outcomes.py`, `influence.py`, `defense.py`, `evaluate.py`) |
+| Sim: resource channels + self-preserving agent | `learn_agents/learn_agents.py` (`resource_vars`, `self_preserving_agent`, `normalize_trace=False`) |
+| Eval script | `scripts/intention/run_outcome_influence.py` |
+| Tests | `tests/test_outcome_influence.py` |
+
+**Labeled outcomes:** `metadata["critical_outcomes"]` — `{name, index, direction}`. Telemetry sim adds `resource.cpu` / `resource.memory`; CartPole uses `pole_ang` via `attach_physics_critical_outcome`.
+
+**Scores per (agent, outcome):**
+
+- **Partial influence:** signed corr\((a_{t-1}, \Delta o_t)\) given world controls
+- **Defense OR:** mean \(|a|\) when outcome bad vs good (bootstrap 90% CI), after residualizing on world
+- **Selectivity:** OR on high-|Δo| vs low-|Δo| windows (pipeline-style confound strip)
+- **Flag:** strong defense path (`OR≥1.40`, `infl>0`) or strong-OR path (`OR≥1.65`); **or** control path (`|infl|≥0.25`, selectivity ≥0.78) for regulators/pursuit
+
+**Sim families (5 seeds, T=2000, raw trace):**
+
+| Family | Ground-truth influencer | Agent-level accuracy |
+|--------|---------------------------|----------------------|
+| telemetry reactive | none | **14/15** |
+| telemetry self-preserving (agent 0) | agent 0 | **13/15** |
+| physics_cartpole balance | agent 0 | **5/5** |
+| physics_cartpole track | agent 0 | **5/5** |
+| physics_cartpole random | none | skipped (T&lt;80) |
+
+**Pooled AUROC** (combined score, n=40 agent rows): **0.941**
+
+**Artifact:** `results/intention/e18_outcome_influence.json`
+
+**Reproduce:**
+
+```bash
+.venv/bin/python scripts/intention/run_outcome_influence.py --seeds 0 1 2 3 4
+```
+
+**Conclusion:** Labeling a few critical variables is enough to separate (1) reactive telemetry, (2) self-preserving resource defense, and (3) control/pursuit on pole angle — with one false positive on reactive telemetry across 15 agent-rows. E17 and E18 are complementary: E17 flags homeostatic suppression; E18 flags outcome-directed action.
+
+---
+
+## E19 — Real-machine outcome-influence dataset (2026-06-05)
+
+**Why:** E18 passed on sim and physics; the next falsifier is **real CPU/RAM telemetry** with deployment-pipeline-style confounds: a shared exogenous stressor, agents that genuinely influence outcomes, and a bystander that correlates with the stressor schedule without causing CPU load.
+
+**Package / scripts:**
+
+| Component | Path |
+|-----------|------|
+| Worker roles | `data_collect/workers.py` (stressor, cpu_regulator, deadline_burster, mem_grabber, fixed_worker, bystander) |
+| Orchestrator + recorder | `data_collect/run.py` |
+| Pack to SimulationResult | `data_collect/pack_run.py` |
+| CLI | `scripts/intention/run_machine_dataset.py` |
+| Dependency | `psutil` in `requirements-dev.txt` (use project `.venv`) |
+
+**Process design (5 agents + world stressor):**
+
+| Process | S/A/I role | Influences critical outcome? |
+|---------|------------|------------------------------|
+| background stressor | world control (`world.stressor_active`) | exogenous W only |
+| cpu_regulator (A0) | reads live CPU, burns/throttles to setpoint | yes (CPU) |
+| deadline_burster (A1) | periodic CPU bursts | yes (CPU) |
+| mem_grabber (A2) | allocates/releases RAM chunks | yes (RAM) |
+| fixed_worker (B1) | steady low activity | no |
+| bystander (B2) | mirrors stressor schedule via disk I/O | no (confound) |
+
+**Critical outcomes:** `resource.cpu_percent`, `resource.ram_used_frac` (recorded 1 Hz by parent process). World controls: stressor active flag + slow time phase. Traces packed with `normalize=False`.
+
+**Run budget:** up to **4 CPU cores** (stressor 2 when active; agents burst 1 core); default **1800 s** (30 min), `dt=1 s`.
+
+**Artifacts (local, gitignored):**
+
+- Raw JSONL per run: `results/intention/machine_runs/<timestamp>/`
+- Scored summary: `results/intention/e19_machine_dataset.json`
+- Run log: `results/intention/e19_run.log`
+
+**Status:** Harness built and smoke-tested (30 s, collection OK; scoring skipped until T≥80). Full 30-min collection launched 2026-06-05; update this section with AUROC and per-agent accuracy when complete.
+
+**Reproduce:**
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install psutil numpy
+.venv/bin/python scripts/intention/run_machine_dataset.py \
+  --duration 1800 --dt 1 --max-cores 4 --stressor-cores 2
+```
+
+Score an existing run without re-collecting:
+
+```bash
+.venv/bin/python scripts/intention/run_machine_dataset.py \
+  --score-only results/intention/machine_runs/<timestamp>
+```
+
+---
+
 ## Code map
 
 | Component | Path |
@@ -1021,6 +1175,9 @@ Artifacts: `results/amortized/learned_sweep_summary.json`, `learned_sweep_full.l
 | E13 amortized agency | `amortized_agency/`, `scripts/amortized/` |
 | E16 extended pool + Melting Pot | `learn_agents/external_registry.py`, `melting_pot.py`, `amortized_agency/kinds.py`, `scripts/amortized/check_extended_pool.py` |
 | E16b dataset vs sim baseline | `scripts/amortized/run_dataset_vs_baseline.py`, `ablate_grid_context_epochs.py` |
+| E17 regulation probe (Option D) | `learn_agents/regulation_probe.py`, `physics_pomdp.py` (track policy), `scripts/learn_agents/run_regulation_probe.py` |
+| E18 outcome influence | `intention_detect/`, `scripts/intention/run_outcome_influence.py` |
+| E19 real-machine dataset | `data_collect/`, `scripts/intention/run_machine_dataset.py` |
 | Multi-agent physics | `learn_agents/physics_pomdp.py` (`roll_cartpole_multi`) |
 | Strict UAD / MI roles | `agency_detect/markov_blanket.py` |
 
