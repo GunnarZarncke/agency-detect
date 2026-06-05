@@ -1078,7 +1078,8 @@ Physics rollouts use `pack_trace(..., normalize=False)` so variance ratios are m
 - **Partial influence:** signed corr\((a_{t-1}, \Delta o_t)\) given world controls
 - **Defense OR:** mean \(|a|\) when outcome bad vs good (bootstrap 90% CI), after residualizing on world
 - **Selectivity:** OR on high-|Δo| vs low-|Δo| windows (pipeline-style confound strip)
-- **Flag:** strong defense path (`OR≥1.40`, `infl>0`) or strong-OR path (`OR≥1.65`); **or** control path (`|infl|≥0.25`, selectivity ≥0.78) for regulators/pursuit
+- **Flag:** strong defense path (`OR≥1.40`, `infl>0`) or strong-OR path (`OR≥1.65`); **or** control path (`|infl|≥0.25`, selectivity ≥0.78) for regulators/pursuit; **or** driver path (`|infl|≥0.30`, bypasses selectivity) for resource attackers (E19b)
+- **Per agent:** flagged if **any** outcome flags (not only highest combined score)
 
 **Sim families (5 seeds, T=2000, raw trace):**
 
@@ -1129,9 +1130,16 @@ Physics rollouts use `pack_trace(..., normalize=False)` so variance ratios are m
 | fixed_worker (B1) | steady low activity | no |
 | bystander (B2) | mirrors stressor schedule via disk I/O | no (confound) |
 
-**Critical outcomes:** `resource.cpu_percent`, `resource.ram_used_frac` (recorded 1 Hz by parent process). World controls: stressor active flag + slow time phase. Traces packed with `normalize=False`.
+**Critical outcomes (two scenarios via `--scenario global|owned|both`):**
 
-**Run budget:** up to **4 CPU cores** (stressor 2 when active; agents burst 1 core); default **1800 s** (30 min), `dt=1 s`.
+| Scenario | Outcomes | Question |
+|----------|----------|----------|
+| **global** | `resource.cpu_percent`, `resource.ram_used_frac` | Does the agent move **system-wide** pressure beyond its own footprint? |
+| **owned** | `owned.<agent>.cpu`, `owned.<agent>.rss_mb` per process | Boring baseline — does it move **its own** resources? |
+
+Parent recorder logs global metrics + per-process owned CPU/RSS (`proc_usage.jsonl`). World controls: stressor flag + slow time phase. Traces packed with `normalize=False`.
+
+**Run budget:** up to **4 CPU cores**; default **1200 s** (20 min) or **1800 s** (30 min), `dt=1 s`.
 
 **Artifacts (local, gitignored):**
 
@@ -1139,22 +1147,70 @@ Physics rollouts use `pack_trace(..., normalize=False)` so variance ratios are m
 - Scored summary: `results/intention/e19_machine_dataset.json`
 - Run log: `results/intention/e19_run.log`
 
-**Status:** Harness built and smoke-tested (30 s, collection OK; scoring skipped until T≥80). Full 30-min collection launched 2026-06-05; update this section with AUROC and per-agent accuracy when complete.
+### E19a — first real-machine run (v1 harness, T=1800)
+
+Run `machine_runs/20260605T073554Z`. Collection succeeded; scoring initially crashed on a label-key bug (fixed).
+
+| Agent | GT | Flagged | Notes |
+|-------|-----|---------|-------|
+| cpu_regulator | yes | no | weak lagged CPU coupling |
+| deadline_burster | yes | no | sub-second bursts, OR below threshold |
+| mem_grabber | yes | yes | spurious RAM OR on flat signal |
+| fixed_worker | no | no | ✓ |
+| bystander | no | yes | false positive on noisy RAM |
+
+**Agent-level accuracy 2/5; pooled AUROC 0.333.**
+
+**Root causes (not training or sample count — E18 is training-free, T=1800):**
+
+1. **SNR:** 1-core bursts ≈12.5% on 8 cores, sampled at 1 Hz → `corr(action_lag, Δcpu) ≈ 0` for all agents; exogenous stressor dominated (`corr(stressor,cpu)=0.63`).
+2. **Outcome not agent-controllable:** mem_grabber held ~400 MB on 24 GB → RAM range ~1.3 GB from OS noise; `corr(chunks, ram)≈−0.15`.
+3. **Sub-second effects:** CPU bursts &lt;1 s within 1 s ticks → aliasing.
+4. **Defense-only semantics:** flag logic required `infl>0` (defender); RAM *drivers* show `infl<0` and were ranked highly but not flagged.
+5. **Per-agent aggregation bug:** agent flagged only if its single highest-`combined` outcome flagged, not if *any* outcome flagged.
+
+### E19b — revised harness + detector fixes (2026-06-05)
+
+**Harness changes (`data_collect/`):**
+
+- Multi-core burns spanning **4–10+ ticks** (full-tick `burn_cores`: 1 in-process core + helper subprocesses for “beyond footprint”).
+- **mem_grabber:** 2.5 GB target in **256 MB random-filled** numpy chunks (incompressible), held 10+ ticks → verified **+12 pp / ~2.9 GB** global RAM, `corr(held, ram)=+0.84`.
+- **cpu_regulator / deadline_burster:** 2-core sustained bursts; regulator setpoint 55%.
+- Parent **per-process owned CPU/RSS** in `proc_usage.jsonl`.
+- CLI **`--scenario global|owned|both`**.
+
+**E18 detector fixes (`intention_detect/evaluate.py`):**
+
+- **Driver/attacker path:** large `|influence| ≥ 0.30` flags regardless of sign (process *driving* resource toward bad); E18 sim regression unchanged (AUROC **0.941**).
+- **Any-outcome aggregation:** agent flagged if **any** critical outcome flags.
+
+**150 s smoke (`machine_runs/20260605T142210Z`):**
+
+| Scenario | AUROC | Agent acc | Notes |
+|----------|-------|-----------|-------|
+| global | **1.000** | **4/5** | mem_grabber ✓, deadline_burster ✓; cpu_regulator miss; fixed_worker & bystander ✓ |
+| owned | 0.667 | 3/5 | baseline separation (boring per-process case) |
+
+Physical signal confirmed: CPU mean 44.8% (0–90%), RAM Δ12 pp, mem held up to 2560 MB.
+
+**20-min run (v2, both scenarios):** in progress at doc commit — update table below when complete.
 
 **Reproduce:**
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install psutil numpy
 .venv/bin/python scripts/intention/run_machine_dataset.py \
-  --duration 1800 --dt 1 --max-cores 4 --stressor-cores 2
+  --duration 1200 --dt 1 --max-cores 4 --stressor-cores 2 --scenario both
 ```
 
-Score an existing run without re-collecting:
+Score an existing run:
 
 ```bash
 .venv/bin/python scripts/intention/run_machine_dataset.py \
-  --score-only results/intention/machine_runs/<timestamp>
+  --score-only results/intention/machine_runs/<timestamp> --scenario both
 ```
+
+**Conclusion so far:** Off-simulator failure was **measurement design and detector semantics** (defender-only flags, weak agent effects), not lack of data or learned-model training. Revised harness produces strong global signals; driver-path + any-outcome fixes close the semantic gap for resource *attackers*. Homeostatic cpu_regulator remains the hardest case (anti-correlates with stressor; weak partial influence on global CPU).
 
 ---
 

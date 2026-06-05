@@ -2,90 +2,62 @@
 
 Date: 2026-06-05
 
-Compact record of starting the intention-detection derivative line. Metrics in
+Compact record of the intention-detection derivative line. Metrics in
 [`docs/EXPERIMENTS.md`](../EXPERIMENTS.md#e17--option-d-homeostatic-regulation-probe-2026-06-05).
 
 ## Initial Problem
 
-Agency discovery (E0–E16) answers **where is the agent**; the UAD paper’s fourth
-pillar — **goal/intention inference** — was never implemented. Two complementary
-framings emerged from the UAD / EIS papers and the deployment-pipeline auditor:
+Agency discovery (E0–E16) answers **where is the agent**; goal/intention inference
+was never implemented. Three framings:
 
-1. **Option D:** homeostatic regulation (disturbance rejection, suppressed internal).
-2. **Option A (EIS):** compression gain — goal-rational prior over actions explains
-   behavior better than a purely mechanistic baseline (`Δℒ > 0`).
-3. **Outcome influence (deployment-pipeline style):** label critical outcomes (CPU,
-   RAM, pole angle) and test whether each agent **defends or steers** them after
-   controlling for exogenous world state.
+1. **Option D:** homeostatic regulation (disturbance rejection).
+2. **Option A (EIS):** compression gain on oracle S/A/I clusters (deferred).
+3. **Outcome influence:** label critical outcomes and test whether each agent
+   defends or **drives** them after controlling for exogenous world.
 
 ## Key Decisions
 
-- **Ship Option D first** as the smallest falsifiable probe; scope is explicitly
-  *maintenance/regulation*, not pursuit or navigation.
-- **`physics_cartpole_track`** added as intentional contrast to balance (same S/A/I,
-  active internal around `θ_ref=0.12`, not suppressed).
-- **Do not z-score traces** used for regulation or outcome-influence eval
-  (`normalize=False` / `normalize_trace=False`); per-column z-score destroys
-  variance ratios and defense ORs.
-- **Active-internal gate (E17):** zero regulation score when
-  `Var(internal)/Var(sensor) > 0.012` so pursuit/track is not misclassified as
-  homeostasis.
-- **E18 pivot:** implement **outcome-influence** first (partial lagged influence +
-  defense OR + selectivity), not full EIS compression gain on spotlight clusters.
-  Oracle S/A/I clusters / sim metadata suffice for v1.
-- **E19:** real-machine dataset with confounded shell processes (stressor schedule,
-  bystander correlates with W but does not burn CPU) to stress-test E18 off-simulator.
+- Ship **Option D (E17)** first; then **outcome-influence (E18)** on sim/physics.
+- **Do not z-score** regulation/outcome eval traces.
+- **E19:** real-machine dataset with confounds (stressor + schedule-correlated bystander).
+- Two outcome scenarios: **global** (system CPU/RAM — the ops worry) vs **owned**
+  (per-process baseline — boring but useful control).
+- Random-filled RAM allocations, multi-core multi-second burns, 1 Hz sampling.
 
-## E17 — Option D (shipped)
+## E17 / E18 (shipped)
 
-Regulation probe: flatness × compensation on paired S/A/I; flags homeostatic agents
-only when internal variance is suppressed relative to sensor drive.
+- E17: balance CartPole flagged 100%; track/telemetry/rock/grid not — homeostasis only.
+- E18: pooled AUROC **0.941** on sim + physics; complementary to E17.
 
-**Result:** balance CartPole flagged 100% (mean R≈0.66); track, telemetry, rock, grid
-not flagged. Validates negative controls and positive homeostatic control.
+## E19 — Real machine
 
-## E18 — Outcome influence (shipped)
+### v1 run (T=1800, first harness)
 
-New package `intention_detect/`:
+**2/5 accuracy, AUROC 0.333.** Not a training or data-quantity failure (detector is
+statistical; T=1800 ample). Diagnosis:
 
-- Partial influence \(A \to \Delta O \mid W\)
-- Defense OR + bootstrap CI + selectivity ratio
-- Dual-path flag (resource defense vs control/influence)
+- Agent CPU/RAM effects **below 1 Hz noise floor** (1-core ≈12.5%, 400 MB ≈1.6% of 24 GB).
+- Sub-second bursts aliased; stressor dominated global CPU.
+- **Defense-only flag logic** missed RAM *drivers* (`infl<0`); bystander false-positive on flat RAM noise.
+- Scoring script bug (str/int agent keys); per-agent flag used max-combined outcome only.
 
-Sim extensions: `resource.cpu` / `resource.memory`, optional `self_preserving_agent`.
-Physics eval via `attach_physics_critical_outcome`.
+### v2 harness + detector fixes
 
-**Result:** pooled AUROC **0.941** (n=40); agent-level accuracy 14/15 reactive,
-13/15 self-preserving, 5/5 CartPole balance/track.
+**Harness:** 2.5 GB random-filled RAM (Δ~3 GB global), 2-core full-tick bursts 4–10+ s,
+per-process owned channels, `--scenario global|owned|both`.
 
-E17 and E18 are complementary: E17 = internal homeostasis; E18 = outcome-directed action.
+**Detector (`evaluate.py`):**
 
-## E19 — Real-machine harness (in progress)
+- **Driver path:** `|influence| ≥ 0.30` flags regardless of sign.
+- **Any-outcome:** flag if any critical outcome flags (not only highest combined).
+- E18 regression: AUROC still **0.941**.
 
-**Motivation:** E18 worked on sim and physics; next falsifier is real CPU/RAM traces
-with operator-style confounds (shared stressor schedule, correlated non-causal logger).
+**150 s smoke:** global AUROC **1.0**, agent acc **4/5** (regulator miss; no FP on bystander/fixed).
 
-**Layout:**
-
-| Process | Role | Ground truth |
-|---------|------|--------------|
-| background stressor | exogenous W (2-core busy-loop, ~45% duty) | world control |
-| cpu_regulator | homeostatic CPU → setpoint | influencer |
-| deadline_burster | goal bursts, ignores load | influencer |
-| mem_grabber | pushes RAM | influencer |
-| fixed_worker | regular, no influence | negative |
-| bystander | reads stressor schedule, disk I/O only | negative (confound) |
-
-**Package:** `data_collect/` + `scripts/intention/run_machine_dataset.py`.
-
-**Run budget:** up to **4 CPU cores**, **30 min** (T=1800, dt=1s). Requires
-`.venv` with `psutil` (added to `requirements-dev.txt`).
-
-**Status at commit:** harness built and smoke-tested (30 s); full 30-min collection
-launched in background. Scoring needs T≥80 (same as E17/E18).
+**20-min v2 run:** launched after fixes; results pending in EXPERIMENTS.md.
 
 ## Follow-Up
 
-1. Finish E19 30-min run; record AUROC / per-agent accuracy in EXPERIMENTS.md.
-2. Optional: EIS compression gain (original Option A) on oracle clusters.
-3. Wire E18 into spotlight post-UAD admit; bridge deployment-pipeline traces.
+1. Record 20-min v2 results; tune cpu_regulator if still missed.
+2. Optional EIS (Option A) on oracle clusters.
+3. Wire E18 into spotlight post-UAD; bridge deployment-pipeline traces.

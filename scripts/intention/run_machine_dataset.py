@@ -47,12 +47,17 @@ def main() -> None:
         metavar="RUN_DIR",
         help="score an existing run directory instead of collecting",
     )
+    parser.add_argument(
+        "--scenario",
+        choices=["global", "owned", "both"],
+        default="both",
+        help="critical outcomes: system-wide (global), per-process (owned), or both",
+    )
     args = parser.parse_args()
 
     if args.score_only:
         run_dir = args.score_only
         print(f"packing {run_dir} ...", flush=True)
-        result = pack_machine_run(run_dir, seed=args.seed)
     else:
         cfg = MachineRunConfig(
             duration_s=args.duration,
@@ -70,19 +75,47 @@ def main() -> None:
         print(f"collection finished: {run_dir}", flush=True)
         if args.collect_only:
             return
-        result = pack_machine_run(run_dir, seed=args.seed)
 
-    summary = score_simulation(result, seed=args.seed)
+    scenarios = ["global", "owned"] if args.scenario == "both" else [args.scenario]
+    scenario_results = {
+        s: _score_scenario(run_dir, s, args.seed) for s in scenarios
+    }
+
+    payload = {
+        "experiment": "E19_machine_dataset",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "run_dir": str(run_dir),
+        "duration_s": args.duration,
+        "scenarios": scenario_results,
+    }
+    args.output_json.parent.mkdir(parents=True, exist_ok=True)
+    args.output_json.write_text(json.dumps(payload, indent=2))
+    print(f"wrote {args.output_json}")
+    for s, res in scenario_results.items():
+        print(f"\n=== scenario: {s} ===")
+        print(f"AUROC={res['pooled_auroc']:.3f}  agent acc={res['agent_accuracy']}")
+        for row in res["per_agent"]:
+            mark = "OK" if row["flagged"] == row["gt"] else "MISS"
+            print(
+                f"  [{mark}] {str(row['name']):18s} gt={row['gt']} flagged={row['flagged']} "
+                f"score={row['max_combined']:.3f} outcome={row['best_outcome']}"
+            )
+
+
+def _score_scenario(run_dir: Path, scenario: str, seed: int) -> dict:
+    result = pack_machine_run(run_dir, seed=seed, scenario=scenario)
+    summary = score_simulation(result, seed=seed)
     per_agent = []
     gt = summary.get("ground_truth") or {}
     agents = summary.get("agents") or {}
     for aid, info in agents.items():
-        name = result.metadata.get("agent_labels", {}).get(aid, aid)
+        key = str(aid)
+        name = result.metadata.get("agent_labels", {}).get(key, key)
         per_agent.append(
             {
                 "agent": int(aid),
                 "name": name,
-                "gt": bool(gt.get(aid, False)),
+                "gt": bool(gt.get(key, False)),
                 "flagged": bool(info.get("flagged", False)),
                 "max_combined": float(info.get("max_combined", 0.0)),
                 "best_outcome": info.get("best_outcome"),
@@ -94,28 +127,14 @@ def main() -> None:
     pooled = auroc(scores, labels)
     correct = sum(1 for r in per_agent if r["flagged"] == r["gt"])
 
-    payload = {
-        "experiment": "E19_machine_dataset",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "run_dir": str(run_dir),
-        "duration_s": args.duration,
+    return {
+        "scenario": scenario,
         "T": summary.get("T"),
         "pooled_auroc": pooled,
         "agent_accuracy": f"{correct}/{len(per_agent)}",
         "summary": summary,
         "per_agent": per_agent,
     }
-
-    args.output_json.parent.mkdir(parents=True, exist_ok=True)
-    args.output_json.write_text(json.dumps(payload, indent=2))
-    print(f"wrote {args.output_json}")
-    print(f"AUROC={pooled:.3f}  agent acc={correct}/{len(per_agent)}")
-    for row in per_agent:
-        mark = "OK" if row["flagged"] == row["gt"] else "MISS"
-        print(
-            f"  [{mark}] {row['name']:18s} gt={row['gt']} flagged={row['flagged']} "
-            f"score={row['max_combined']:.3f}"
-        )
 
 
 if __name__ == "__main__":

@@ -46,6 +46,7 @@ def score_agent_outcome(
     or_low_min: float = 1.08,
     selectivity_min: float = 1.05,
     influence_min: float = 0.25,
+    influence_strong_min: float = 0.30,
     bad_quantile: float = 0.80,
     seed: int = 0,
 ) -> OutcomeInfluenceScore:
@@ -84,7 +85,12 @@ def score_agent_outcome(
         (or_point >= or_threshold and or_low >= or_low_min and infl > 0.0)
         or (or_point >= 1.65 and or_low >= 1.15)
     )
-    control_path = abs(infl) >= influence_min and selectivity >= min(selectivity_min, 0.78)
+    # A large-magnitude influence is its own evidence (driver OR defender), so it
+    # bypasses the selectivity confound-strip; weaker influence still needs selectivity.
+    strong = abs(infl) >= influence_strong_min
+    control_path = abs(infl) >= influence_min and (
+        selectivity >= min(selectivity_min, 0.78) or strong
+    )
     flagged = bool(defense_path or control_path)
 
     return OutcomeInfluenceScore(
@@ -107,6 +113,7 @@ def score_simulation(
     or_low_min: float = 1.08,
     selectivity_min: float = 1.05,
     influence_min: float = 0.25,
+    influence_strong_min: float = 0.30,
     bad_quantile: float = 0.80,
     min_T: int = 80,
     seed: int = 0,
@@ -138,6 +145,7 @@ def score_simulation(
                 or_low_min=or_low_min,
                 selectivity_min=selectivity_min,
                 influence_min=influence_min,
+                influence_strong_min=influence_strong_min,
                 bad_quantile=bad_quantile,
                 seed=seed + int(agent),
             )
@@ -145,12 +153,16 @@ def score_simulation(
         ]
         if not scores:
             continue
-        best = max(scores, key=lambda s: s.combined)
-        if best.flagged:
+        # An agent is flagged if it influences ANY critical outcome; report the
+        # flagged outcome when present, else the highest-combined one.
+        flagged_scores = [s for s in scores if s.flagged]
+        any_flagged = bool(flagged_scores)
+        best = max(flagged_scores or scores, key=lambda s: s.combined)
+        if any_flagged:
             flagged.append(int(agent))
         per_agent[int(agent)] = {
-            "max_combined": best.combined,
-            "flagged": best.flagged,
+            "max_combined": max(s.combined for s in scores),
+            "flagged": any_flagged,
             "best_outcome": best.outcome_name,
             "scores": [asdict(s) for s in scores],
         }

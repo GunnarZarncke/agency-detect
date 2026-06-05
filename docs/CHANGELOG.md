@@ -168,14 +168,15 @@ See [`EXPERIMENTS.md#e18--outcome-influence-detection-on-labeled-critical-variab
 - **`intention_detect/`** — partial influence \(A \to \Delta O \mid W\), defense OR + selectivity; dual-path flag (resource defense vs control).
 - Telemetry **`resource.cpu` / `resource.memory`** + optional **`self_preserving_agent`**; eval on raw traces (`normalize_trace=False`).
 - **Pooled AUROC 0.941** (n=40); agent-level accuracy 14/15 reactive, 13/15 self-preserving, 5/5 CartPole balance/track.
+- **2026-06-05 follow-up:** driver/attacker flag path (`|influence|≥0.30` regardless of sign) and any-outcome aggregation for multi-outcome agents; E18 metrics unchanged after change.
 
 ### E19 — real-machine outcome-influence harness
 
 See [`EXPERIMENTS.md#e19--real-machine-outcome-influence-dataset-2026-06-05`](EXPERIMENTS.md#e19--real-machine-outcome-influence-dataset-2026-06-05).
 
-- **`data_collect/`** — multiprocess CPU/RAM stressor + five shell-style agents (regulator, burster, mem grabber, fixed worker, schedule-correlated bystander); parent recorder samples system metrics at 1 Hz.
-- **`scripts/intention/run_machine_dataset.py`** — collect, pack to `SimulationResult`, score with E18 (`psutil` in `requirements-dev.txt`).
-- **Run budget:** up to 4 cores, 30 min default. Harness smoke-tested; full collection in progress at commit time.
+- **`data_collect/`** — multiprocess stressor + five agents; parent recorder logs global + per-process owned CPU/RSS; **`--scenario global|owned|both`**.
+- **E19a (v1):** 30-min run **2/5** accuracy — SNR/aliasing/defense-only semantics, not lack of training or T.
+- **E19b (v2):** larger random-filled RAM, multi-core multi-second burns; smoke **global AUROC 1.0, 4/5** acc; 20-min run in progress.
 
 Session summary: [`conversations/2026-06-05-intention-detection-e17-e18.md`](conversations/2026-06-05-intention-detection-e17-e18.md).
 
