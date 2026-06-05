@@ -34,7 +34,23 @@ RESULTS_DIR = Path(__file__).resolve().parents[2] / "results" / "worm"
 
 
 def neuron_record(ds, idx: int) -> dict:
-    return {"index": int(idx), "neuron_class": ds.neuron_class[idx], "roi_id": ds.roi_id[idx]}
+    """One neuron with cross-dataset linking keys.
+
+    `label` (canonical NeuroPAL identity, e.g. AVDL) joins to other datasets of the *same
+    animal* on (uid, label); `roi_id` joins to that animal's NeuroPAL segmentation/positions.
+    `trace_index` is recording-internal (the column in this bundle's trace array) and is
+    NOT a stable cross-dataset key.
+    """
+    info = (ds.neuron_label_info[idx] if ds.neuron_label_info else None) or {}
+    return {
+        "label": ds.neuron_label[idx] if ds.neuron_label else info.get("label"),
+        "neuron_class": ds.neuron_class[idx],
+        "roi_id": ds.roi_id[idx],
+        "LR": info.get("LR"),
+        "DV": info.get("DV"),
+        "confidence": info.get("confidence"),
+        "trace_index": int(idx),
+    }
 
 
 def recurrent_class_set(procs, *, k: int, representation: str):
@@ -52,14 +68,18 @@ def animal_assignment(ds, proc, class_set, *, representation, ext_dim, n_perm, m
         n_perm=n_perm, min_members=min_members,
     )
     present = classes_to_indices(class_set, ds.neuron_class)
+    upstream = ds.provenance.get("upstream_checksums") or {}
     meta = {
         "dataset_id": ds.dataset_id,
+        "uid": ds.animal_id,
         "animal_id": ds.animal_id,
         "paper_id": ds.provenance.get("paper_id"),
         "source_url": f"{BASE_URL}/download/{ds.dataset_id}/",
         "source_cache": f"data/worm/{ds.dataset_id}.json.bz2",
+        "source_filename": ds.provenance.get("source_filename"),
         "archive_sha256": ds.provenance.get("archive_sha256"),
-        "upstream_checksums": ds.provenance.get("upstream_checksums"),
+        "upstream_checksums": upstream,
+        "neuropal_reference": {"blake3_neuropal_dict": upstream.get("blake3_neuropal_dict")},
         "n_neuron": ds.n_neurons,
         "n_labeled": ds.provenance.get("n_labeled"),
         "mean_timestep_s": ds.provenance.get("mean_timestep"),
@@ -136,6 +156,12 @@ def main() -> None:
             },
             "null": "random same-size neuron partition contrast (n_perm)",
             "n_perm": args.n_perm,
+        },
+        "linking": {
+            "organism_exemplar_key": "uid (== animal_id); dataset_id = paper_id-uid identifies the individual recorded animal",
+            "neuron_identity_key": "roles[*].label — canonical NeuroPAL identity (e.g. AVDL); join across datasets of the SAME animal on (uid, label)",
+            "position_key": "roles[*].roi_id — segmentation ROI id; join to that animal's NeuroPAL segmentation/positions (see per-animal neuropal_reference.blake3_neuropal_dict)",
+            "trace_index_note": "roles[*].trace_index is the column in THIS bundle's trace array (recording-internal); not a stable cross-dataset key",
         },
         "result_note": (
             "v1 result is a robust negative: command-circuit anchor scores 0/8 on "

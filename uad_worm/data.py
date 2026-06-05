@@ -48,12 +48,18 @@ class WormDataset:
     time: np.ndarray                  # (T,)
     activity: np.ndarray              # (T, N) provided z-scored traces
     activity_original: np.ndarray     # (T, N) original F/F0
-    neuron_class: List[Optional[str]] # length N
-    roi_id: List[object]              # length N
+    neuron_class: List[Optional[str]] # length N (e.g. "AVD")
+    roi_id: List[object]              # length N — segmentation ROI id(s); links to positions
     behavior: Dict[str, np.ndarray]   # feature -> (T,)
     reversal_events: List[object]
     encoding: Dict[str, object]       # CePNEM summaries (eval only)
     provenance: Dict[str, object]     # checksums + sha256 + fetch info
+    # Cross-dataset linking keys (per neuron index, length N):
+    # neuron_label is the canonical NeuroPAL identity (e.g. "AVDL", L/R resolved) — the key
+    # to join to other datasets of the *same animal* (positions, connectome) on (uid, label).
+    # neuron_label_info keeps the full raw label entry (label/neuron_class/LR/DV/confidence/roi_id).
+    neuron_label: List[Optional[str]] = field(default_factory=list)
+    neuron_label_info: List[Optional[dict]] = field(default_factory=list)
 
     @property
     def n_neurons(self) -> int:
@@ -106,11 +112,15 @@ def bundle_to_dataset(bundle: dict, *, sha256: str = "", fetched_at: str = "") -
     labels = bundle.get("label", {})
     neuron_class: List[Optional[str]] = [None] * n_neuron
     roi_id: List[object] = [None] * n_neuron
+    neuron_label: List[Optional[str]] = [None] * n_neuron
+    neuron_label_info: List[Optional[dict]] = [None] * n_neuron
     for key, entry in labels.items():
         idx = int(key)
         if 0 <= idx < n_neuron:
             neuron_class[idx] = entry.get("neuron_class")
             roi_id[idx] = entry.get("roi_id")
+            neuron_label[idx] = entry.get("label")
+            neuron_label_info[idx] = entry
 
     behavior_raw = bundle.get("behavior", {})
     behavior = {
@@ -149,6 +159,8 @@ def bundle_to_dataset(bundle: dict, *, sha256: str = "", fetched_at: str = "") -
         reversal_events=list(behavior_raw.get("reversal_events", [])),
         encoding=bundle.get("encoding", {}),
         provenance=provenance,
+        neuron_label=neuron_label,
+        neuron_label_info=neuron_label_info,
     )
 
 
@@ -159,6 +171,9 @@ def validate_dataset(ds: WormDataset) -> None:
         raise ValueError("activity_original shape mismatch")
     if len(ds.neuron_class) != N or len(ds.roi_id) != N:
         raise ValueError("neuron_class / roi_id length must equal N")
+    for name, lst in (("neuron_label", ds.neuron_label), ("neuron_label_info", ds.neuron_label_info)):
+        if lst and len(lst) != N:
+            raise ValueError(f"{name} length must equal N")
     if ds.time.size and ds.time.size != T:
         raise ValueError(f"time length {ds.time.size} != T {T}")
     for feat, arr in ds.behavior.items():
