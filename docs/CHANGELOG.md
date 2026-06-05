@@ -181,3 +181,25 @@ See [`EXPERIMENTS.md#e19--real-machine-outcome-influence-dataset-2026-06-05`](EX
 
 Session summary: [`conversations/2026-06-05-intention-detection-e17-e18.md`](conversations/2026-06-05-intention-detection-e17-e18.md).
 
+---
+
+## 2026-06-05 — UAD On C. elegans (uad_worm, E20 scaffold)
+
+- New line **E20**: Unsupervised Agent Discovery on real WormWideWeb whole-brain calcium
+  data (Atanas & Kim 2023). Scoped plan in [`uad_worm/README.md`](../uad_worm/README.md).
+- **Data verified live** (91 datasets, 56 NeuroPAL-labeled, T≈1600 @ 0.6 s); per-dataset
+  bzip2-JSON bundles with upstream checksums.
+- **v1 bet:** class-level pooling across NeuroPAL-Baseline animals + whitening +
+  null-relative scoring, with leave-one-animal-out as the headline. Memory localization
+  deferred; M3/M5 start single-option-first.
+- **M0 shipped** (`uad_worm/{cmi,blanket,nulls,synth}.py`): Gaussian partial-correlation
+  CMI, blanket loss + random-partition contrast, AR-preserving nulls, 3 synthetic systems.
+  Validated: true blanket beats random (p≈0.015); correlation-without-blanket rejected.
+- **M1 shipped** (`uad_worm/data.py`): fetch/cache/checksum-manifest/normalize; live smoke
+  on `atanas_kim_2023-2023-01-23-01` (1600×151, 91 labeled). 12 worm tests green.
+- Clarified (vs initial framing): autocorrelation does not produce false agents through the
+  blanket check; it degrades estimator power and inflates memory/seed scores — handled by
+  null-relative scoring + whitening.
+
+Session summary: [`conversations/2026-06-05-06-uad-worm-celegans.md`](conversations/2026-06-05-06-uad-worm-celegans.md).
+

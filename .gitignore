@@ -272,6 +272,14 @@ local_config.py
 test_results/
 test_output/
 
+# uad_worm (E20): track package source, configs, and small provenance manifests.
+# Raw dataset caches + run artifacts stay ignored — keep them under data/worm/ or results/worm/.
+data/worm/
+!uad_worm/**/*.json
+!uad_worm/**/*.yaml
+!uad_worm/*.json
+!uad_worm/*.yaml
+
 # LaTeX build artifacts
 *.aux
 *.bbl
