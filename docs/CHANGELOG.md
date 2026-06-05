@@ -227,3 +227,24 @@ Session summary: [`conversations/2026-06-05-06-uad-worm-celegans.md`](conversati
 
 Session summary: [`conversations/2026-06-06-uad-worm-m2-m6-results.md`](conversations/2026-06-06-uad-worm-m2-m6-results.md).
 
+---
+
+## 2026-06-06 — uad_worm (E20): post-M6 exploration + assignment export
+
+- **S/A/I export** (`scripts/worm/export_assignments.py`): per-candidate/per-animal role
+  assignments as JSON with cross-dataset linking keys — canonical NeuroPAL identity
+  (`label` e.g. AVDL via `(uid, label)`), `roi_id` for positions, `neuropal_dict` reference,
+  source URL/sha256. Ingestion now keeps each neuron's full label entry (`data.py`).
+- **Exploration** (`scripts/worm/explore.py`): (X1) lag sweep 1→5 rules out a timescale
+  cause (median p≈0.36–0.43). (X2/X3) added an **internal-autonomy** axis
+  `I(C_{t+1};C_t|E_t)` to separate real coupled subsystems from disconnected low-loss noise.
+- **Methodological correction:** naive self-prediction R² is invalid (rewards redundancy —
+  a shared-latent block beats a true controller); conditioning on the environment fixes it.
+  Documented in `FINDINGS.md` #4.
+- **Finding:** the agent corner (low loss + high autonomy) is sparsely/weakly populated —
+  command circuit qualifies in only 3/8 animals (median autonomy below chance); per-animal
+  communities are coupled but leaky. Coupling and encapsulation are anti-located ⇒ the
+  negative is structural, not a tuning/timescale artifact. 27 worm tests green.
+
+Session summary appended to [`conversations/2026-06-06-uad-worm-m2-m6-results.md`](conversations/2026-06-06-uad-worm-m2-m6-results.md).
+

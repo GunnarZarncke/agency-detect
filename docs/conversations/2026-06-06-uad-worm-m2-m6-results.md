@@ -56,7 +56,22 @@ distribution (median p≈0.5) everywhere ⇒ genuine negative: at the class leve
 Gaussian-CMI, PC-reduced, the command circuit is not a distinguishable Markov blanket in this
 cohort. (Note: this dataset is **not** added to the general agent-detection pool.)
 
-## Next directions (not started)
+## Post-M6 exploration (same day)
 
-Multi-lag / slower timescale conditioning · nonlinear CMI · per-animal (not class-pooled)
-discovery · add a predictive-coupling term · M7 memory localization.
+Continued the exploration to explain/escape the negative (`scripts/worm/explore.py`):
+
+- **Timescale ruled out** — lag sweep 1→5 (0.6→3.0 s) leaves the anchor at median p≈0.36–0.43.
+- **Added an internal-autonomy axis** `I(C_{t+1};C_t | E_t)` (self-prediction beyond the
+  environment) to tell a real coupled subsystem from disconnected low-loss noise. **Correction:**
+  a naive self-prediction R² is invalid — it rewards redundancy (a shared-latent block beats a
+  true controller on synthetic); conditioning on the environment fixes it (agent ≈0.70 vs block
+  ≈0.01). Now in `FINDINGS.md` #4.
+- **(autonomy, loss) plane:** command circuit lands in the agent corner in only 3/8 animals
+  (median autonomy below chance); per-animal lagged-corr communities are coupled but leaky
+  (only 1/4 borderline). **Coupling and encapsulation are anti-located** in this cohort, so the
+  agent corner is sparse/weak ⇒ structural negative, not a tuning/timescale artifact.
+- Also added the **S/A/I assignment exporter** with cross-dataset linking keys (canonical
+  NeuroPAL `label`, `roi_id`→positions, `uid`).
+
+27 worm tests green. Remaining directions: nonlinear CMI, stricter agent-corner thresholds +
+per-animal stability across seeds, larger / Heat-vs-Baseline cohort, M7 memory.

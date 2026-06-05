@@ -4,6 +4,8 @@ import numpy as np
 
 from uad_worm.evaluate import (
     behavior_prediction_gain,
+    internal_autonomy,
+    joint_null,
     pooled_behavior_gain,
     random_class_set_null,
 )
@@ -54,3 +56,23 @@ def test_pooled_behavior_gain_positive():
     animals = [_animal(s) for s in range(3)]
     gain = pooled_behavior_gain(animals, AGENT, feature="velocity", representation="raw")
     assert gain > 0.05
+
+
+def test_internal_autonomy_beats_redundant_block():
+    # Conditioned on the environment, the controller agent self-predicts; the shared-latent
+    # background block does not (its self-prediction is explained away by the rest of E).
+    trace = _animal(0).raw
+    agent_aut = internal_autonomy(trace, [0, 1, 2, 3], ext_dim=6)
+    bg_aut = internal_autonomy(trace, [6, 7, 8, 9], ext_dim=6)
+    assert agent_aut > bg_aut
+    assert agent_aut > 0.1
+
+
+def test_joint_null_agent_corner():
+    trace = _animal(0).raw
+    agent = joint_null(trace, [0, 1, 2, 3], ext_dim=6, n_perm=120, seed=0)
+    decoy = joint_null(trace, [6, 7, 8, 9], ext_dim=6, n_perm=120, seed=0)
+    assert agent.agent_corner is True          # low loss_p + high autonomy_p
+    assert decoy.agent_corner is False
+    assert agent.loss_p < decoy.loss_p
+    assert agent.autonomy_p > decoy.autonomy_p

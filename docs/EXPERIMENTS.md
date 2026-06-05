@@ -1292,13 +1292,24 @@ Score an existing run:
 
 The command-circuit blanket loss sits **in the middle** of the random same-size partition distribution across every configuration ⇒ a **genuine** negative, not a tuning artifact: at the class level, lag-1, Gaussian-CMI, PC-reduced, the command circuit is not a distinguishable Markov blanket in this cohort.
 
-**Open ends (E20):** (1) timescale — lag-1 at 0.6 s may miss slower behavioral dynamics; try multi-lag conditioning. (2) nonlinearity — Gaussian CMI may miss nonlinear dependence (kNN/kernel CMI). (3) class-level pooling forces one shared set; per-animal discovered subsystems may separate even when the fixed anchor does not. (4) add a predictive-coupling term so low blanket loss alone can't reward disconnected sets. (5) M7 memory localization (deferred).
+**Exploration (post-M6, `scripts/worm/explore.py`).** Probed the negative on three axes.
+
+- **X1 timescale — ruled out.** Lag sweep 1→5 (0.6→3.0 s) leaves the anchor at median p≈0.36–0.43; a slower conditioning lag does not reveal a blanket.
+- **Added a second axis — internal autonomy `I(C_{t+1};C_t | E_t)`** (self-prediction *beyond* the environment) to separate a real coupled subsystem from disconnected low-loss noise. **Methodological correction:** a naive self-prediction R² is invalid — it rewards *redundancy* (a shared-latent block out-scores a true controller; verified on synthetic). Conditioning on the (PC-reduced) environment fixes it (synthetic agent ≈0.70 vs redundant block ≈0.01). Agent signature = **low blanket loss AND high internal autonomy**.
+- **X2 anchor in the (autonomy, loss) plane.** Heterogeneous: the command circuit lands in the agent corner in only **3/8** animals; median autonomy_p≈0.33 (below chance). Consistent with the 0/8 LOAO — no generalizable agent.
+- **X3 per-animal unsupervised communities.** Lagged-corr communities are internally coupled by construction (autonomy_p≈1.0) but **leak** (loss_p 0.56–0.80); only **1/4** has a borderline agent-corner module (AIM/ASE/RMD, loss_p≈0.47).
+
+**Interpretation:** the 2D plane shows *why* — in this cohort, coupling and encapsulation are **anti-located** (coupled subsystems leak; low-loss sets aren't internally driven), so the agent corner is sparsely and only weakly populated. The negative is structural, not a tuning/timescale artifact. Weak per-animal candidates (command circuit in 3 animals; AIM/ASE/RMD) do not generalize.
+
+**Open ends (E20):** (1) nonlinearity — Gaussian CMI may miss nonlinear dependence (kNN/kernel CMI). (2) stricter agent-corner thresholds + per-animal candidate stability across seeds. (3) larger cohort / Heat-vs-Baseline contrast. (4) M7 memory localization (deferred).
 
 **Reproduce:**
 
 ```bash
 PYTHONPATH=. .venv/bin/python scripts/worm/run_discovery.py --max-animals 8 --n-perm 100
 PYTHONPATH=. .venv/bin/python scripts/worm/probe.py
+PYTHONPATH=. .venv/bin/python scripts/worm/explore.py
+PYTHONPATH=. .venv/bin/python scripts/worm/export_assignments.py --max-animals 8
 ```
 
 ---

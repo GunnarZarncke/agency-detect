@@ -19,8 +19,31 @@ from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import KFold, cross_val_score
 
 from uad_worm.candidates import classes_to_indices, random_class_sets
+from uad_worm.cmi import gaussian_cmi
 from uad_worm.preprocess import Processed
-from uad_worm.score import pooled_mean_loss
+from uad_worm.score import _external_pcs, pooled_mean_loss
+
+
+def internal_autonomy(trace: np.ndarray, members, *, ext_dim: int = 6, lag: int = 1) -> float:
+    """Internal autonomy: I(C_{t+1}; C_t | E_t) — self-prediction beyond the environment.
+
+    The companion axis to the blanket loss (FINDINGS.md #4). A *naive* self-prediction R²
+    fails: it rewards redundancy (a shared-latent block self-predicts better than a true
+    controller — verified on synthetic). Conditioning on the (PC-reduced) environment fixes
+    this: a true agent's internal state predicts its own future *beyond* what the
+    environment explains (synthetic agent ≈0.70 vs redundant block ≈0.01). Agent signature =
+    LOW blanket loss AND HIGH internal autonomy.
+    """
+    members = list(members)
+    if len(members) == 0:
+        return float("nan")
+    ext_idx = [i for i in range(trace.shape[1]) if i not in set(members)]
+    epc = _external_pcs(trace, ext_idx, ext_dim)
+    if epc.shape[1] == 0:
+        return float("nan")
+    fut = trace[lag:][:, members]
+    past = trace[:-lag][:, members]
+    return gaussian_cmi(fut, past, epc[:-lag])
 
 
 @dataclass(frozen=True)
@@ -112,6 +135,60 @@ def behavior_prediction_gain(
     if not base or not np.isfinite(cand_r2):
         return None
     return float(cand_r2 - np.mean(base))
+
+
+@dataclass(frozen=True)
+class JointNull:
+    n_members: int
+    loss: float
+    autonomy: float
+    loss_p: float       # P(random loss <= obs): LOW = autonomy/encapsulation is special
+    autonomy_p: float   # P(random autonomy <= obs): HIGH = internal dynamics are special
+    agent_corner: bool  # loss_p < 0.5 and autonomy_p > 0.5 (low leakage + high internal dynamics)
+
+
+def joint_null(
+    trace: np.ndarray,
+    members,
+    *,
+    ext_dim: int = 6,
+    lag: int = 1,
+    n_perm: int = 100,
+    seed: int = 0,
+    pool=None,
+) -> Optional[JointNull]:
+    """Score a set on BOTH axes (blanket loss + internal autonomy) vs random same-size sets."""
+    from uad_worm.score import blanket_loss_for_members
+
+    members = list(members)
+    V = trace.shape[1]
+    if len(members) < 2 or V - len(members) < 1:
+        return None
+    obs_loss, _ = blanket_loss_for_members(trace, members, ext_dim=ext_dim, lag=lag)
+    obs_aut = internal_autonomy(trace, members, ext_dim=ext_dim, lag=lag)
+    if not (np.isfinite(obs_loss) and np.isfinite(obs_aut)):
+        return None
+    rng = np.random.default_rng(seed)
+    draw_from = np.asarray(list(pool)) if pool is not None else np.arange(V)
+    size = len(members)
+    losses, auts = [], []
+    for _ in range(n_perm):
+        rm = rng.permutation(draw_from)[:size]
+        loss_k, _ = blanket_loss_for_members(trace, rm, ext_dim=ext_dim, lag=lag)
+        aut_k = internal_autonomy(trace, rm, ext_dim=ext_dim, lag=lag)
+        if np.isfinite(loss_k) and np.isfinite(aut_k):
+            losses.append(loss_k)
+            auts.append(aut_k)
+    if not losses:
+        return None
+    losses, auts = np.asarray(losses), np.asarray(auts)
+    loss_p = float((np.sum(losses <= obs_loss) + 1) / (losses.size + 1))
+    autonomy_p = float((np.sum(auts <= obs_aut) + 1) / (auts.size + 1))
+    return JointNull(
+        n_members=size, loss=float(obs_loss), autonomy=float(obs_aut),
+        loss_p=loss_p, autonomy_p=autonomy_p,
+        agent_corner=bool(loss_p < 0.5 and autonomy_p > 0.5),
+    )
 
 
 def pooled_behavior_gain(
