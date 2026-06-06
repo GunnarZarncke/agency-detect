@@ -2,10 +2,8 @@
 
 import numpy as np
 
-from uad_worm.cmi import gaussian_cmi
 from uad_worm.preprocess import (
     lag1_autocorr,
-    normal_scores,
     resample_uniform,
     whiten_derivative,
     zscore,
@@ -28,31 +26,6 @@ def test_zscore_unit_variance():
     z = zscore(x)
     assert np.allclose(z.mean(0), 0.0, atol=1e-6)
     assert np.allclose(z.std(0), 1.0, atol=1e-6)
-
-
-def test_normal_scores_marginals_and_rank_order():
-    rng = np.random.default_rng(3)
-    x = np.exp(2.0 * rng.standard_normal((2000, 1)))  # heavy-tailed lognormal
-    z = normal_scores(x)
-    assert abs(float(z.mean())) < 0.05
-    assert abs(float(z.std()) - 1.0) < 0.05
-    # strictly monotone in the input ⇒ preserves rank order
-    assert np.array_equal(np.argsort(x[:, 0]), np.argsort(z[:, 0]))
-
-
-def test_copula_cmi_invariant_to_monotone_transform():
-    # Gaussian-copula CMI must be ~unchanged under a monotone marginal warp, unlike plain
-    # Gaussian CMI which is attenuated by the nonlinearity.
-    rng = np.random.default_rng(4)
-    x = rng.standard_normal((4000, 1))
-    y = x + 0.5 * rng.standard_normal((4000, 1))
-    y_warp = np.exp(y)  # monotone nonlinear distortion of the marginal
-    plain_ref = gaussian_cmi(x, y)
-    plain_warp = gaussian_cmi(x, y_warp)
-    cop_ref = gaussian_cmi(normal_scores(x), normal_scores(y))
-    cop_warp = gaussian_cmi(normal_scores(x), normal_scores(y_warp))
-    assert abs(cop_ref - cop_warp) < 0.05          # copula: invariant
-    assert plain_warp < plain_ref - 0.1            # plain: attenuated by the warp
 
 
 def test_whitening_reduces_lag1_autocorrelation():

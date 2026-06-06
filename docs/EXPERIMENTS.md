@@ -1312,17 +1312,16 @@ The command-circuit blanket loss sits **in the middle** of the random same-size 
 
 **Fit summary:** S/A/I is connectome-consistent in the one statistically strong case (`2023-01-09-28`) and for the **output role** (RIM→action, 2/3 command hits) and **sensor role** (ASE/AVD→sensor) generally; the **recurrent core** (AVA/AVE) reliably lands in *internal*. It fails when the candidate lacks a true input neuron (AVE mislabeled sensor) or contains a motor neuron the lag-statistics misplace (RMD). Caveat: L/R splitting of a class across roles (AVDR sensor vs AVDL action) is a statistical artifact. **Policy: re-run this manual check after each new experiment that produces assignments.**
 
-**Nonlinear robustness — Gaussian-copula CMI (`scripts/worm/explore_nonlinear.py`).** Re-ran the headline scorers on a per-column normal-scores (copula) representation, which captures *monotone* nonlinear dependence the plain Gaussian estimator attenuates (reuses all machinery via `Processed.representation("whitened_copula")`; non-monotone structure still needs kNN/kernel CMI later).
+**Nonlinear (kNN/KSG CMI) + larger cohort (`scripts/worm/explore_knn.py`).** Two unexplored directions on the *same* enlarged cohort (20 NeuroPAL-Baseline animals, up from 8): a nonparametric KSG kNN CMI (`uad_worm.cmi.knn_cmi`; captures non-monotone dependence the Gaussian estimator misses — verified on a Y=X² synthetic) and the larger-N power test. kNN keeps dimensionality low (ext_dim=int_dim=3; KSG degrades in high-dim) by PC-reducing the internal future too.
 
-| Test | Gaussian (`whitened`) | Copula (`whitened_copula`) |
-|------|-----------------------|----------------------------|
-| N1 anchor pooled / LOAO | pass 0/8, combined_p 0.37, **LOAO 0/8** | pass 0/8, combined_p 0.88, **LOAO 0/8** |
-| N2 anchor agent-corner | 3/8 (`…01-23-01`, `…08-02-01`, `…01-09-28`) | **1/8** (`…01-09-28` only) |
-| N3 X3 set AIM/ASE/RMD | agent-corner (autonomy_p 0.85) | **not** agent-corner (autonomy_p 0.50) |
+| Estimator | n | pass-rate (p<0.05) | median z | combined_p | **LOAO** |
+|-----------|---|--------------------|----------|------------|----------|
+| Gaussian (ext_dim=6) | 20 | 0.05 (1/20) | −0.27 | 0.53 | **0.05 (1/20)** |
+| kNN/KSG (ext_dim=3)  | 20 | 0.00 (0/20) | −0.02 | 0.99 | **0.00 (0/20)** |
 
-**Read:** the negative is **robust to monotone nonlinearity** — copula does not rescue the blanket (if anything weaker), so linearity was not the limiting assumption. Copula also acts as a **stricter filter**: it culls the borderline hits (the X3 community and two of three anchor hits) but keeps `2023-01-09-28` — the *same* hit that is statistically strongest and connectome-plausible. Triangulation (statistic + connectome + nonlinear robustness) converges on that single non-generalizing command-circuit recovery; no new assignments to check manually (copula only removes hits).
+**Read:** the negative is **robust on both axes**. (a) *Larger cohort:* the anchor pass-rate and held-out generalization sit at chance (1/20 ≈ α=0.05), so the earlier 0/8 was not a small-sample fluke — there is no signal to recover with more animals. (b) *Nonlinearity:* the nonparametric estimator does not rescue (in fact slightly stronger negative, as expected from its lower power at fixed N), so a missed nonlinear/non-monotone dependence was not the limiting assumption. Both produce **zero new agent-corner hits**, so no new connectome check is required (the manual-recheck policy is satisfied vacuously). The earlier single command-circuit recovery (`2023-01-09-28`, Gaussian) remains the only non-generalizing positive.
 
-**Open ends (E20):** (1) ~~monotone nonlinearity~~ done (copula: negative robust); non-monotone (kNN/kernel CMI) still open. (2) stricter agent-corner thresholds + per-animal candidate stability across seeds. (3) larger cohort / Heat-vs-Baseline contrast. (4) M7 memory localization (deferred).
+**Open ends (E20):** (1) stricter agent-corner thresholds + per-animal candidate stability across seeds. (2) Heat-vs-Baseline contrast. (3) M7 memory localization (deferred).
 
 **Reproduce:**
 
@@ -1330,7 +1329,7 @@ The command-circuit blanket loss sits **in the middle** of the random same-size 
 PYTHONPATH=. .venv/bin/python scripts/worm/run_discovery.py --max-animals 8 --n-perm 100
 PYTHONPATH=. .venv/bin/python scripts/worm/probe.py
 PYTHONPATH=. .venv/bin/python scripts/worm/explore.py
-PYTHONPATH=. .venv/bin/python scripts/worm/explore_nonlinear.py
+PYTHONPATH=. .venv/bin/python scripts/worm/explore_knn.py --max-animals 20 --n-perm 80
 PYTHONPATH=. .venv/bin/python scripts/worm/export_assignments.py --max-animals 8
 PYTHONPATH=. .venv/bin/python scripts/worm/export_recovered.py
 ```

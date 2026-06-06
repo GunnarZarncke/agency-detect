@@ -1,23 +1,23 @@
 {
-  "archive_sha256": "2d1eb2f74a8921c6b33bf48d028835b472c806aad5dc425136b8d05b8d0a4ddb",
-  "dataset_id": "atanas_kim_2023-2023-01-17-07",
+  "archive_sha256": "d00e85fefbd5ccbdb2ff7e5787ee552472e6eaa64a2e94513f72b43e36c4d1f9",
+  "dataset_id": "atanas_kim_2023-2022-07-26-01",
   "dataset_type": [
-    "heat",
+    "baseline",
     "neuropal"
   ],
-  "fetched_at": "2026-06-06T00:40:58.586060+00:00",
-  "max_t": 1615,
-  "mean_timestep": 0.6015622025473122,
-  "n_labeled": 85,
-  "n_neuron": 144,
+  "fetched_at": "2026-06-06T00:41:11.407903+00:00",
+  "max_t": 1600,
+  "mean_timestep": 0.6015727007997486,
+  "n_labeled": 70,
+  "n_neuron": 133,
   "paper_id": "atanas_kim_2023",
-  "source_filename": "2023-01-17-07-data.h5",
-  "uid": "2023-01-17-07",
+  "source_filename": "2022-07-26-01-data.h5",
+  "uid": "2022-07-26-01",
   "upstream_checksums": {
     "blake3_analysis_dict": "b6e66580cfae784a81e5a9fcc757eaeec88e61c4f0d271d803fafe0321c18c31",
     "blake3_fit_results": "1c4bf00c535d814e851a03170542fc30082958f4c063d16789505c6c83989681",
     "blake3_neuropal_dict": "490da6fe15c58c099edea3f6cbc9d790882c8cf27b4193499667306cf69dff05",
     "blake3_relative_encoding_strength": "c28384748008c66b4178cc3afaa909263f4d4b4e983763d27442499ee59c77a1",
-    "checksum_h5": "bea9a90f104a756f09aed8e22fe52a10f53dbe8ac47d10d6b819dbb69350fcaa"
+    "checksum_h5": "84ef44b1b5bb6d5a74ba694b0133838ae379f54cbe86fc693264881e61c1347c"
   }
 }

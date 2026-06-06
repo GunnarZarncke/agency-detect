@@ -18,7 +18,7 @@ from sklearn.decomposition import PCA
 
 from uad_worm.blanket import blanket_loss
 from uad_worm.candidates import classes_to_indices
-from uad_worm.cmi import gaussian_cmi
+from uad_worm.cmi import gaussian_cmi, knn_cmi
 from uad_worm.preprocess import Processed
 
 
@@ -91,8 +91,16 @@ def blanket_loss_for_members(
     n_actions: int = 1,
     ext_dim: int = 6,
     lag: int = 1,
+    estimator: str = "gaussian",
+    int_dim: int = 3,
 ) -> tuple[float, RoleAssignment]:
-    """Assign roles, reduce E to PCs, return I(I_{t+1}; E_{t+1} | S_t, A_t)."""
+    """Assign roles, reduce E to PCs, return I(I_{t+1}; E_{t+1} | S_t, A_t).
+
+    `estimator="gaussian"` (default) uses the closed-form partial-correlation CMI.
+    `estimator="knn"` uses the KSG kNN CMI and additionally PC-reduces the *internal* future
+    to `int_dim` components, since kNN-CMI degrades in high dimension (callers should also
+    keep `ext_dim` small).
+    """
     members = list(members)
     ext_idx = [i for i in range(trace.shape[1]) if i not in set(members)]
     epc = _external_pcs(trace, ext_idx, ext_dim)
@@ -103,7 +111,12 @@ def blanket_loss_for_members(
     fut_ext = epc[lag:]
     cond_cols = roles.sensors + roles.actions
     cond = trace[:-lag][:, cond_cols] if cond_cols else None
-    loss = gaussian_cmi(fut_int, fut_ext, cond)
+    if estimator == "knn":
+        if fut_int.shape[1] > int_dim:
+            fut_int = PCA(n_components=int_dim, svd_solver="full").fit_transform(fut_int)
+        loss = knn_cmi(fut_int, fut_ext, cond)
+    else:
+        loss = gaussian_cmi(fut_int, fut_ext, cond)
     return loss, roles
 
 
@@ -118,17 +131,21 @@ def score_members(
     n_perm: int = 100,
     seed: int = 0,
     pool: Optional[Sequence[int]] = None,
+    estimator: str = "gaussian",
+    int_dim: int = 3,
 ) -> Optional[CandidateScore]:
     """Blanket loss of `members` + random-partition contrast (matched size).
 
     `pool` restricts which neuron indices the random partitions are drawn from (default:
-    all neurons). Used by the probe to test a labeled-only null reference.
+    all neurons). Used by the probe to test a labeled-only null reference. `estimator` selects
+    the CMI estimator ("gaussian" or "knn"; see `blanket_loss_for_members`).
     """
     members = list(members)
     if len(members) < 2 or trace.shape[1] - len(members) < 1:
         return None
     obs, roles = blanket_loss_for_members(
-        trace, members, n_sensors=n_sensors, n_actions=n_actions, ext_dim=ext_dim, lag=lag
+        trace, members, n_sensors=n_sensors, n_actions=n_actions, ext_dim=ext_dim, lag=lag,
+        estimator=estimator, int_dim=int_dim,
     )
     if not np.isfinite(obs):
         return None
@@ -142,7 +159,7 @@ def score_members(
         rand_members = rng.permutation(draw_from)[:size]
         loss_k, _ = blanket_loss_for_members(
             trace, rand_members, n_sensors=n_sensors, n_actions=n_actions,
-            ext_dim=ext_dim, lag=lag,
+            ext_dim=ext_dim, lag=lag, estimator=estimator, int_dim=int_dim,
         )
         null[k] = loss_k
     null = null[np.isfinite(null)]

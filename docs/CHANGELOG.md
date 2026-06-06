@@ -250,17 +250,19 @@ Session summary appended to [`conversations/2026-06-06-uad-worm-m2-m6-results.md
 
 ---
 
-## 2026-06-06 — uad_worm (E20): connectome plausibility + nonlinear robustness
+## 2026-06-06 — uad_worm (E20): connectome plausibility + kNN/larger-cohort robustness
 
 - **Connectome-plausibility check (manual, canonical wiring)** of the 4 recovered S/A/I
   hits, documented in `EXPERIMENTS.md` §E20. Strongest hit `2023-01-09-28`
   (AVD→AVA/AVE→RIM) matches command-circuit directionality; output (RIM→action) and sensor
   (ASE/AVD) roles recover reliably; fails without a true input neuron or when a motor neuron
   (RMD) is present. Policy: re-check manually after each new assignment-producing experiment.
-- **Nonlinear robustness via Gaussian-copula CMI** (`scripts/worm/explore_nonlinear.py` +
-  `Processed.representation("whitened_copula")`, `preprocess.normal_scores`). The negative is
-  robust to monotone nonlinearity (LOAO still 0/8, pooled combined_p 0.37→0.88). Copula is a
-  stricter filter: agent-corner 3/8→1/8, keeping only `2023-01-09-28` — the same statistically
-  strong + connectome-plausible hit. Triangulation converges; non-monotone (kNN/kernel) CMI
-  still open. Memory (M7) untouched. 29 worm tests green.
+- **Nonparametric kNN/KSG CMI** (`uad_worm.cmi.knn_cmi`, threaded through the scorers via an
+  `estimator="knn"` path with low-dim PC reduction) **+ larger cohort** (20 NeuroPAL-Baseline
+  animals, up from 8; `scripts/worm/explore_knn.py`). The negative is robust on both axes:
+  Gaussian anchor pass/LOAO sit at chance (1/20), and kNN — which captures non-monotone
+  dependence the Gaussian estimator misses — gives 0/20 (slightly stronger negative at fixed
+  N). Zero new agent-corner hits, so the manual connectome recheck is satisfied vacuously.
+- **Dropped the interim Gaussian-copula nonlinear path** (`normal_scores`, `whitened_copula`
+  representation, `explore_nonlinear.py`) to keep one nonlinear method (kNN). 30 worm tests green.
 

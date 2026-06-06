@@ -90,3 +90,17 @@ per-animal stability across seeds, larger / Heat-vs-Baseline cohort, M7 memory.
   pooled combined_p 0.37→0.88). Copula is a stricter filter (agent-corner 3/8→1/8), keeping
   only `2023-01-09-28` — the same strong + connectome-plausible hit. Non-monotone (kNN/kernel)
   CMI still open. Memory deferred per request. 29 worm tests green.
+
+## kNN/KSG CMI + larger cohort (same day)
+
+- **User direction:** drop the interim copula path to keep it simple; try kNN and a larger
+  cohort instead. Removed `normal_scores`/`whitened_copula`/`explore_nonlinear.py`.
+- **Added `uad_worm.cmi.knn_cmi`** — KSG / Frenzel–Pompe nonparametric CMI (captures
+  non-monotone dependence; verified it catches Y=X² where Gaussian CMI is ~0). Threaded an
+  `estimator="knn"` path through `blanket_loss_for_members`/`score_members` with low-dim PC
+  reduction (ext_dim=int_dim=3) since KSG degrades in high dimension.
+- **Larger cohort = 20 NeuroPAL-Baseline animals** (`scripts/worm/explore_knn.py`). Result is a
+  **robust negative on both axes**: Gaussian anchor pass/LOAO at chance (1/20 ≈ α), kNN 0/20
+  (slightly stronger negative). No new agent-corner hits ⇒ manual connectome recheck vacuous.
+  The earlier `2023-01-09-28` command-circuit recovery stays the only non-generalizing positive.
+- 30 worm tests green. (Unrelated pre-existing failure: `test_spotlight_agency_gate`.)
