@@ -1301,7 +1301,28 @@ The command-circuit blanket loss sits **in the middle** of the random same-size 
 
 **Interpretation:** the 2D plane shows *why* — in this cohort, coupling and encapsulation are **anti-located** (coupled subsystems leak; low-loss sets aren't internally driven), so the agent corner is sparsely and only weakly populated. The negative is structural, not a tuning/timescale artifact. Weak per-animal candidates (command circuit in 3 animals; AIM/ASE/RMD) do not generalize.
 
-**Open ends (E20):** (1) nonlinearity — Gaussian CMI may miss nonlinear dependence (kNN/kernel CMI). (2) stricter agent-corner thresholds + per-animal candidate stability across seeds. (3) larger cohort / Heat-vs-Baseline contrast. (4) M7 memory localization (deferred).
+**Connectome plausibility of the recovered S/A/I (manual, canonical wiring).** The four agent-corner hits (`results/worm/recovered_assignments.json`) were checked against the *well-known* locomotion-command-circuit connectivity (White 1986 / Cook 2019) — qualitative, for the specific famous neurons, not a programmatic edge-join (the WWW `get-edges` endpoint refuses plain requests). Reference directionality: inputs = sensory (ASE) + AVD→core; recurrent core/state = AVA↔AVE; upstream interneuron = AIB; output = RIM (tyraminergic, gap-jct AVA), RMD (head motor).
+
+| Animal | discovered S → I → A | verdict |
+|--------|----------------------|---------|
+| `2023-01-09-28` (loss_p 0.10) | AVD → AVA/AVE/AIB → RIM | **strong** — input→recurrent core→output matches the circuit; also the best statistic |
+| `2022-08-02-01` (loss_p 0.36) | AVE → AVA/AVD/AIB/RIB → RIM | partial — RIM=action correct; AVE-as-sensor wrong (AVE is core) |
+| `2023-01-23-01` (loss_p 0.37) | AVD → **AVA/AVE**/AIB → AVD | partial — internal=AVA/AVE correct; AVD double-role (L/R split artifact), AIB-internal weak |
+| `2023-01-23-08` (X3, loss_p 0.47) | ASE → RMD → AIM | mixed — ASE=sensor excellent; but motor RMD tagged internal, AIM=action (output inverted) |
+
+**Fit summary:** S/A/I is connectome-consistent in the one statistically strong case (`2023-01-09-28`) and for the **output role** (RIM→action, 2/3 command hits) and **sensor role** (ASE/AVD→sensor) generally; the **recurrent core** (AVA/AVE) reliably lands in *internal*. It fails when the candidate lacks a true input neuron (AVE mislabeled sensor) or contains a motor neuron the lag-statistics misplace (RMD). Caveat: L/R splitting of a class across roles (AVDR sensor vs AVDL action) is a statistical artifact. **Policy: re-run this manual check after each new experiment that produces assignments.**
+
+**Nonlinear robustness — Gaussian-copula CMI (`scripts/worm/explore_nonlinear.py`).** Re-ran the headline scorers on a per-column normal-scores (copula) representation, which captures *monotone* nonlinear dependence the plain Gaussian estimator attenuates (reuses all machinery via `Processed.representation("whitened_copula")`; non-monotone structure still needs kNN/kernel CMI later).
+
+| Test | Gaussian (`whitened`) | Copula (`whitened_copula`) |
+|------|-----------------------|----------------------------|
+| N1 anchor pooled / LOAO | pass 0/8, combined_p 0.37, **LOAO 0/8** | pass 0/8, combined_p 0.88, **LOAO 0/8** |
+| N2 anchor agent-corner | 3/8 (`…01-23-01`, `…08-02-01`, `…01-09-28`) | **1/8** (`…01-09-28` only) |
+| N3 X3 set AIM/ASE/RMD | agent-corner (autonomy_p 0.85) | **not** agent-corner (autonomy_p 0.50) |
+
+**Read:** the negative is **robust to monotone nonlinearity** — copula does not rescue the blanket (if anything weaker), so linearity was not the limiting assumption. Copula also acts as a **stricter filter**: it culls the borderline hits (the X3 community and two of three anchor hits) but keeps `2023-01-09-28` — the *same* hit that is statistically strongest and connectome-plausible. Triangulation (statistic + connectome + nonlinear robustness) converges on that single non-generalizing command-circuit recovery; no new assignments to check manually (copula only removes hits).
+
+**Open ends (E20):** (1) ~~monotone nonlinearity~~ done (copula: negative robust); non-monotone (kNN/kernel CMI) still open. (2) stricter agent-corner thresholds + per-animal candidate stability across seeds. (3) larger cohort / Heat-vs-Baseline contrast. (4) M7 memory localization (deferred).
 
 **Reproduce:**
 
@@ -1309,7 +1330,9 @@ The command-circuit blanket loss sits **in the middle** of the random same-size 
 PYTHONPATH=. .venv/bin/python scripts/worm/run_discovery.py --max-animals 8 --n-perm 100
 PYTHONPATH=. .venv/bin/python scripts/worm/probe.py
 PYTHONPATH=. .venv/bin/python scripts/worm/explore.py
+PYTHONPATH=. .venv/bin/python scripts/worm/explore_nonlinear.py
 PYTHONPATH=. .venv/bin/python scripts/worm/export_assignments.py --max-animals 8
+PYTHONPATH=. .venv/bin/python scripts/worm/export_recovered.py
 ```
 
 ---

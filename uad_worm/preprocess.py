@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 import numpy as np
+from scipy.stats import norm, rankdata
 
 from uad_worm.data import WormDataset
 
@@ -26,11 +27,35 @@ class Processed:
     behavior: Dict[str, np.ndarray]  # feature -> (T,) on the uniform clock
 
     def representation(self, name: str) -> np.ndarray:
+        # `*_copula` = per-column normal-scores transform → Gaussian-copula CMI downstream:
+        # captures *monotone* nonlinear dependence the plain Gaussian estimator attenuates,
+        # while reusing all existing machinery (E20 nonlinear-robustness check).
         if name == "raw":
             return self.raw
         if name == "whitened":
             return self.whitened
+        if name == "whitened_copula":
+            return normal_scores(self.whitened)
+        if name == "raw_copula":
+            return normal_scores(self.raw)
         raise ValueError(f"unknown representation {name!r}")
+
+
+def normal_scores(values: np.ndarray) -> np.ndarray:
+    """Per-column rank → normal-scores (van der Waerden) transform.
+
+    Maps each column to standard-normal marginals via ranks, so a subsequent Gaussian CMI
+    becomes a Gaussian-*copula* CMI: invariant to any monotone marginal transform and
+    sensitive to monotone nonlinear dependence. Non-monotone structure is still missed
+    (that needs kNN/kernel CMI).
+    """
+    values = np.atleast_2d(values.T).T if values.ndim == 1 else values
+    T = values.shape[0]
+    out = np.empty_like(values, dtype=np.float64)
+    for j in range(values.shape[1]):
+        u = rankdata(values[:, j]) / (T + 1.0)
+        out[:, j] = norm.ppf(u)
+    return out
 
 
 def resample_uniform(time: np.ndarray, values: np.ndarray) -> np.ndarray:

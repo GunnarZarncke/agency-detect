@@ -248,3 +248,19 @@ Session summary: [`conversations/2026-06-06-uad-worm-m2-m6-results.md`](conversa
 
 Session summary appended to [`conversations/2026-06-06-uad-worm-m2-m6-results.md`](conversations/2026-06-06-uad-worm-m2-m6-results.md).
 
+---
+
+## 2026-06-06 — uad_worm (E20): connectome plausibility + nonlinear robustness
+
+- **Connectome-plausibility check (manual, canonical wiring)** of the 4 recovered S/A/I
+  hits, documented in `EXPERIMENTS.md` §E20. Strongest hit `2023-01-09-28`
+  (AVD→AVA/AVE→RIM) matches command-circuit directionality; output (RIM→action) and sensor
+  (ASE/AVD) roles recover reliably; fails without a true input neuron or when a motor neuron
+  (RMD) is present. Policy: re-check manually after each new assignment-producing experiment.
+- **Nonlinear robustness via Gaussian-copula CMI** (`scripts/worm/explore_nonlinear.py` +
+  `Processed.representation("whitened_copula")`, `preprocess.normal_scores`). The negative is
+  robust to monotone nonlinearity (LOAO still 0/8, pooled combined_p 0.37→0.88). Copula is a
+  stricter filter: agent-corner 3/8→1/8, keeping only `2023-01-09-28` — the same statistically
+  strong + connectome-plausible hit. Triangulation converges; non-monotone (kNN/kernel) CMI
+  still open. Memory (M7) untouched. 29 worm tests green.
+

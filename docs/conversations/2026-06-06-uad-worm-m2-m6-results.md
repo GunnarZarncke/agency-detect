@@ -75,3 +75,18 @@ Continued the exploration to explain/escape the negative (`scripts/worm/explore.
 
 27 worm tests green. Remaining directions: nonlinear CMI, stricter agent-corner thresholds +
 per-animal stability across seeds, larger / Heat-vs-Baseline cohort, M7 memory.
+
+## Connectome plausibility + nonlinear robustness (same day)
+
+- **Connectome plausibility (manual).** Checked the 4 recovered S/A/I hits against canonical
+  command-circuit wiring (White 1986 / Cook 2019 — qualitative, not a programmatic edge-join;
+  the WWW `get-edges` endpoint refuses plain requests). `2023-01-09-28` (AVD→AVA/AVE→RIM) is
+  strongly consistent; output (RIM→action) and sensor (ASE/AVD) roles recover reliably;
+  AVA/AVE land in *internal*; fails without a true input neuron (AVE-as-sensor) or with a
+  motor neuron tagged internal (RMD). Documented in `EXPERIMENTS.md` §E20; re-check after each
+  new experiment.
+- **Nonlinear robustness (copula CMI).** Added a normal-scores (Gaussian-copula) representation
+  and re-ran the headline scorers. Negative is robust to monotone nonlinearity (LOAO 0/8;
+  pooled combined_p 0.37→0.88). Copula is a stricter filter (agent-corner 3/8→1/8), keeping
+  only `2023-01-09-28` — the same strong + connectome-plausible hit. Non-monotone (kNN/kernel)
+  CMI still open. Memory deferred per request. 29 worm tests green.
