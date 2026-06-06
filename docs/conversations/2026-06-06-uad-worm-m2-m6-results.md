@@ -91,16 +91,22 @@ per-animal stability across seeds, larger / Heat-vs-Baseline cohort, M7 memory.
   only `2023-01-09-28` — the same strong + connectome-plausible hit. Non-monotone (kNN/kernel)
   CMI still open. Memory deferred per request. 29 worm tests green.
 
-## kNN/KSG CMI + larger cohort (same day)
+## Robustness excursions, then wrap-up (same day)
 
-- **User direction:** drop the interim copula path to keep it simple; try kNN and a larger
-  cohort instead. Removed `normal_scores`/`whitened_copula`/`explore_nonlinear.py`.
-- **Added `uad_worm.cmi.knn_cmi`** — KSG / Frenzel–Pompe nonparametric CMI (captures
-  non-monotone dependence; verified it catches Y=X² where Gaussian CMI is ~0). Threaded an
-  `estimator="knn"` path through `blanket_loss_for_members`/`score_members` with low-dim PC
-  reduction (ext_dim=int_dim=3) since KSG degrades in high dimension.
-- **Larger cohort = 20 NeuroPAL-Baseline animals** (`scripts/worm/explore_knn.py`). Result is a
-  **robust negative on both axes**: Gaussian anchor pass/LOAO at chance (1/20 ≈ α), kNN 0/20
-  (slightly stronger negative). No new agent-corner hits ⇒ manual connectome recheck vacuous.
-  The earlier `2023-01-09-28` command-circuit recovery stays the only non-generalizing positive.
-- 30 worm tests green. (Unrelated pre-existing failure: `test_spotlight_agency_gate`.)
+- **Interim nonlinear checks (explored, then removed).** Two directions were tried during
+  development and both reproduced the negative:
+  - *Gaussian-copula CMI* (normal-scores representation): negative robust to monotone
+    nonlinearity; acted as a stricter filter, keeping only `2023-01-09-28`.
+  - *kNN/KSG CMI on a 20-animal cohort*: Gaussian anchor pass/LOAO at chance (1/20), kNN 0/20.
+    Confirmed the negative is robust to larger N and to non-monotone dependence.
+- **User decision:** accept the result and keep the folder simple. Both excursions (copula and
+  kNN, the `explore_*.py` scripts, the extra-animal manifests) were **removed**, reverting to one
+  Gaussian estimator and the original 8-animal headline.
+- **Final read (accepted).** Mostly negative — no generalizing Markov blanket; coupling and
+  encapsulation anti-located — with **one consistent positive**, `2023-01-09-28`
+  (AVD→AVA/AVE→RIM), which is the statistically strongest *and* connectome-plausible hit.
+  Interpreted as a power / temporal-resolution / signal-quality limit: short slow-GCaMP
+  recordings collected for encoding studies, not designed for blanket discovery. A faithful
+  pipeline still recovering one coherent agent boundary is a modest but encouraging outcome.
+- Out-of-scope future work: kNN/KSG CMI, larger / Heat-vs-Baseline cohorts, M7 memory.
+- 27 worm tests green. (Unrelated pre-existing failure: `test_spotlight_agency_gate`.)

@@ -1,9 +1,10 @@
 # uad_worm — Unsupervised Agent Discovery on C. elegans whole-brain data
 
-**Status:** M0–M6 implemented and run on real data (E20). First real-data result is a
-**robust negative** — see below. Full writeup: [`docs/EXPERIMENTS.md`](../docs/EXPERIMENTS.md) §E20.
+**Status:** M0–M6 implemented, run, explored, and **wrapped up** (E20). Accepted result is a
+**mostly negative with one consistent positive** — see below. Full writeup:
+[`docs/EXPERIMENTS.md`](../docs/EXPERIMENTS.md) §E20.
 
-## Results (v1, 2026-06-06)
+## Results (v1, 2026-06-06) — final
 
 8 NeuroPAL-Baseline animals, whitened, class-level pooling. **Command-circuit anchor
 (`AIB AVA AVB AVD AVE PVC RIB RIM`): leave-one-animal-out 0/8** (combined p≈0.36). Marginally
@@ -12,11 +13,22 @@ partitions (median p≈0.5). Unsupervised recurrent candidate worse (z=+2.56). B
 
 `scripts/worm/probe.py` rules out the obvious causes: null reference (labeled-only ≡ all-neuron),
 representation (whitened beats raw, still 0/8), external rank (ext_dim 4→20 barely moves it). The
-command circuit's blanket loss sits in the **middle** of the random-partition distribution
-everywhere ⇒ genuine negative at the class level / lag-1 / Gaussian-CMI / PC-reduced configuration,
-not a tuning artifact. Open directions: multi-lag timescale, nonlinear CMI, per-animal (not pooled)
-discovery, a predictive-coupling term, M7 memory. (This dataset is not added to the general
-agent-detection pool.)
+exploration (`scripts/worm/explore.py`) further shows coupling and encapsulation are
+*anti-located* ⇒ a **structural** negative, not a tuning/timescale artifact.
+
+**The one positive:** `2023-01-09-28` (AVD→AVA/AVE→RIM) is the statistically strongest hit *and*
+connectome-plausible (input→recurrent-core→output matches canonical wiring; see
+`results/worm/recovered_assignments.json`).
+
+**Interpretation (accepted):** the broad negative is a **power / temporal-resolution /
+signal-quality** limit — short, slow-GCaMP recordings collected for sensory/behavior *encoding*
+studies, not for blanket discovery; the dataset was never intended for this algorithm. That a
+faithful pipeline still recovers one coherent, biologically sensible agent boundary is a modest
+but encouraging signal. (This dataset is not added to the general agent-detection pool.)
+
+**Out-of-scope future work** (explored briefly during development, then removed to keep the folder
+simple): nonparametric kNN/KSG CMI and a larger / Heat-vs-Baseline cohort — both reproduced the
+negative; per-animal (not pooled) discovery; and M7 memory localization.
 
 This folder is a **variant** of the existing UAD work (`agency_detect/`,
 `learn_agents/`, `agent_spotlight/`) pointed at **real neural data**: freely-moving

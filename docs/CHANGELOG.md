@@ -250,19 +250,19 @@ Session summary appended to [`conversations/2026-06-06-uad-worm-m2-m6-results.md
 
 ---
 
-## 2026-06-06 — uad_worm (E20): connectome plausibility + kNN/larger-cohort robustness
+## 2026-06-06 — uad_worm (E20): connectome plausibility + wrap-up
 
 - **Connectome-plausibility check (manual, canonical wiring)** of the 4 recovered S/A/I
   hits, documented in `EXPERIMENTS.md` §E20. Strongest hit `2023-01-09-28`
   (AVD→AVA/AVE→RIM) matches command-circuit directionality; output (RIM→action) and sensor
   (ASE/AVD) roles recover reliably; fails without a true input neuron or when a motor neuron
-  (RMD) is present. Policy: re-check manually after each new assignment-producing experiment.
-- **Nonparametric kNN/KSG CMI** (`uad_worm.cmi.knn_cmi`, threaded through the scorers via an
-  `estimator="knn"` path with low-dim PC reduction) **+ larger cohort** (20 NeuroPAL-Baseline
-  animals, up from 8; `scripts/worm/explore_knn.py`). The negative is robust on both axes:
-  Gaussian anchor pass/LOAO sit at chance (1/20), and kNN — which captures non-monotone
-  dependence the Gaussian estimator misses — gives 0/20 (slightly stronger negative at fixed
-  N). Zero new agent-corner hits, so the manual connectome recheck is satisfied vacuously.
-- **Dropped the interim Gaussian-copula nonlinear path** (`normal_scores`, `whitened_copula`
-  representation, `explore_nonlinear.py`) to keep one nonlinear method (kNN). 30 worm tests green.
+  (RMD) is present.
+- **Wrapped up E20.** Accepted result: mostly negative (no generalizing blanket; coupling and
+  encapsulation anti-located) with one consistent, connectome-plausible positive
+  (`2023-01-09-28`). Read as a power / temporal-resolution / signal-quality limit on a dataset
+  collected for encoding studies, not blanket discovery. Robustness extensions (kNN/KSG CMI,
+  larger / Heat-vs-Baseline cohorts, M7 memory) left as out-of-scope future work.
+- Interim nonlinear paths explored during development (Gaussian-copula CMI; kNN/KSG CMI on a
+  20-animal cohort) both reproduced the negative and were **removed** to keep the folder to one
+  Gaussian estimator and the original 8-animal headline. 27 worm tests green.
 

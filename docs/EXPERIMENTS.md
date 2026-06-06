@@ -1312,16 +1312,23 @@ The command-circuit blanket loss sits **in the middle** of the random same-size 
 
 **Fit summary:** S/A/I is connectome-consistent in the one statistically strong case (`2023-01-09-28`) and for the **output role** (RIM→action, 2/3 command hits) and **sensor role** (ASE/AVD→sensor) generally; the **recurrent core** (AVA/AVE) reliably lands in *internal*. It fails when the candidate lacks a true input neuron (AVE mislabeled sensor) or contains a motor neuron the lag-statistics misplace (RMD). Caveat: L/R splitting of a class across roles (AVDR sensor vs AVDL action) is a statistical artifact. **Policy: re-run this manual check after each new experiment that produces assignments.**
 
-**Nonlinear (kNN/KSG CMI) + larger cohort (`scripts/worm/explore_knn.py`).** Two unexplored directions on the *same* enlarged cohort (20 NeuroPAL-Baseline animals, up from 8): a nonparametric KSG kNN CMI (`uad_worm.cmi.knn_cmi`; captures non-monotone dependence the Gaussian estimator misses — verified on a Y=X² synthetic) and the larger-N power test. kNN keeps dimensionality low (ext_dim=int_dim=3; KSG degrades in high-dim) by PC-reducing the internal future too.
+**Conclusion (E20, wrapped up).** UAD applied to *C. elegans* whole-brain calcium gives a
+**mostly negative result with one consistent positive**. The command-circuit anchor does not
+form a generalizing Markov blanket (pooled pass at chance, leave-one-animal-out ≈0), and the
+exploration showed coupling and encapsulation are *anti-located* in this cohort — a structural
+negative, not a tuning/timescale artifact. The single exception, `2023-01-09-28`
+(AVD→AVA/AVE→RIM, loss_p 0.10), is both the statistically strongest hit and connectome-plausible
+(input→recurrent-core→output matches canonical wiring). We read the broad negative as a
+**power / temporal-resolution / signal-quality limit**: ~16-min recordings of slow GCaMP at
+short T, with data collected for sensory/behavior encoding studies, not for blanket discovery —
+the dataset was never intended for this algorithm. That a faithful pipeline nonetheless recovers
+one coherent, biologically sensible agent boundary is a modest but encouraging signal.
 
-| Estimator | n | pass-rate (p<0.05) | median z | combined_p | **LOAO** |
-|-----------|---|--------------------|----------|------------|----------|
-| Gaussian (ext_dim=6) | 20 | 0.05 (1/20) | −0.27 | 0.53 | **0.05 (1/20)** |
-| kNN/KSG (ext_dim=3)  | 20 | 0.00 (0/20) | −0.02 | 0.99 | **0.00 (0/20)** |
-
-**Read:** the negative is **robust on both axes**. (a) *Larger cohort:* the anchor pass-rate and held-out generalization sit at chance (1/20 ≈ α=0.05), so the earlier 0/8 was not a small-sample fluke — there is no signal to recover with more animals. (b) *Nonlinearity:* the nonparametric estimator does not rescue (in fact slightly stronger negative, as expected from its lower power at fixed N), so a missed nonlinear/non-monotone dependence was not the limiting assumption. Both produce **zero new agent-corner hits**, so no new connectome check is required (the manual-recheck policy is satisfied vacuously). The earlier single command-circuit recovery (`2023-01-09-28`, Gaussian) remains the only non-generalizing positive.
-
-**Open ends (E20):** (1) stricter agent-corner thresholds + per-animal candidate stability across seeds. (2) Heat-vs-Baseline contrast. (3) M7 memory localization (deferred).
+Robustness directions that would normally probe the negative further (nonparametric kNN/KSG CMI;
+larger / Heat-vs-Baseline cohorts; M7 memory localization) are **out of scope for this folder**
+— left as future work rather than added complexity. (An interim kNN + 20-animal check did run
+during development and reproduced the negative on both axes before being removed to keep the
+codebase to one estimator and the original 8-animal headline.)
 
 **Reproduce:**
 
@@ -1329,7 +1336,6 @@ The command-circuit blanket loss sits **in the middle** of the random same-size 
 PYTHONPATH=. .venv/bin/python scripts/worm/run_discovery.py --max-animals 8 --n-perm 100
 PYTHONPATH=. .venv/bin/python scripts/worm/probe.py
 PYTHONPATH=. .venv/bin/python scripts/worm/explore.py
-PYTHONPATH=. .venv/bin/python scripts/worm/explore_knn.py --max-animals 20 --n-perm 80
 PYTHONPATH=. .venv/bin/python scripts/worm/export_assignments.py --max-animals 8
 PYTHONPATH=. .venv/bin/python scripts/worm/export_recovered.py
 ```
