@@ -53,7 +53,16 @@ agency-detect = "agency_detect.cli:main"
 detect-agents = "agency_detect.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["agency_detect*"]
+include = [
+    "agency_detect*",
+    "agent_spotlight*",
+    "amortized_agency*",
+    "data_collect*",
+    "hierarchical_spotlight*",
+    "intention_detect*",
+    "uad_handles*",
+    "uad_worm*",
+]
 
 [tool.black]
 line-length = 88

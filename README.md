@@ -9,6 +9,28 @@ To try it out, use [this 1 minute quickstart with screenshots](https://docs.goog
 
 Complex systems—from neural networks to multi-agent simulations—often contain hidden autonomous actors with their own sensors, actions, and internal states. Traditional approaches require manual labeling or domain knowledge. This framework automatically discovers these agents by detecting **Markov blanket structures** in time series data.
 
+## Repository Layout
+
+This repository uses top-level Python packages plus thin runner scripts:
+
+| Path | Role |
+|------|------|
+| `agency_detect/` | Core UAD package: simulators, clustering, Markov-blanket validation, CLI |
+| `learn_agents/` | Main telemetry simulator and latent/refinement experiment substrate |
+| `agent_spotlight/`, `hierarchical_spotlight/` | Serial and hierarchical discovery experiments |
+| `amortized_agency/` | Amortized same-agent affinity models and benchmarks |
+| `intention_detect/`, `data_collect/` | Outcome-influence and real-machine intention probes |
+| `uad_handles/` | Handle-aware UAD toy benchmarks for the access-model UAD paper |
+| `uad_worm/` | WormWideWeb / C. elegans UAD application |
+| `scripts/<line>/` | Command-line runners for each research line |
+| `tests/<line>/` | Tests grouped by package or research line |
+| `docs/` | Experiment log, findings, paper sources, and documentation index |
+| `results/` | Gitignored experiment artifacts with an index README |
+
+The repo intentionally keeps research packages at the top level for now. See
+`docs/README.md`, `tests/README.md`, and `results/README.md` for the navigation
+map.
+
 ## Key Concepts
 
 **Markov Blankets**: A mathematical boundary that separates an agent's internal dynamics from the external world. For a true autonomous agent, the Markov blanket property ensures:
@@ -143,13 +165,13 @@ This runs the full demonstration with multiple agents and displays:
 
 ### Modular Architecture
 
-The codebase is organized into clean, modular components:
+The core package is organized into clean, modular components:
 
-- **`config.py`**: Simulation and detection configuration parameters
-- **`agents.py`**: Multi-agent simulation with material-specific behaviors
-- **`markov_blanket.py`**: Markov blanket validation using conditional mutual information
-- **`detection.py`**: Core clustering algorithm with individual agent detection
-- **`detect.py`**: Main demonstration and entry point
+- **`agency_detect/config.py`**: Simulation and detection configuration parameters
+- **`agency_detect/agents.py`**: Multi-agent simulation with material-specific behaviors
+- **`agency_detect/markov_blanket.py`**: Markov blanket validation using conditional mutual information
+- **`agency_detect/detection.py`**: Core clustering algorithm with individual agent detection
+- **`detect.py`**: Backward-compatible demonstration entry point
 
 ### Custom Configurations
 
@@ -188,4 +210,4 @@ from detect import detect_async_agents
 results = detect_async_agents(trace, n_agents=2, weak_thresh=0.2)
 ```
 
-See `dev.md` for detailed implementation notes and `docs/unsupervised-agent-discovery.tex` for the full theoretical framework. 
+See `dev.md` for detailed implementation notes and `docs/papers/README.md` for the paper collection.
