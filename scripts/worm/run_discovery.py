@@ -22,12 +22,22 @@ from uad_worm.candidates import (
     agglomerative_communities,
     community_class_sets,
 )
-from uad_worm.data import is_neuropal_baseline, load_dataset, neuropal_labeled_ids
+from uad_worm.cohort import load_neuropal_cohort
 from uad_worm.evaluate import pooled_behavior_gain, random_class_set_null
-from uad_worm.preprocess import preprocess
 from uad_worm.score import leave_one_animal_out, pooled_score
 
 RESULTS_DIR = Path(__file__).resolve().parents[2] / "results" / "worm"
+
+
+def _default_results_dir(max_animals, baseline_only: bool, quality_filter: bool) -> Path:
+    if quality_filter and max_animals is None and not baseline_only:
+        return RESULTS_DIR / "cohort_qfilt"
+    if max_animals == 8 and baseline_only:
+        return RESULTS_DIR
+    if max_animals is None and not baseline_only:
+        return RESULTS_DIR / "cohort56"
+    label = f"n{max_animals}" if max_animals is not None else "all"
+    return RESULTS_DIR / ("baseline_" if baseline_only else "") + label
 
 
 def recurrent_class_set(train, *, k=8, representation="whitened"):
@@ -42,23 +52,35 @@ def recurrent_class_set(train, *, k=8, representation="whitened"):
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--max-animals", type=int, default=8)
+    ap.add_argument("--max-animals", type=int, default=None,
+                    help="cap cohort size (default: all loadable NeuroPAL-labeled)")
+    ap.add_argument("--baseline-only", action="store_true",
+                    help="restrict to NeuroPAL-Baseline runs (excludes Heat)")
+    ap.add_argument("--quality-filter", action="store_true",
+                    help="keep only T>=1500, n_labeled>=70, anchor classes>=5")
+    ap.add_argument("--results-dir", type=Path, default=None)
     ap.add_argument("--n-perm", type=int, default=100)
     ap.add_argument("--ext-dim", type=int, default=6)
     ap.add_argument("--representation", default="whitened")
     args = ap.parse_args()
 
-    print("Fetching NeuroPAL-labeled dataset index ...")
-    ids = neuropal_labeled_ids()
-    cohort = []
-    for ds_id in ids:
-        if len(cohort) >= args.max_animals:
-            break
-        ds = load_dataset(ds_id)
-        if is_neuropal_baseline(ds):
-            cohort.append(preprocess(ds))
-            print(f"  + {ds_id}: {ds.activity.shape}, {len(ds.labeled_index)} labeled")
-    print(f"Cohort size: {len(cohort)} NeuroPAL-Baseline animals\n")
+    results_dir = args.results_dir or _default_results_dir(
+        args.max_animals, args.baseline_only, args.quality_filter
+    )
+    print("Loading cohort ...")
+    pairs, skipped, quality_filtered = load_neuropal_cohort(
+        max_animals=args.max_animals,
+        baseline_only=args.baseline_only,
+        quality_filter=args.quality_filter,
+        write_provenance=False,
+    )
+    cohort = [proc for _, proc in pairs]
+    tag = "NeuroPAL-Baseline" if args.baseline_only else "NeuroPAL-labeled"
+    filt = " + quality filter" if args.quality_filter else ""
+    print(f"Cohort size: {len(cohort)} {tag} animals{filt}"
+          + (f" ({len(skipped)} load-fail)" if skipped else "")
+          + (f" ({len(quality_filtered)} quality-filtered)" if quality_filtered else "")
+          + "\n")
 
     kw = dict(representation=args.representation, ext_dim=args.ext_dim, min_members=3)
 
@@ -93,9 +115,11 @@ def main() -> None:
     print(f"  random-class-set null: z={rec_null.z:.2f} p={rec_null.pvalue:.3f}")
     print(f"  behavior-prediction gain (velocity): {rec_gain:.4f}")
 
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    results_dir.mkdir(parents=True, exist_ok=True)
     report = {
         "cohort": [p.dataset_id for p in cohort],
+        "skipped": skipped,
+        "quality_filtered": quality_filtered,
         "config": vars(args),
         "anchor": {
             "classes": sorted(ANCHOR_CLASSES),
@@ -117,7 +141,7 @@ def main() -> None:
             "behavior_gain_velocity": rec_gain,
         },
     }
-    out = RESULTS_DIR / "discovery_report.json"
+    out = results_dir / "discovery_report.json"
     out.write_text(json.dumps(report, indent=2, default=lambda o: getattr(o, "__dict__", str(o))))
     print(f"\nReport written to {out}")
 

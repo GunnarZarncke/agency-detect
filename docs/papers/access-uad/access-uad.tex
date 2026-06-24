@@ -1,0 +1,1038 @@
+\documentclass[11pt]{article}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{bm}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{cite}
+\usepackage{hyperref}
+
+\title{\bfseries Handles Before Interventions:\\
+Access-Model UAD and the Embedded Semantics of Agency Tests}
+\author{Gunnar Zarncke\\AE Studio}
+\date{\today}
+
+\newtheorem{definition}{Definition}
+\newtheorem{assumption}{Assumption}
+\newtheorem{proposition}{Proposition}
+\newtheorem{theorem}{Theorem}
+\newtheorem{corollary}{Corollary}
+\newtheorem{remark}{Remark}
+
+\newcommand{\X}{\mathcal X}
+\newcommand{\Y}{\mathcal Y}
+\newcommand{\U}{\mathcal U}
+\newcommand{\Hh}{\mathcal H}
+\newcommand{\A}{\mathcal A}
+\newcommand{\D}{\mathcal D}
+\newcommand{\M}{\mathcal M}
+\newcommand{\C}{\mathcal C}
+\newcommand{\E}{\mathcal E}
+\newcommand{\I}{\mathcal I}
+\newcommand{\G}{\mathcal G}
+\newcommand{\Z}{\mathcal Z}
+\newcommand{\Prob}{\mathbb P}
+\newcommand{\Expect}{\mathbb E}
+\newcommand{\KL}{D_{\mathrm{KL}}}
+\newcommand{\MI}{I}
+\newcommand{\doop}{\operatorname{do}}
+\newcommand{\DL}{\operatorname{DL}}
+\newcommand{\EIG}{\operatorname{EIG}}
+\newcommand{\sem}{\operatorname{sem}}
+\newcommand{\cost}{\operatorname{Cost}}
+\newcommand{\risk}{\operatorname{Risk}}
+\newcommand{\argmax}{\operatorname*{arg\,max}}
+\newcommand{\argmin}{\operatorname*{arg\,min}}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Unsupervised Agent Discovery (UAD)~\cite{uad2025} is usually stated as if the observer receives
+variables, partitions them into internal, sensory, active, and external components,
+and then applies conditional-independence or control-information tests. This
+paper argues that this picture is too shallow for real systems. In laboratories,
+software audits, social systems, biological assays, recommender platforms, and
+human interaction, neither ``intervention'' nor ``interface'' is primitive. What
+the observer has are \emph{handles}: embedded access points through which the
+system may be observed or operated upon. A handle has observational semantics,
+operational semantics, cost, latency, reversibility, spillover, and uncertain
+uptake. Causal graph interventions such as $\doop(X_i=x)$~\cite{pearl2009causality} are idealizations of
+rare depth-zero cases. We introduce an access-model formulation of UAD in which
+the data are generated through observation kernels and operation kernels. Agent
+loops, interfaces, and interventions are then inferred jointly. The resulting
+Bayesian/regularized objective draws on blanket-information competence scoring~\cite{biq2025}
+and treats agency as posterior mass over handle-mediated
+control-loop hypotheses, not as a label on a raw time series. We prove an
+impossibility result: no method can distinguish agent structures that are
+equivalent under the available access model. We then give a margin-style recovery
+bound for finite candidate classes, an intervention-value criterion based on
+expected information gain over agent-loop posteriors, and a sparse layer-wise
+regularization scheme that encourages interpretable causal roles at every scale
+while allowing full agency only at selected coarse-grained bottlenecks. The
+framework explains why algorithmic feeds and advertising systems can manipulate
+humans while hiding agency: users see content handles but lack access to objective,
+ranking, telemetry, and policy-update handles. Interface forcing is therefore
+not merely convenience; it is access-channel design.
+\end{abstract}
+
+\section{Motivation}
+
+UAD begins from an appealing mathematical fantasy. There is a dynamical system
+\[
+    X_t=(X_1(t),\ldots,X_n(t)),
+\]
+and one seeks a subset $C\subseteq\{1,\ldots,n\}$ with an internal--sensory--active--external
+decomposition
+\[
+    C = I^C\cup S^C\cup A^C,\qquad E^C = \{1,\ldots,n\}\setminus C,
+\]
+such that
+\begin{equation}
+    J(C) :=
+    \MI\!\left(I^C_{t+1};E^C_{t+1}\mid S^C_t,A^C_t\right)
+    \approx 0 .
+    \label{eq:uad-blanket}
+\end{equation}
+The test says: conditional on sensory and active boundary variables, internal
+and external futures are approximately screened off.
+
+This is a useful formal target. But it hides a prior ontological assumption:
+the observer has already been given the right variables at the right scale and
+knows enough of the interface to call some variables sensory and some active.
+Likewise, when we say ``intervene on $X_i$'', we often implicitly assume the
+Pearlean ideal~\cite{pearl2009causality}
+\[
+    \doop(X_i=x),
+\]
+as if the observer could surgically set one coordinate of the system. Real
+systems rarely offer such access. A chemical perturbation changes many pathways.
+A prompt changes a distribution over latent computations. A platform audit flag
+changes incentives, ranking policies, and future strategic behavior. A social
+request is interpreted by another agent with its own beliefs. Even a laboratory
+apparatus has uptake, delay, measurement error, spillover, and constraints.
+
+Thus the primitive of intervention-capable UAD should not be a variable. It
+should be a \emph{handle}. A handle is an access point with observational and/or
+operational semantics. The observer does not perform $\doop(X_i=x)$; the
+observer applies an operation $u$ through a handle $h$, producing a stochastic
+change in future observations:
+\[
+    u@h \leadsto P(Y_{t+1:t+H}\mid Y_{\le t},u,h).
+\]
+The question becomes: given an access model, what agent loops are identifiable,
+and which handle-operations should be used to test them?
+
+\section{Worlds, Observations, and Handles}
+
+Let $(X_t)_{t\ge0}$ be an unobserved world process with state space $\X$. The
+observer does not see $X_t$ directly. Instead, observations arrive through a set
+of handles.
+
+\begin{definition}[Observation handle]
+An observation handle is a tuple
+\[
+    h^Y = (\Y_h,K_h,\ell_h,\sigma_h,c_h),
+\]
+where $\Y_h$ is the handle's observation space,
+\[
+    K_h:\X\times \X^{-}\to \Delta(\Y_h)
+\]
+is an observation kernel possibly depending on current and recent world states,
+$\ell_h$ is latency, $\sigma_h$ is an uncertainty or resolution descriptor, and
+$c_h$ is the cost of using the handle. The observed datum is
+\[
+    Y^h_t \sim K_h(\cdot\mid X_{t-\ell_h:t}).
+\]
+\end{definition}
+
+\begin{definition}[Operation handle]
+An operation handle is a tuple
+\[
+    h^U = (\U_h,\Gamma_h,\rho_h,\chi_h,c_h),
+\]
+where $\U_h$ is a space of available operations,
+\[
+    \Gamma_h:\X\times \U_h\to \Delta(\X)
+\]
+is an operation kernel, $\rho_h$ is reversibility, $\chi_h$ describes constraints
+or legality, and $c_h:\U_h\to\mathbb R_{\ge0}$ is operation cost. Applying
+operation $u\in\U_h$ at time $t$ induces
+\[
+    X_{t+1}\sim \Gamma_h(\cdot\mid X_t,u)
+\]
+or, more generally, a finite-horizon kernel
+\[
+    X_{t+1:t+H}\sim \Gamma_h^H(\cdot\mid X_{\le t},u).
+\]
+\end{definition}
+
+\begin{definition}[Access model]
+An access model is
+\[
+    \A
+    =
+    (\Hh^Y,\Hh^U,K,\Gamma,\cost,\risk,\mathcal C),
+\]
+where $\Hh^Y$ is a family of observation handles, $\Hh^U$ a family of operation
+handles, $K=\{K_h\}_{h\in\Hh^Y}$, $\Gamma=\{\Gamma_h\}_{h\in\Hh^U}$, $\cost$
+and $\risk$ assign costs and risks to handle-use, and $\mathcal C$ encodes
+constraints on allowable observations and operations.
+\end{definition}
+
+The data available to UAD are therefore not merely $X_{1:T}$ but
+\[
+    \D_T =
+    \{(h_t^Y,y_t), (h_t^U,u_t), \text{context}_t\}_{t=1}^T,
+\]
+together with partial knowledge or priors over $K$ and $\Gamma$.
+
+\begin{remark}
+The passive time-series case is recovered by taking $\Hh^U=\varnothing$ and a
+single observation handle $h^Y$ with $Y_t=X_t+\eta_t$. The classical UAD setting~\cite{uad2025,ConantAshby1970,kirchhoff2018markov}
+is therefore a special, high-access, low-embedding case.
+\end{remark}
+
+\section{From Variables to Handles}
+
+In classical causal notation~\cite{pearl2009causality}, intervention is represented as graph surgery:
+\[
+    P(X_{-i}\mid \doop(X_i=x)).
+\]
+The handle view replaces this with an operation kernel:
+\[
+    P(Y_{t+1:t+H}\mid \D_{\le t},u,h).
+\]
+The relationship between the two is approximate and itself inferential.
+
+\begin{definition}[Effective target distribution]
+For operation $u$ through handle $h$, define the effective target posterior
+\[
+    \tau_{h,u}(i)
+    :=
+    \Prob\!\left(
+        X_i \text{ is directly affected by }(h,u)
+        \mid \D
+    \right).
+\]
+The spillover posterior is
+\[
+    \varsigma_{h,u}(j)
+    :=
+    \Prob\!\left(
+        X_j \text{ is indirectly affected by }(h,u)
+        \mid \D
+    \right).
+\]
+\end{definition}
+
+An ideal intervention is one with concentrated $\tau$ and low $\varsigma$:
+\[
+    H(\tau_{h,u})\approx 0,
+    \qquad
+    \|\varsigma_{h,u}\|_1-\max_i\tau_{h,u}(i)\approx0.
+\]
+Most real interventions have broad target and spillover distributions.
+
+\begin{definition}[Intervention depth]
+The depth of an operation $u@h$ relative to a hypothesized target variable $X_i$
+is the minimal causal path length, in the observer's current structural posterior,
+from the operation event $U_t=(h,u)$ to $X_i$.
+Depth zero corresponds to $\doop(X_i=x)$. Depth one corresponds to a known
+actuator on $X_i$. Depth two or greater corresponds to mediated perturbations
+through apparatus, environment, norms, incentives, language, or other agents.
+\end{definition}
+
+The depth notion is not intended as a fixed graph invariant. It is posterior and
+access-relative:
+\[
+    P(\operatorname{depth}(u@h,X_i)=d\mid \D).
+\]
+
+\section{Interfaces as Coupling Surfaces}
+
+A sensor/action interface is not generally a set of raw variables. It is a stable
+coupling surface, often constructed by an observer.
+
+Let $C$ be a candidate system and $E$ its complement at some representation
+level. A candidate interface $Q$ is a handle-mediated representation of coupling
+between $C$ and $E$.
+
+\begin{definition}[Candidate interface]
+A candidate interface for $C$ is
+\[
+    Q=(Q^S,Q^A,K_Q,\Gamma_Q),
+\]
+where $Q^S$ are candidate sensory handles/channels, $Q^A$ candidate active
+handles/channels, $K_Q$ describes how interface observations are produced, and
+$\Gamma_Q$ describes how interface operations or outputs affect the world.
+\end{definition}
+
+The interface should approximately screen off internal and external futures:
+\begin{equation}
+    J_Q(C)
+    :=
+    \MI(C_{t+1};E_{t+1}\mid Q_t)
+    \quad\text{small}.
+    \label{eq:interface-screening}
+\end{equation}
+For directed sensor/action roles, define the asymmetric information scores
+\begin{align}
+    R_S(Q;C)
+    &=
+    \MI(E_t;Q^S_t\mid C_t)
+    +
+    \MI(Q^S_t;C_{t+1}\mid C_t),
+    \\
+    R_A(Q;C)
+    &=
+    \MI(C_t;Q^A_t\mid E_t)
+    +
+    \MI(Q^A_t;E_{t+1}\mid E_t).
+\end{align}
+These are not sufficient for agency, but they localize candidate inbound and
+outbound channels.
+
+\begin{definition}[Handle interface score]
+For candidate $C$ and interface $Q$, define
+\begin{equation}
+    \mathcal I(C,Q)
+    =
+    -J_Q(C)
+    +\alpha_S R_S(Q;C)
+    +\alpha_A R_A(Q;C)
+    -\lambda_Q \DL(Q)
+    +\mu_Q \operatorname{Manip}(Q).
+    \label{eq:interface-score}
+\end{equation}
+Here $\operatorname{Manip}(Q)$ measures whether available operation handles can
+selectively affect or read the interface:
+\[
+    \operatorname{Manip}(Q)
+    =
+    \max_{h,u}
+    \MI(u;Q_{t+1:t+H}\mid \D_{\le t},h).
+\]
+\end{definition}
+
+\begin{remark}
+Interface forcing is the deliberate construction of a high-$\mathcal I(C,Q)$
+access channel. An API, laboratory assay, telemetry schema, randomized audit
+interface, or standardized social probe is not merely a measurement. It changes
+the access model and may change the system.
+\end{remark}
+
+\section{Agent-Loop Hypotheses}
+
+An agent-loop hypothesis is a structured explanation of a candidate bounded
+process as a stateful control system.
+
+\begin{definition}[Agent-loop hypothesis]
+An agent-loop hypothesis is
+\[
+    \Omega
+    =
+    (C,Q,B,G,\pi,V,\Theta),
+\]
+where $C$ is a candidate boundary, $Q=(Q^S,Q^A)$ a candidate interface, $B_t$ a
+latent belief or information state, $G_t$ a latent goal/preference/viability
+state, $\pi$ a policy, $V$ a viability or objective functional, and $\Theta$
+additional parameters. The model class induced by $\Omega$ predicts observations
+and responses by
+\begin{align}
+    B_{t+1}
+    &\sim
+    U_\Theta(B_t,Q^S_{t+1},Q^A_t),
+    \\
+    G_{t+1}
+    &\sim
+    R_\Theta(G_t,B_t,Q_t),
+    \\
+    Q^A_t
+    &\sim
+    \pi_\Theta(\cdot\mid B_t,G_t),
+    \\
+    Y_{t+1}
+    &\sim
+    P_\Theta(\cdot\mid B_{t+1},G_{t+1},Q^A_t,E_t).
+\end{align}
+\end{definition}
+
+The latent variables $B_t$ and $G_t$ need not be internal physical states. They
+are explanatory coordinates under which behavior compresses and interventions
+become predictable.
+
+\section{Bayesian Access-Model UAD}
+
+The full posterior should include both agent-loop hypotheses and access semantics:
+\[
+    P(\Omega,K,\Gamma,Q\mid \D_T).
+\]
+This is the core object. It replaces both ``detect an agent in a time series''
+and ``intervene on a variable''.
+
+\begin{definition}[Access-model posterior]
+Given priors over access semantics and loop hypotheses,
+\begin{equation}
+    P(\Omega,K,\Gamma,Q\mid \D_T)
+    \propto
+    P(\D_T\mid \Omega,K,\Gamma,Q)
+    P(\Omega\mid Q)
+    P(Q\mid K,\Gamma)
+    P(K,\Gamma).
+    \label{eq:posterior}
+\end{equation}
+\end{definition}
+
+To make this computationally tractable, use an energy parameterization:
+\[
+    P(\Omega,Q\mid \D_T)
+    \propto
+    \exp[-E(\Omega,Q;\D_T)].
+\]
+A generic energy is
+\begin{align}
+    E(\Omega,Q;\D_T)
+    &=
+    \lambda_J J_Q(C)
+    -\lambda_C I_{\mathrm{ctrl}}(\Omega)
+    -\lambda_P R_{\mathrm{persist}}(\Omega)
+    \nonumber\\
+    &\qquad
+    -\lambda_B R_{\mathrm{belief}}(\Omega)
+    -\lambda_V R_{\mathrm{viability}}(\Omega)
+    -\lambda_L \Delta L_{\mathrm{EIS}}(\Omega)
+    \nonumber\\
+    &\qquad
+    -\lambda_M \operatorname{Manip}(Q)
+    +\kappa_\Omega \DL(\Omega)
+    +\kappa_Q \DL(Q)
+    \nonumber\\
+    &\qquad
+    +\kappa_A \DL(K,\Gamma).
+    \label{eq:energy}
+\end{align}
+where $\Delta L_{\mathrm{EIS}}$ is the intentional compression gain~\cite{eis2025}.
+
+The terms have the following intended meanings:
+\begin{align}
+    I_{\mathrm{ctrl}}(\Omega)
+    &=
+    \MI(Q^A_t;E_{t+1:t+H}\mid E_t,Q^S_t),
+    \\
+    R_{\mathrm{persist}}(\Omega)
+    &=
+    \MI(G_t;G_{t+k})-\eta_G H(G_t),
+    \\
+    R_{\mathrm{belief}}(\Omega)
+    &=
+    \MI(Q^A_t;B_t\mid E_t,G_t),
+    \\
+    R_{\mathrm{viability}}(\Omega)
+    &=
+    \Expect[\Delta V_{t:t+H}\mid \pi_\Omega]
+    -
+    \Expect[\Delta V_{t:t+H}\mid \pi_{\mathrm{null}}],
+    \\
+    \Delta L_{\mathrm{EIS}}(\Omega)
+    &=
+    \log P(\D_T\mid M_{\mathrm{belief/goal}},\Omega)
+    -
+    \log P(\D_T\mid M_{\mathrm{null}},Q)
+    -
+    \lambda_{\mathrm{int}}\DL(M_{\mathrm{belief/goal}}).
+\end{align}
+
+\begin{remark}
+The non-agentic baseline should not be an unconstrained universal predictor.
+A powerful predictor can absorb agentic regularities without representing agent
+loops. Instead, the null family should consist of constrained causal topologies:
+passive dynamics, reactive dynamics, scripted dynamics, field dynamics, and
+habitual dynamics without intervention-sensitive goals.
+\end{remark}
+
+\section{Null Models as Restricted Topologies}
+
+Let
+\[
+    \M = \{M_A,M_0^1,\ldots,M_0^k\},
+\]
+where $M_A$ is an agent-loop model and $M_0^i$ are restricted alternatives. The
+posterior agent probability is
+\begin{equation}
+    P(M_A\mid \D)
+    =
+    \frac{
+        P(\D\mid M_A)P(M_A)
+    }{
+        P(\D\mid M_A)P(M_A)
+        +
+        \sum_i P(\D\mid M_0^i)P(M_0^i)
+    }.
+    \label{eq:model-posterior}
+\end{equation}
+
+Useful nulls include:
+\begin{align}
+    M_0^{\mathrm{passive}}&:\quad
+    X_{t+1}=F(X_t)+\eta_t,
+    \\
+    M_0^{\mathrm{reactive}}&:\quad
+    Q^A_t=f(Q^S_t)+\eta_t,
+    \\
+    M_0^{\mathrm{script}}&:\quad
+    Q^A_t=f(t,\text{context})+\eta_t,
+    \\
+    M_0^{\mathrm{field}}&:\quad
+    X_{t+1}=F_{\mathrm{global}}(X_t)+\eta_t,
+    \\
+    M_0^{\mathrm{habit}}&:\quad
+    Q^A_t=f(Q^S_{\le t},Q^A_{<t})+\eta_t,
+\end{align}
+where none includes a persistent goal variable that remains stable under changed
+means and predicts counterfactual policy adaptation.
+
+\section{Layered Role Regularization}
+
+It is too strong to require agentic structure at every representation layer.
+Low-level features may be pixels, tokens, molecules, or local dynamical modes.
+They need not be agentic. But they should become locally understandable.
+
+Let a representation learner produce layers
+\[
+    Z^0_t=X_t,\qquad
+    Z^\ell_t=f^\ell_\theta(Z^{\ell-1}_{\le t}).
+\]
+At each layer $\ell$, introduce soft role masks
+\[
+    m_C^\ell,m_Q^\ell,m_E^\ell,m_B^\ell,m_G^\ell \in [0,1]^{d_\ell}.
+\]
+Use role regularization at all layers:
+\begin{align}
+    R^\ell_{\mathrm{role}}
+    &=
+    \rho_1 R^\ell_{\mathrm{persistence}}
+    +\rho_2 R^\ell_{\mathrm{locality}}
+    +\rho_3 R^\ell_{\mathrm{separability}}
+    +\rho_4 R^\ell_{\mathrm{causal-handle}}
+    -\rho_5 R^\ell_{\mathrm{degenerate}}.
+\end{align}
+But introduce sparse agent-loop gates
+\[
+    a^\ell_C\in\{0,1\}
+\]
+and apply the full agent score only when $a^\ell_C=1$:
+\begin{equation}
+    \mathcal L
+    =
+    \mathcal L_{\mathrm{pred}}
+    -
+    \sum_\ell \lambda_{\mathrm{role}} R^\ell_{\mathrm{role}}
+    -
+    \sum_{\ell,C} q(a^\ell_C=1)\lambda_{\mathrm{agent}}R^\ell_{\mathrm{agent}}(C)
+    +
+    \tau\sum_{\ell,C}
+    \KL\!\left(q(a^\ell_C)\,\|\,p(a^\ell_C)\right).
+    \label{eq:layer-objective}
+\end{equation}
+The prior $p(a^\ell_C=1)$ is sparse. Most regions at most layers are not agents.
+
+\begin{definition}[Agentic structure prior]
+For a layer $\ell$ and candidate $C$,
+\[
+    p(\Omega^\ell_C)
+    \propto
+    \exp\left(
+        R^\ell_{\mathrm{agent}}(C)
+        -
+        \kappa \DL(\Omega^\ell_C)
+    \right).
+\]
+Thus agentic regularization is the log prior over latent loop structures.
+\end{definition}
+
+\section{Coarse-Graining and Hierarchical Agency}
+
+Representation layers are not necessarily ontological layers. Hierarchy should
+therefore be searched over coarse-graining operators
+\[
+    K_{\sigma,\tau}:\X_{1:T}\to \Z^{\sigma,\tau}_{1:T},
+\]
+where $\sigma$ denotes variable/spatial aggregation and $\tau$ temporal
+aggregation. Define
+\begin{equation}
+    \operatorname{ScaleAgent}(C)
+    =
+    \Expect_{\sigma,\tau}
+    \left[
+        R_{\mathrm{agent}}(C;K_{\sigma,\tau})
+    \right]
+    -
+    \lambda_{\mathrm{var}}
+    \operatorname{Var}_{\sigma,\tau}
+    \left[
+        R_{\mathrm{agent}}(C;K_{\sigma,\tau})
+    \right].
+    \label{eq:scale-agent}
+\end{equation}
+A hierarchical agent is a stable basin in scale-space, not merely an activation
+in a neural-network layer.
+
+\section{Identifiability Under Access Models}
+
+The access model determines what can be known.
+
+\begin{definition}[Access equivalence]
+Two agent-loop hypotheses $\Omega$ and $\Omega'$ are equivalent under access
+model $\A$, written $\Omega\sim_\A\Omega'$, if for every admissible observation
+and operation policy $\nu$ over handles,
+\[
+    P_\Omega(\D_T^\nu\mid \A)
+    =
+    P_{\Omega'}(\D_T^\nu\mid \A)
+    \qquad
+    \forall T.
+\]
+The recoverable target is the equivalence class
+\[
+    [\Omega]_\A=\{\Omega':\Omega'\sim_\A\Omega\}.
+\]
+\end{definition}
+
+\begin{theorem}[Access-model impossibility]
+If $\Omega\sim_\A\Omega'$, then no UAD procedure whose inputs are restricted to
+data generated through $\A$ can distinguish $\Omega$ from $\Omega'$ with
+probability better than chance under all priors assigning equal mass to
+$\Omega$ and $\Omega'$.
+\end{theorem}
+
+\begin{proof}
+By access equivalence, every admissible data-generating distribution is identical
+under $\Omega$ and $\Omega'$. Hence the likelihood ratio is identically one:
+\[
+    \frac{P(\D_T\mid \Omega,\A)}{P(\D_T\mid \Omega',\A)}=1.
+\]
+With equal prior mass, posterior odds remain one for all $T$ and all admissible
+operation policies. Any decision rule must therefore have symmetric error.
+\end{proof}
+
+\begin{remark}
+This theorem is the handle-level analogue of observation-channel
+non-identifiability. If the access model hides the objective, policy update,
+telemetry, or actuator channels of a platform, then user-level observations may
+not distinguish an optimizing recommender from a non-agentic content stream
+with matching distribution.
+\end{remark}
+
+\section{Finite Candidate Recovery}
+
+Let $\mathcal O$ be a finite class of candidate loop/interface hypotheses.
+Let $S_\A(\Omega)$ be a population score, for example the negative energy in
+Eq.~\eqref{eq:energy}, and $\widehat S_\A(\Omega)$ its empirical estimate.
+
+\begin{assumption}[True recoverable class]
+There is a true access-equivalence class $[\Omega^\star]_\A$.
+\end{assumption}
+
+\begin{assumption}[Access margin]
+For all $\Omega\notin[\Omega^\star]_\A$,
+\[
+    S_\A(\Omega^\star)-S_\A(\Omega)\ge \Delta_\A>0.
+\]
+\end{assumption}
+
+\begin{assumption}[Access distortion]
+The implemented handles and estimated kernels distort the ideal access score by
+at most
+\[
+    \sup_{\Omega\in\mathcal O}
+    |S_{\widehat\A}(\Omega)-S_\A(\Omega)|
+    \le \delta_\A.
+\]
+\end{assumption}
+
+\begin{assumption}[Uniform concentration]
+For all $\epsilon>0$,
+\[
+    \Prob\left[
+        \sup_{\Omega\in\mathcal O}
+        |\widehat S_{\widehat\A}(\Omega)-S_{\widehat\A}(\Omega)|
+        >
+        \epsilon
+    \right]
+    \le
+    2|\mathcal O|
+    \exp\left(
+        -\frac{T_{\mathrm{eff}}\epsilon^2}{2B^2}
+    \right).
+\]
+\end{assumption}
+
+\begin{theorem}[Handle-recovery bound]
+Let
+\[
+    \widehat\Omega
+    \in
+    \argmax_{\Omega\in\mathcal O}
+    \widehat S_{\widehat\A}(\Omega).
+\]
+If
+\[
+    \Delta_\A>2\delta_\A,
+\]
+then
+\[
+    \Prob\left[
+        \widehat\Omega\in[\Omega^\star]_\A
+    \right]
+    \ge
+    1
+    -
+    2|\mathcal O|
+    \exp\left(
+        -\frac{T_{\mathrm{eff}}(\Delta_\A-2\delta_\A)^2}{8B^2}
+    \right).
+\]
+\end{theorem}
+
+\begin{proof}
+For any $\Omega\notin[\Omega^\star]_\A$,
+\[
+    S_{\widehat\A}(\Omega^\star)-S_{\widehat\A}(\Omega)
+    \ge
+    S_\A(\Omega^\star)-S_\A(\Omega)-2\delta_\A
+    \ge
+    \Delta_\A-2\delta_\A.
+\]
+If empirical deviation is less than $(\Delta_\A-2\delta_\A)/2$ uniformly, no
+non-equivalent candidate can beat the true class. Apply the concentration
+assumption with this value.
+\end{proof}
+
+\section{Intervention Selection as Handle-Operation Planning}
+
+Given posterior
+\[
+    P(\Omega,K,\Gamma,Q\mid \D),
+\]
+a test is not an abstract $\doop(X_i=x)$ but a handle-operation pair $(h,u)$.
+Its value is expected posterior contraction.
+
+\begin{definition}[Expected information gain of a handle-operation]
+For $u\in\U_h$,
+\begin{equation}
+    \EIG(h,u)
+    =
+    \Expect_{y'\sim P(\cdot\mid \D,h,u)}
+    \left[
+        \KL\!\left(
+            P(\Omega\mid \D,h,u,y')
+            \,\|\, 
+            P(\Omega\mid \D)
+        \right)
+    \right].
+    \label{eq:eig}
+\end{equation}
+\end{definition}
+
+The recommended test is
+\begin{equation}
+    (h^\star,u^\star)
+    =
+    \argmax_{h,u}
+    \left[
+        \EIG(h,u)
+        -
+        \lambda_c\cost(h,u)
+        -
+        \lambda_r\risk(h,u)
+        -
+        \lambda_\chi \mathbf 1\{(h,u)\notin\mathcal C\}
+    \right].
+    \label{eq:best-intervention}
+\end{equation}
+
+\begin{proposition}[Diagnostic separation form]
+Suppose two hypotheses $\Omega_1,\Omega_2$ dominate the posterior. Let
+\[
+    p_i^{h,u}(y')
+    =
+    P(y'\mid \Omega_i,\D,h,u).
+\]
+Then, up to posterior weights, $\EIG(h,u)$ is increasing in the predictive
+separation
+\[
+    \KL(p_1^{h,u}\|p_2^{h,u})
+    +
+    \KL(p_2^{h,u}\|p_1^{h,u}).
+\]
+Thus good interventions are handle-operations for which competing loop
+hypotheses make different downstream predictions.
+\end{proposition}
+
+\section{Agency Tests as Handle Tests}
+
+The usual intuitive agency tests become precise only when indexed by handles.
+Table~\ref{tab:handle-tests} gives the translation.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}p{0.17\linewidth}p{0.33\linewidth}p{0.42\linewidth}@{}}
+\toprule
+Suspected structure & Handle operation & Diagnostic contrast \\
+\midrule
+Sensor channel $Q^S$ &
+hide, delay, corrupt, amplify input handle &
+behavior tracks information rather than world state \\
+Action channel $Q^A$ &
+block, attenuate, reroute output handle &
+environmental control collapses or compensates \\
+Goal/resource $G$ &
+move, remove, revalue resource handle &
+means change while latent target persists \\
+Belief state $B$ &
+false cue, occlusion, asymmetric information &
+action follows belief rather than actual state \\
+Policy $\pi$ &
+change cost, risk, payoff, time pressure &
+action trades off costs approximately coherently \\
+Boundary $C$ &
+separate, perturb, damage, constrain coupling &
+repair, compensation, or loss of autonomy \\
+Communication &
+cut, corrupt, delay signal handle &
+coordination degrades predictably \\
+Model of other agent &
+alter partner behavior or apparent belief &
+anticipation, teaching, deception, or adaptation \\
+Self-maintenance &
+resource stress, load, disruption &
+actions preserve viability variables \\
+\bottomrule
+\end{tabular}
+\caption{Agency tests rephrased as embedded handle operations.}
+\label{tab:handle-tests}
+\end{table}
+
+\section{Language as a High-Bandwidth Handle}
+
+Language is special because it makes latent control variables queryable. A
+non-linguistic observer sees trajectories:
+\[
+    Q^S_t,Q^A_t,Q^S_{t+1},Q^A_{t+1},\ldots
+\]
+and must infer $B_t,G_t,\pi$. A linguistic system emits public symbols that
+purport to describe these latents:
+\[
+    B_t \mapsto \ulcorner B_t\urcorner,\qquad
+    G_t \mapsto \ulcorner G_t\urcorner,\qquad
+    \pi_t \mapsto \ulcorner \pi_t\urcorner .
+\]
+This does not guarantee truth. In adversarial settings, self-reports may be
+strategic. But language changes the access model by adding handles:
+\[
+    h_{\mathrm{ask}},\quad
+    h_{\mathrm{challenge}},\quad
+    h_{\mathrm{explain}},\quad
+    h_{\mathrm{commit}},\quad
+    h_{\mathrm{counterfactual}}.
+\]
+These handles can generate high expected information gain when the system is
+cooperative or only weakly adversarial.
+
+\section{Algorithmic Feeds as Hidden Agent Loops}
+
+An algorithmic feed illustrates handle failure. A user observes:
+\[
+    \text{content item}\to \text{reaction}\to \text{next content item}.
+\]
+But the relevant loop is closer to:
+\[
+    \text{platform objective}
+    \to
+    \text{ranking policy}
+    \to
+    \text{user-state perturbation}
+    \to
+    \text{telemetry}
+    \to
+    \text{policy update}.
+\]
+The user lacks handles for:
+\[
+    G_{\mathrm{platform}},
+    \quad
+    Q^A_{\mathrm{ranking}},
+    \quad
+    Q^S_{\mathrm{telemetry}},
+    \quad
+    \pi_{\mathrm{update}},
+    \quad
+    \text{auction and advertiser constraints}.
+\]
+Thus user-level observations can be explained as local content variation even
+when a distributed optimization loop is acting on the user. Agency is hidden not
+because the loop is weak, but because the access model is poor.
+
+A meaningful audit interface would expose at least:
+\begin{align*}
+    &\text{candidate set},\quad
+    \text{ranking action},\quad
+    \text{objective contribution}, \\
+    &\text{targeting features},\quad
+    \text{measured response},\quad
+    \text{policy update}.
+\end{align*}
+Such an interface changes $K$ and $\Gamma$, increasing the recoverable margin
+$\Delta_\A$ and shrinking access-equivalence classes.
+
+\section{Data Contracts}
+
+Access-model UAD requires different claims for different data tiers.
+
+\begin{definition}[Tiered data contract]
+\begin{enumerate}[label=\textbf{Tier \arabic*:},leftmargin=*]
+    \item Passive access:
+    \[
+        \D=(Y_{1:T},K).
+    \]
+    The system can generate candidate loops but cannot make strong causal claims.
+
+    \item Manipulable access:
+    \[
+        \D=(Y_{1:T},K,\Hh^U,\Gamma,\cost,\risk).
+    \]
+    The system can recommend handle-operations and update loop posteriors from
+    their outcomes.
+
+    \item Interface-exposed access:
+    \[
+        \D=(Q^S_t,Q^A_t,R_t,\text{update}_t,Y_{t+1})_{t=1}^T.
+    \]
+    The system can audit a largely exposed control loop.
+\end{enumerate}
+\end{definition}
+
+The same mathematical model can operate at all tiers, but the strength of
+conclusions differs:
+\[
+    \text{passive discovery}
+    <
+    \text{causal testing}
+    <
+    \text{loop auditing}.
+\]
+
+\section{Practical Algorithm}
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Fit access model.}
+    Estimate or encode observation kernels $K_h$, operation kernels $\Gamma_h$,
+    costs, risks, legal constraints, and handle semantics.
+
+    \item \textbf{Learn representations.}
+    Produce multi-scale representations $Z^{\sigma,\tau}$ through coarse-graining,
+    prediction, and event segmentation.
+
+    \item \textbf{Propose candidates.}
+    Use amortized heads to propose
+    \[
+        q_\phi(C,Q,B,G,\pi,M\mid \D).
+    \]
+
+    \item \textbf{Score candidates.}
+    Evaluate explicit UAD/EIS/B-IQ-style energies~\cite{uad2025,eis2025,biq2025}:
+    \[
+        J_Q(C),\quad
+        I_{\mathrm{ctrl}},\quad
+        R_{\mathrm{persist}},\quad
+        R_{\mathrm{belief}},\quad
+        \Delta L_{\mathrm{EIS}},\quad
+        \DL.
+    \]
+
+    \item \textbf{Infer posterior.}
+    Approximate
+    \[
+        P(\Omega,Q,K,\Gamma\mid \D)
+    \]
+    by variational inference, MCMC, sequential Monte Carlo, or energy-based
+    reranking.
+
+    \item \textbf{Select test.}
+    Choose $(h,u)$ maximizing Eq.~\eqref{eq:best-intervention}.
+
+    \item \textbf{Update.}
+    Observe outcome $y'$ and update posterior. Stop when posterior mass over
+    agent-loop equivalence classes is sufficiently concentrated or when further
+    tests are too costly.
+\end{enumerate}
+
+\section{Discussion}
+
+The handle approach changes the ontology of intervention-capable UAD. It says:
+do not start with variables and interventions. Start with access. Variables,
+interfaces, interventions, and intentions are all high-level abstractions over
+embedded dynamics.
+
+This has several consequences.
+
+First, agency claims become conditional:
+\[
+    \text{``agentic under access model } \A\text{''}.
+\]
+No method can recover distinctions erased by $\A$.
+
+Second, intervention suggestion becomes scientifically meaningful only when
+operation semantics are modeled. A recommendation such as ``perturb variable
+$X_i$'' is often ill-posed. A recommendation such as ``use handle $h$ with
+operation $u$ because hypotheses $\Omega_1$ and $\Omega_2$ predict different
+outcomes'' is well-formed.
+
+Third, interface forcing is access-channel design. It may improve identifiability,
+but it may also distort the system. The correct question is whether the forced
+interface is faithful enough for the target agency claim.
+
+Fourth, layer-wise regularization should be weakened. Lower layers should be
+regularized toward stable, local, separable, and manipulable roles. Full agent-loop
+regularization should be sparse and scale-selective.
+
+Fifth, adversarial systems break naive EIS~\cite{eis2025,dennett1987intentional}. If a system optimizes its outputs to
+imitate the sufficient statistics of agency while hiding its loop, behavioral
+compression alone is insufficient. One needs handle diversity, hidden tests,
+costly perturbations, or enforced audit interfaces.
+
+\section{Conclusion}
+
+Intervention, interface, and intention are all compressed names for deep embedded
+stacks. Causal graphs make intervention look primitive; real systems provide
+handles. Intentional explanations make goals look primitive; real agents expose
+or hide them through behavior, language, and interface structure. UAD~\cite{uad2025} should
+therefore be formulated relative to an access model:
+\[
+    \A=(\Hh^Y,\Hh^U,K,\Gamma,\cost,\risk,\mathcal C).
+\]
+Given $\A$, the target of discovery is not an agent simpliciter but a posterior
+over handle-mediated loop hypotheses:
+\[
+    P(C,Q,B,G,\pi,K,\Gamma\mid \D).
+\]
+The recoverable object is an access-equivalence class. The appropriate test is
+not $\doop(X_i=x)$ but a handle-operation chosen by expected information gain.
+The practical path is therefore:
+\begin{align*}
+    &\text{access modeling}
+    \to \text{role-regularized representation learning} \\
+    &\to \text{sparse agent-loop inference}
+    \to \text{handle-based experimental design}.
+\end{align*}
+This makes UAD less elegant but more real. It also explains why hidden optimization
+systems such as algorithmic feeds are hard for humans to perceive: they act through
+the handles we see while hiding the handles that would reveal the agent loop.
+
+\bibliographystyle{IEEEtran}
+\bibliography{refs}
+
+\end{document}

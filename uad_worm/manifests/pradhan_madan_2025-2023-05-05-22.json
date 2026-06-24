@@ -1,0 +1,20 @@
+{
+  "archive_sha256": "15ab5d8f9f13ec27bc7a916c7bf362b536139edb8bdc798ef3e42c605e310e88",
+  "dataset_id": "pradhan_madan_2025-2023-05-05-22",
+  "dataset_type": [
+    "neuropal",
+    "sickness"
+  ],
+  "fetched_at": "2026-06-06T02:13:40.377764+00:00",
+  "max_t": 800,
+  "mean_timestep": 0.5886605357359606,
+  "n_labeled": 117,
+  "n_neuron": 159,
+  "paper_id": "pradhan_madan_2025",
+  "source_filename": "2023-05-05-22-data.h5",
+  "uid": "2023-05-05-22",
+  "upstream_checksums": {
+    "blake3_neuropal_dict": "f58c40bd6a7420a263a1e5ac32f23d87a71c6065b22df7c10836caaec1a35d9b",
+    "checksum_h5": "a397d22ee29dcb0736ddd3dfb7349662da1e9177dda3a90265bf5600849897cb"
+  }
+}

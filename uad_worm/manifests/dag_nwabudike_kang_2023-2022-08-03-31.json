@@ -1,0 +1,20 @@
+{
+  "archive_sha256": "680c02f94064aef4cf8dba7193f6a748b510dc3cda59bee383e1b4d2f32447de",
+  "dataset_id": "dag_nwabudike_kang_2023-2022-08-03-31",
+  "dataset_type": [
+    "neuropal",
+    "reFed"
+  ],
+  "fetched_at": "2026-06-06T02:13:34.842169+00:00",
+  "max_t": 799,
+  "mean_timestep": 0.6015853054691946,
+  "n_labeled": 105,
+  "n_neuron": 167,
+  "paper_id": "dag_nwabudike_kang_2023",
+  "source_filename": "2022-08-03-31-data.h5",
+  "uid": "2022-08-03-31",
+  "upstream_checksums": {
+    "blake3_neuropal_dict": "5b123fc9ae956c21c8085e694203fa222b121ad992db5a427c23f72b602b59e1",
+    "checksum_h5": "bd3d9e8fdead70631e5d3209cfb64e3cbf7d841cbe25d866cc6a3c99f4f421e5"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "archive_sha256": "5c0748a42c97c2bf0f2fad914eed05a0b4085fd817af17ac47fab50aa6d953dc",
+  "dataset_id": "atanas_kim_2023-2022-07-20-01",
+  "dataset_type": [
+    "baseline",
+    "neuropal"
+  ],
+  "fetched_at": "2026-06-06T02:13:13.669379+00:00",
+  "max_t": 1600,
+  "mean_timestep": 0.6015745485759892,
+  "n_labeled": 97,
+  "n_neuron": 144,
+  "paper_id": "atanas_kim_2023",
+  "source_filename": "2022-07-20-01-data.h5",
+  "uid": "2022-07-20-01",
+  "upstream_checksums": {
+    "blake3_analysis_dict": "b6e66580cfae784a81e5a9fcc757eaeec88e61c4f0d271d803fafe0321c18c31",
+    "blake3_fit_results": "1c4bf00c535d814e851a03170542fc30082958f4c063d16789505c6c83989681",
+    "blake3_neuropal_dict": "490da6fe15c58c099edea3f6cbc9d790882c8cf27b4193499667306cf69dff05",
+    "blake3_relative_encoding_strength": "c28384748008c66b4178cc3afaa909263f4d4b4e983763d27442499ee59c77a1",
+    "checksum_h5": "9bc1e197491e1e267f2a76dc21670598d7a257ece91fb8214dfdef9c1aa27ca6"
+  }
+}

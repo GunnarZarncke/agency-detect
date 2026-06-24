@@ -11,6 +11,7 @@ Chronological notebook for the **numbered experiment line** (E0 onward). Records
 | [`CHANGELOG.md`](CHANGELOG.md) | Short milestones |
 | [`conversations/`](conversations/README.md) | Session summaries (why, not full tables) |
 | [`results/README.md`](../results/README.md) | Artifact paths by experiment id |
+| [`uad_handles/README.md`](../uad_handles/README.md) | Handle-UAD toy benchmark (access-uad paper) |
 
 Moved here from `learn_agents/EXPERIMENTS.md` (2026-06-04). Experiment ids (E0, E9, …) are unchanged.
 
@@ -1342,6 +1343,41 @@ PYTHONPATH=. .venv/bin/python scripts/worm/export_recovered.py
 
 ---
 
+## Handle-UAD toy benchmark (access-uad paper)
+
+**Paper:** [*Handles Before Interventions: Access-Model UAD*](papers/access-uad/access-uad.tex) ([PDF](papers/access-uad/access-uad.pdf))
+
+**Why:** The access-uad paper formalizes UAD relative to an **access model** (observation and operation handles) rather than ideal graph interventions. This line provides runnable synthetic evidence: passive alias decoys fool plain UAD; handle operations discriminate real sensor/action/goal handles when the active test budget is large enough.
+
+**Package / scripts:**
+
+| Component | Path |
+|-----------|------|
+| Toy world + scoring | `uad_handles/{minimal,scaling,scaling_fast}.py` |
+| Runners | `scripts/handles/run_{minimal,scaling,scaling_fast}.py` |
+| Plan + commands | `uad_handles/README.md` |
+
+**Default artifact root:** `results/handles/{minimal,scaling,scaling_fast}/` (gitignored).
+
+**Representative command (fast scaling):**
+
+```bash
+PYTHONPATH=. .venv/bin/python scripts/handles/run_scaling_fast.py \
+  --alias-counts 0,1,2,4,8 \
+  --passive-ns 600 \
+  --seeds 1 \
+  --max-rounds 10 \
+  --intervention-batch 80 \
+  --candidate-cap 800 \
+  --verbose
+```
+
+**Early result (1 seed, T=600, cap=800):** round-0 passive UAD never ranks the true loop first; with **0 aliases**, 10 active rounds recover exact top-1; with **≥1 alias pairs**, recovery degrades (fast targeted-rescore variant chases alias-heavy false loops). Confirms the paper's qualitative claim that false handles need **handle tests**, not just more passive samples — active policy and negative evidence still open.
+
+**Next:** negative evidence for inert handle tests; compare `scaling.py` full rescore vs `scaling_fast.py`; optional figures in the paper.
+
+---
+
 ## Code map
 
 | Component | Path |
@@ -1362,6 +1398,8 @@ PYTHONPATH=. .venv/bin/python scripts/worm/export_recovered.py
 | E17 regulation probe (Option D) | `learn_agents/regulation_probe.py`, `physics_pomdp.py` (track policy), `scripts/learn_agents/run_regulation_probe.py` |
 | E18 outcome influence | `intention_detect/`, `intention_detect/segmentation.py`, `scripts/intention/run_outcome_influence.py` |
 | E19 real-machine dataset | `data_collect/`, `scripts/intention/run_machine_dataset.py` |
+| E20 C. elegans UAD (WormWideWeb) | `uad_worm/`, `scripts/worm/` |
+| Handle-UAD toy benchmark (access-uad paper) | `uad_handles/`, `scripts/handles/` |
 | Multi-agent physics | `learn_agents/physics_pomdp.py` (`roll_cartpole_multi`) |
 | Strict UAD / MI roles | `agency_detect/markov_blanket.py` |
 

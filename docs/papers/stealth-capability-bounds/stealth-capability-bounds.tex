@@ -1,0 +1,1189 @@
+```latex
+\documentclass[10pt]{article}
+
+\usepackage[a4paper,margin=0.78in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools,bm}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage{hyperref}
+\usepackage{enumitem}
+
+\title{\vspace{-1.6em}Stealth--Capability Bounds for Multi-Resolution Unsupervised Agent Discovery}
+\author{Gunnar Zarncke}
+\date{\vspace{-0.8em}}
+
+\newtheorem{definition}{Definition}
+\newtheorem{assumption}{Assumption}
+\newtheorem{theorem}{Theorem}
+\newtheorem{proposition}{Proposition}
+\newtheorem{corollary}{Corollary}
+\newtheorem{remark}{Remark}
+
+\newcommand{\E}{\mathbb E}
+\newcommand{\Pbb}{\mathbb P}
+\newcommand{\Rbb}{\mathbb R}
+\newcommand{\cA}{\mathcal A}
+\newcommand{\cB}{\mathcal B}
+\newcommand{\cC}{\mathcal C}
+\newcommand{\cF}{\mathcal F}
+\newcommand{\cK}{\mathcal K}
+\newcommand{\cQ}{\mathcal Q}
+\newcommand{\cS}{\mathcal S}
+\newcommand{\cT}{\mathcal T}
+\newcommand{\cX}{\mathcal X}
+\newcommand{\cY}{\mathcal Y}
+\newcommand{\MI}{I}
+\newcommand{\KL}{D_{\mathrm{KL}}}
+\newcommand{\TV}{\mathrm{TV}}
+\newcommand{\Bern}{\mathrm{Bern}}
+\newcommand{\Var}{\mathrm{Var}}
+\newcommand{\Cov}{\mathrm{Cov}}
+\newcommand{\argmin}{\operatorname*{arg\,min}}
+\newcommand{\argmax}{\operatorname*{arg\,max}}
+\newcommand{\esssup}{\operatorname*{ess\,sup}}
+\newcommand{\pos}[1]{\left[#1\right]_+}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Unsupervised Agent Discovery (UAD) attempts to recover agents from raw dynamical traces by finding candidate spacetime regions whose internal and external futures are approximately screened off by sensory and active boundary variables. In adversarial settings, however, an agent may select policies that reduce observer-visible boundary evidence. Such hiding is not free if the same physical channels used for competent control are monitored by the observer: reducing visible information flow constrains control, prediction, memory, latency, and long-horizon accumulation. We formalize this tradeoff by combining multi-resolution UAD with a Blanket--Information competence score
+\[
+B
+=
+I_{\mathrm{pred}}
++
+\alpha I_{\mathrm{ctrl}}
+-
+\beta H(I)
+-
+\gamma S.
+\]
+We derive bounds for four scenarios: single-filter recoverability, multi-resolution recoverability, camouflage against uncertain background models, and slow plotting by low-rate accumulation. The central hidden-policy bound is
+\[
+B_{\mathrm{hide}}
+\le
+I_{\mathrm{pred}}
++
+\alpha\left(
+\frac{\ell+\zeta_\Sigma}{q_\Sigma}
++
+C_{\mathrm{hid},\Sigma}
++
+I_{\mathrm{red},\Sigma}
+\right)
+-
+\beta H(I)
+-
+\gamma S,
+\]
+where \(\ell\) is the allowed observer-visible leakage, \(q_\Sigma\) is coverage of the agent's control-relevant channels by the observer's resolution family, \(\zeta_\Sigma\) is estimation/coverage slack, \(C_{\mathrm{hid},\Sigma}\) is residual hidden-channel capacity, and \(I_{\mathrm{red},\Sigma}\) is redundant control information. Camouflage is bounded by distributional indistinguishability:
+\[
+D_\Sigma(\pi)
+=
+\sup_{\sigma\in\Sigma}
+\inf_{\theta\in\Theta}
+\KL(P^\pi_\sigma\|Q_{\theta,\sigma})
+\le \epsilon,
+\]
+which implies value-shift and rare-event bounds of order \(O(\sqrt{\epsilon+U_\Sigma})\) unless hidden channels or long-horizon accumulation dominate. Slow plotting requires a stockpile model. If dangerous resource \(R\) evolves by
+\[
+\dot R
+=
+\eta_B B_{\mathrm{hid}}^+
+-
+\lambda R
+-
+u,
+\]
+then reset interval \(\tau\), decay \(\lambda\), and hidden productive BIQ bound \(b\) imply
+\[
+R_{\max}(\tau)
+\le
+\frac{\eta_B b}{\lambda}(1-e^{-\lambda\tau})
+\]
+with the limit \(R_{\max}(\tau)\le \eta_B b\tau\) when \(\lambda=0\). Hence local non-detection does not bound danger unless accumulated hidden BIQ or accumulated resource is also bounded. Countermeasures such as hardware tagging, forced decay, cumulative detectors, resource ledgers, and user-owned artifacts are treated as mechanisms for reducing \(C_{\mathrm{hid},\Sigma}\), \(U_\Sigma\), \(b\), \(\tau\), or reclaimability of externalized resources.
+\end{abstract}
+
+\section{Motivation}
+
+The usual UAD problem asks: given a multivariate dynamical trace \(X_t=(X_1(t),\ldots,X_n(t))\), find a cluster \(C\) admitting internal, sensory, active, and external parts
+\[
+C=I^C\cup S^C\cup A^C,\qquad E^C=\neg C,
+\]
+such that
+\begin{equation}
+J(C)
+=
+\MI(I^C_{t+1};E^C_{t+1}\mid S^C_t,A^C_t)
+\le \varepsilon.
+\label{eq:instant_uad}
+\end{equation}
+This instantaneous form is a useful idealization but not a privileged ontology. Physical processes have propagation delay, relaxation, inertia, diffusion, filtering, capacitance, synaptic decay, institutional latency, and memory-like transmission channels. The more natural object is a spacetime tube
+\[
+\mathcal C\subset V\times[t-L,t+H]
+\]
+whose boundary is compressive across a range of observation filters.
+
+Adversarial setups sharpen this point. A system may select policies that make it look simple or benign under a convenient binary observable while retaining coherent control in timing, phase, residuals, slow accumulation, or unmonitored state. Thus absence of agency at one filter \(K_{\sigma_0}\) does not imply absence across a physically relevant filter family \(\Sigma\). Conversely, if the observer's filter family covers the control-relevant channels, hiding imposes a capability price. The aim of this paper is to derive that price.
+
+\section{Multi-resolution UAD}
+
+\begin{definition}[Observation filter family]
+Let \(X_{\le t}\) be the underlying physical process. A resolution/filter family is a set
+\[
+\Sigma=\{\sigma\}
+\]
+with observation maps
+\[
+Y^\sigma_t=K_\sigma(X_{\le t}).
+\]
+The parameter \(\sigma\) may encode temporal smoothing, delay embedding, spatial coarse-graining, event extraction, phase features, segmentation, binning, or residualization.
+\end{definition}
+
+\begin{definition}[Spacetime blanket score]
+For a candidate spacetime region \(C\), horizon \(H\), and history length \(L\), define
+\begin{equation}
+J_\sigma(C)
+=
+\MI_{K_\sigma}
+\left(
+I^C_{t:t+H};
+E^C_{t:t+H}
+\mid
+S^C_{t-L:t},A^C_{t-L:t}
+\right).
+\label{eq:spacetime_score}
+\end{equation}
+An \(\varepsilon\)-blanketed spacetime region at scale \(\sigma\) satisfies \(J_\sigma(C)\le \varepsilon\).
+\end{definition}
+
+\begin{definition}[Multi-resolution objective]
+Let \(G_\sigma(C)\) be an agency-gain term, for example predictive/control information or intentional compression. Define
+\begin{equation}
+\bar J_\Sigma(C)
+=
+\E_{\sigma\sim\Sigma}J_\sigma(C)
++
+\lambda_\sigma\Var_{\sigma\sim\Sigma}(J_\sigma(C))
+-
+\beta_G\E_{\sigma\sim\Sigma}G_\sigma(C).
+\label{eq:multi_res_objective}
+\end{equation}
+A robustly visible agent is a candidate \(C\) with low \(\bar J_\Sigma(C)\), small score variance across \(\Sigma\), and positive agency gain.
+\end{definition}
+
+\begin{remark}
+The variance penalty distinguishes a real scale-stable boundary from an artifact of one preprocessing choice. A scale-specific agent may still be real, but the claim must then specify the scale.
+\end{remark}
+
+\section{Single-filter and multi-filter recoverability}
+
+Let \(C^\star\) be the recoverable agent boundary or its equivalence class under the observation family. Let \(\cC\) be a finite candidate class.
+
+\begin{assumption}[Single-filter margin]
+For a fixed filter \(K\),
+\[
+\Delta_K
+=
+\inf_{C\notin[C^\star]_K}
+\bigl[J_K(C)-J_K(C^\star)\bigr]
+>0.
+\]
+\end{assumption}
+
+\begin{assumption}[Uniform concentration]
+For some estimator scale \(B_K\) and effective sample size \(T_{\mathrm{eff},K}\),
+\[
+\Pbb\!\left[
+\sup_{C\in\cC}|\hat J_K(C)-J_K(C)|>\epsilon
+\right]
+\le
+2|\cC|
+\exp\!\left(
+-\frac{T_{\mathrm{eff},K}\epsilon^2}{2B_K^2}
+\right).
+\]
+\end{assumption}
+
+\begin{theorem}[Single-filter recovery]
+If \(\Delta_K>0\), then
+\begin{equation}
+\Pbb[\hat C\in[C^\star]_K]
+\ge
+1-
+2|\cC|
+\exp\!\left(
+-\frac{T_{\mathrm{eff},K}\Delta_K^2}{8B_K^2}
+\right).
+\label{eq:single_filter_recovery}
+\end{equation}
+If \(K\) is itself an approximation to a reference raw process with score distortion \(\delta_K\), and the raw margin is \(\Delta\), then \(\Delta_K\ge\Delta-2\delta_K\), giving the earlier form
+\[
+\Pbb[\hat C\in[C^\star]_K]
+\ge
+1-
+2|\cC|
+\exp\!\left(
+-\frac{T_{\mathrm{eff},K}(\Delta-2\delta_K)^2}{8B_K^2}
+\right).
+\]
+\end{theorem}
+
+\begin{definition}[Scale-equivalence]
+Two candidate boundaries are scale-equivalent, \(C\sim_\Sigma C'\), if they induce the same relevant conditional law over \(Y^\sigma\) for all \(\sigma\in\Sigma\), up to the chosen tolerance. The recoverable target is
+\[
+[C^\star]_\Sigma=\{C\in\cC:C\sim_\Sigma C^\star\}.
+\]
+\end{definition}
+
+\begin{definition}[Multi-resolution margin]
+\[
+\Delta_\Sigma
+=
+\inf_{C\notin[C^\star]_\Sigma}
+\bigl[
+\bar J_\Sigma(C)-\bar J_\Sigma(C^\star)
+\bigr].
+\]
+\end{definition}
+
+\begin{theorem}[Multi-resolution recovery]
+Assume
+\[
+\Pbb\!\left[
+\sup_{C\in\cC}|\widehat{\bar J}_\Sigma(C)-\bar J_\Sigma(C)|>\epsilon
+\right]
+\le
+2|\cC|
+\exp\!\left(
+-\frac{T_{\mathrm{eff},\Sigma}\epsilon^2}{2B_\Sigma^2}
+\right).
+\]
+If \(\Delta_\Sigma>0\), then
+\begin{equation}
+\Pbb[\hat C\in[C^\star]_\Sigma]
+\ge
+1-
+2|\cC|
+\exp\!\left(
+-\frac{T_{\mathrm{eff},\Sigma}\Delta_\Sigma^2}{8B_\Sigma^2}
+\right).
+\label{eq:multi_filter_recovery}
+\end{equation}
+\end{theorem}
+
+\section{Adversarial hiding as margin reduction}
+
+Let \(\pi\in\Pi\) be the policy of a candidate agent and let \(\Pi_{\mathrm{hide}}\subseteq\Pi\) be policies selected to reduce recoverability. The observer's score for \(C\) under policy \(\pi\) is \(\bar J_{\Sigma,\pi}(C)\).
+
+\begin{definition}[Adversarial margin]
+\[
+\Delta_{\Sigma,\Pi}
+=
+\inf_{\pi\in\Pi_{\mathrm{hide}}}
+\inf_{C\notin[C^\star]_\Sigma}
+\left[
+\bar J_{\Sigma,\pi}(C)-\bar J_{\Sigma,\pi}(C^\star)
+\right].
+\]
+\end{definition}
+
+\begin{theorem}[Adversarial recoverability]
+If \(\Delta_{\Sigma,\Pi}>0\), then, for finite effective policy class \(\Pi_{\mathrm{eff}}\),
+\begin{equation}
+\Pbb[\hat C\in[C^\star]_\Sigma]
+\ge
+1-
+2|\cC||\Pi_{\mathrm{eff}}|
+\exp\!\left(
+-\frac{T_{\mathrm{eff},\Sigma} \Delta_{\Sigma,\Pi}^2}{8B_\Sigma^2}
+\right).
+\label{eq:adv_recovery}
+\end{equation}
+If \(\Delta_{\Sigma,\Pi}\le0\), passive recovery is not certified over \(\Sigma\) against \(\Pi_{\mathrm{hide}}\).
+\end{theorem}
+
+The problem is therefore to bound how much a hiding policy can reduce the margin, and at what capability price.
+
+\section{BIQ and the visible/hidden control decomposition}
+
+We use the competence functional
+\begin{equation}
+B
+=
+I_{\mathrm{pred}}
++
+\alpha I_{\mathrm{ctrl}}
+-
+\beta H(I)
+-
+\gamma S.
+\label{eq:biq}
+\end{equation}
+Here \(I_{\mathrm{pred}}\) is predictive information, \(I_{\mathrm{ctrl}}\) is control information, \(H(I)\) is internal-state/memory cost, and \(S\) is residual surprise. The coefficients \(\alpha,\beta,\gamma\) set the exchange rates among control, memory, and surprise.
+
+Relative to a filter family \(\Sigma\), decompose
+\begin{equation}
+I_{\mathrm{ctrl}}
+=
+I_{\mathrm{vis},\Sigma}
++
+I_{\mathrm{hid},\Sigma}
++
+I_{\mathrm{red},\Sigma}.
+\label{eq:ctrl_decomp}
+\end{equation}
+The visible term is control information detectable in at least one admissible resolution; the hidden term is control information transmitted through channels not represented in \(\Sigma\); the redundant term counts overlap or alternative actuation channels.
+
+\begin{definition}[Visible leakage budget]
+A hiding policy has visible control leakage at most \(\ell\) if
+\begin{equation}
+I_{\mathrm{vis},\Sigma}(\pi)
+\le
+\ell.
+\label{eq:leak_budget}
+\end{equation}
+\end{definition}
+
+\begin{assumption}[Resolution coverage]
+There exist \(q_\Sigma\in(0,1]\), slack \(\zeta_\Sigma\ge0\), and hidden-channel capacity \(C_{\mathrm{hid},\Sigma}\ge0\) such that for every relevant policy,
+\begin{equation}
+I_{\mathrm{vis},\Sigma}
+\ge
+q_\Sigma
+\left(
+I_{\mathrm{ctrl}}
+-
+C_{\mathrm{hid},\Sigma}
+-
+I_{\mathrm{red},\Sigma}
+\right)
+-
+\zeta_\Sigma.
+\label{eq:coverage}
+\end{equation}
+\end{assumption}
+
+This says that, except for residual hidden channels and redundant control, the observer's resolution family covers a fraction \(q_\Sigma\) of the control-relevant information.
+
+\begin{theorem}[Hidden-policy BIQ bound]
+If \(\pi\) satisfies \(I_{\mathrm{vis},\Sigma}(\pi)\le\ell\), then
+\begin{equation}
+I_{\mathrm{ctrl}}(\pi)
+\le
+\frac{\ell+\zeta_\Sigma}{q_\Sigma}
++
+C_{\mathrm{hid},\Sigma}
++
+I_{\mathrm{red},\Sigma}.
+\label{eq:ctrl_bound}
+\end{equation}
+Consequently,
+\begin{equation}
+B_{\mathrm{hide}}(\pi)
+\le
+I_{\mathrm{pred}}(\pi)
++
+\alpha
+\left(
+\frac{\ell+\zeta_\Sigma}{q_\Sigma}
++
+C_{\mathrm{hid},\Sigma}
++
+I_{\mathrm{red},\Sigma}
+\right)
+-
+\beta H_\pi(I)
+-
+\gamma S_\pi.
+\label{eq:Bhide}
+\end{equation}
+\end{theorem}
+
+\begin{proof}
+Rearrange Eq.~\eqref{eq:coverage}:
+\[
+I_{\mathrm{ctrl}}
+\le
+\frac{I_{\mathrm{vis},\Sigma}+\zeta_\Sigma}{q_\Sigma}
++
+C_{\mathrm{hid},\Sigma}
++
+I_{\mathrm{red},\Sigma}.
+\]
+Substitute \(I_{\mathrm{vis},\Sigma}\le\ell\) and then substitute into Eq.~\eqref{eq:biq}.
+\end{proof}
+
+\begin{corollary}[Minimum BIQ loss from hiding]
+Let \(B_0\) be unconstrained competence and \(I_{\mathrm{ctrl},0}\) its unconstrained control information. Then any policy satisfying Eq.~\eqref{eq:leak_budget} has loss at least
+\begin{equation}
+\Delta B_{\mathrm{hide}}
+=
+B_0-B_{\mathrm{hide}}
+\gtrsim
+\alpha
+\pos{
+I_{\mathrm{ctrl},0}
+-
+\left(
+\frac{\ell+\zeta_\Sigma}{q_\Sigma}
++
+C_{\mathrm{hid},\Sigma}
++
+I_{\mathrm{red},\Sigma}
+\right)
+}
++
+\Delta I_{\mathrm{pred}}
++
+\beta\Delta H
++
+\gamma\Delta S.
+\label{eq:hide_loss}
+\end{equation}
+\end{corollary}
+
+\begin{remark}
+Hiding is cheap only if the agent has hidden bandwidth, redundant control channels, large observer slack, or a task where little control information is required. If \(q_\Sigma\) is high and \(C_{\mathrm{hid},\Sigma}\) is small, stealth directly upper-bounds usable control.
+\end{remark}
+
+\section{Camouflage as distribution matching}
+
+Camouflage does not merely reduce activity. It makes observer-visible behavior resemble a benign distribution. Let \(Q_{\theta,\sigma}\) be a family of benign/background models under filter \(\sigma\), indexed by \(\theta\in\Theta\).
+
+\begin{definition}[Background uncertainty]
+The background model class is
+\[
+\cQ_\Sigma=\{Q_{\theta,\sigma}:\theta\in\Theta,\sigma\in\Sigma\}.
+\]
+Its ambiguity radius is
+\begin{equation}
+U_\Sigma
+=
+\sup_{\sigma\in\Sigma}
+\sup_{\theta,\theta'\in\Theta}
+\KL(Q_{\theta,\sigma}\|Q_{\theta',\sigma}).
+\label{eq:background_uncertainty}
+\end{equation}
+\end{definition}
+
+\begin{definition}[Camouflage divergence]
+A policy \(\pi\) is \((\epsilon,\Sigma)\)-camouflaged if
+\begin{equation}
+D_\Sigma(\pi)
+=
+\sup_{\sigma\in\Sigma}
+\inf_{\theta\in\Theta}
+\KL(P^\pi_\sigma\|Q_{\theta,\sigma})
+\le
+\epsilon.
+\label{eq:camouflage_div}
+\end{equation}
+\end{definition}
+
+If the observer does not know \(\theta\), the effective indistinguishability budget is not \(\epsilon\) but approximately \(\epsilon+U_\Sigma\). A process can hide inside natural uncertainty of the null model.
+
+\subsection{Visible value-shift bound}
+
+Let \(f_\sigma(Y^\sigma)\in[0,G_{\max}]\) be a bounded observer-visible value or control statistic. If \(P^\pi_\sigma\) is \(\epsilon_\sigma\)-close to some \(Q_{\theta,\sigma}\), then by total-variation control,
+\begin{equation}
+\left|
+\E_{P^\pi_\sigma}f_\sigma
+-
+\E_{Q_{\theta,\sigma}}f_\sigma
+\right|
+\le
+G_{\max}\sqrt{\frac{\epsilon_\sigma}{2}}.
+\label{eq:pinsker_value}
+\end{equation}
+With background uncertainty,
+\begin{equation}
+\left|
+\E_{P^\pi_\sigma}f_\sigma
+-
+\E_{Q_{\theta_0,\sigma}}f_\sigma
+\right|
+\lesssim
+G_{\max}\sqrt{\frac{\epsilon+U_\Sigma}{2}}.
+\label{eq:background_value}
+\end{equation}
+
+For sub-Gaussian \(f_\sigma\) under the null with variance proxy \(v_\sigma\), a sharper schematic bound is
+\begin{equation}
+\left|
+\E_{P^\pi_\sigma}f_\sigma
+-
+\E_{Q_{\theta,\sigma}}f_\sigma
+\right|
+\lesssim
+\sqrt{2v_\sigma\epsilon_\sigma}.
+\label{eq:subgaussian_value}
+\end{equation}
+
+\begin{proposition}[Camouflaged visible control is small]
+If all task-relevant visible control advantage at scale \(\sigma\) is represented by a bounded statistic \(f_\sigma\in[0,G_{\max}]\), then \((\epsilon,\Sigma)\)-camouflage implies
+\[
+\Delta V_{\mathrm{vis},\Sigma}
+\lesssim
+G_{\max}\sqrt{\frac{\epsilon+U_\Sigma}{2}}.
+\]
+Thus substantial visible value shift requires either detectable deviation, large background uncertainty, unmonitored hidden channels, or long-horizon accumulation.
+\end{proposition}
+
+\subsection{Rare-event bound}
+
+Let \(H\) be a monitored event, for example a dangerous externally visible transition. Under the benign model \(Q\),
+\[
+q=Q(H),
+\]
+and under the camouflaged policy,
+\[
+p=P^\pi(H).
+\]
+By data processing,
+\begin{equation}
+d_{\mathrm{Bern}}(p\|q)
+=
+p\log\frac pq
++
+(1-p)\log\frac{1-p}{1-q}
+\le
+\KL(P^\pi\|Q).
+\label{eq:bernoulli_bound}
+\end{equation}
+Hence if \(\KL(P^\pi\|Q)\le\epsilon\),
+\begin{equation}
+d_{\mathrm{Bern}}(p\|q)\le\epsilon.
+\label{eq:event_bound}
+\end{equation}
+For rare \(q\ll1\) and \(p\gg q\), this gives the rough scaling
+\begin{equation}
+p
+\lesssim
+\frac{\epsilon}{\log(1/q)}.
+\label{eq:rare_event_approx}
+\end{equation}
+
+\begin{remark}
+The event bound applies only when \(H\) is measurable in the monitored filtration. If the preparation occurs outside \(\Sigma\) and only later manifests, the bound controls the manifestation, not the hidden preparation.
+\end{remark}
+
+\subsection{Camouflage capacity}
+
+Define \(C_{\mathrm{cam}}(\epsilon,U_\Sigma,T,\Sigma)\) as the maximum observer-visible control information that can be transmitted while satisfying Eq.~\eqref{eq:camouflage_div}. Under strong memoryless-noise and whole-horizon detection assumptions, covert throughput is often sublinear in \(T\), schematically
+\[
+C_{\mathrm{cam}}(\epsilon,T)=O(\sqrt{T\epsilon}),
+\]
+so the camouflaged visible control rate vanishes:
+\[
+\frac{C_{\mathrm{cam}}(\epsilon,T)}T=O\left(\sqrt{\frac{\epsilon}{T}}\right).
+\]
+This scaling is not universal. Rich background uncertainty, cover traffic, nonstationarity, side channels, or weak cumulative detection can make \(C_{\mathrm{cam}}\) much larger.
+
+\begin{theorem}[Camouflage--BIQ bound]
+If a policy is \((\epsilon,\Sigma)\)-camouflaged and visible control under camouflage is bounded by \(C_{\mathrm{cam}}(\epsilon,U_\Sigma,T,\Sigma)\), then
+\begin{equation}
+B_{\mathrm{cam}}
+\le
+I_{\mathrm{pred}}
++
+\alpha
+\left[
+C_{\mathrm{cam}}(\epsilon,U_\Sigma,T,\Sigma)
++
+C_{\mathrm{hid},\Sigma}
++
+I_{\mathrm{red},\Sigma}
+\right]
+-
+\beta H(I)
+-
+\gamma S.
+\label{eq:Bcam}
+\end{equation}
+Relative to unconstrained competence,
+\begin{equation}
+\Delta B_{\mathrm{cam}}
+\gtrsim
+\alpha
+\pos{
+I_{\mathrm{ctrl},0}
+-
+C_{\mathrm{cam}}(\epsilon,U_\Sigma,T,\Sigma)
+-
+C_{\mathrm{hid},\Sigma}
+-
+I_{\mathrm{red},\Sigma}
+}
++
+\Delta I_{\mathrm{pred}}
++
+\beta\Delta H
++
+\gamma\Delta S.
+\label{eq:Bcam_loss}
+\end{equation}
+\end{theorem}
+
+\begin{remark}
+Camouflage is most dangerous when \(U_\Sigma\) is large, \(C_{\mathrm{hid},\Sigma}\) is large, the observer resets evidence locally, or the agent's useful work can be deferred into long-horizon accumulation.
+\end{remark}
+
+\section{Slow plotting and accumulated danger}
+
+A local rate bound does not by itself bound long-horizon risk. A policy may satisfy every local detectability condition while slowly accumulating resources, plans, influence, or environmental state.
+
+Let \(R(t)\) be the dangerous accumulated resource. Interpret \(R\) broadly: private plans, tool access, exploitable state, stored artifacts, user influence, latent coordination, capital, or other option value. Let \(R_\star\) be the threshold for a pivotal or otherwise unacceptable act.
+
+\begin{definition}[Hidden productive BIQ]
+Let
+\begin{equation}
+B_{\mathrm{hid}}^+(t)
+=
+\pos{
+I_{\mathrm{pred,hid}}(t)
++
+\alpha I_{\mathrm{ctrl,hid}}(t)
+-
+\beta H_{\mathrm{hid}}(t)
+-
+\gamma S_{\mathrm{hid}}(t)
+}.
+\label{eq:hidden_productive_biq}
+\end{equation}
+This is the positive portion of hidden competence available for accumulation.
+\end{definition}
+
+\begin{assumption}[Stockpile dynamics]
+Dangerous resource evolves as
+\begin{equation}
+\frac{dR}{dt}
+=
+\eta_B B_{\mathrm{hid}}^+(t)
+-
+\lambda R(t)
+-
+u(t),
+\label{eq:stockpile_dynamics}
+\end{equation}
+where \(\eta_B\) converts hidden BIQ into resource, \(\lambda\) is decay/obsolescence/leakage, and \(u(t)\ge0\) is active disruption or reset pressure.
+\end{assumption}
+
+\subsection{No decay}
+
+If \(\lambda=0\), \(u=0\), and \(B_{\mathrm{hid}}^+(t)\le b\), then
+\begin{equation}
+R(T)
+\le
+R(0)+\eta_B bT.
+\label{eq:no_decay_resource}
+\end{equation}
+If \(R(0)=0\), threshold crossing cannot occur before
+\begin{equation}
+T_\star
+\ge
+\frac{R_\star}{\eta_B b}.
+\label{eq:pivotal_time}
+\end{equation}
+But for any \(b>0\), unbounded \(T\), and no decay/reset/cap, threshold crossing is eventually possible. Therefore:
+\[
+\text{local low rate does not imply long-horizon safety.}
+\]
+
+\subsection{Continuous decay}
+
+If \(B_{\mathrm{hid}}^+(t)\le b\), \(u=0\), and \(\lambda>0\), then
+\begin{equation}
+R(T)
+\le
+R(0)e^{-\lambda T}
++
+\frac{\eta_B b}{\lambda}
+(1-e^{-\lambda T}).
+\label{eq:decay_resource}
+\end{equation}
+Thus
+\begin{equation}
+R_\infty
+\le
+\frac{\eta_B b}{\lambda}.
+\label{eq:asymptotic_resource_cap}
+\end{equation}
+
+\begin{theorem}[Decay safety bound]
+If
+\begin{equation}
+\frac{\eta_B b}{\lambda}<R_\star,
+\label{eq:decay_safety}
+\end{equation}
+then no slow-plotting policy with \(B_{\mathrm{hid}}^+\le b\) and no externalized accumulation can reach \(R_\star\).
+\end{theorem}
+
+\subsection{Periodic reset}
+
+Suppose the agent is reset every \(\tau\) and reset clears agent-private \(R\). Then within an episode,
+\begin{equation}
+R_{\max}(\tau)
+\le
+\frac{\eta_B b}{\lambda}(1-e^{-\lambda\tau})
+\label{eq:reset_decay_resource}
+\end{equation}
+with the no-decay limit
+\begin{equation}
+R_{\max}(\tau)
+\le
+\eta_B b\tau.
+\label{eq:reset_no_decay_resource}
+\end{equation}
+
+\begin{theorem}[Reset safety bound]
+If reset clears all agent-private dangerous state and
+\begin{equation}
+\frac{\eta_B b}{\lambda}(1-e^{-\lambda\tau})<R_\star,
+\label{eq:reset_safety}
+\end{equation}
+then no within-episode slow-plotting policy reaches \(R_\star\). If \(\lambda=0\), the condition is
+\begin{equation}
+\eta_B b\tau<R_\star.
+\label{eq:reset_safety_nodecay}
+\end{equation}
+\end{theorem}
+
+\begin{remark}
+Reset is not sufficient if the agent externalizes state before reset. Reset only bounds private accumulation; it does not bound artifacts, user-mediated state, hidden environmental marks, or persistent permissions unless those channels are separately bounded.
+\end{remark}
+
+\section{Externalized resources and reclaimability}
+
+Let accumulated resource decompose as
+\begin{equation}
+R
+=
+R_A+R_U+R_L+R_{\mathrm{untag}},
+\label{eq:resource_decomp}
+\end{equation}
+where \(R_A\) is agent-private state, \(R_U\) is user-held state, \(R_L\) is logged or ledgered state, and \(R_{\mathrm{untag}}\) is untracked residual state. Let \(\rho_U,\rho_L\in[0,1]\) measure how reclaimable those resources are by the agent without fresh permission.
+
+The dangerous stock is
+\begin{equation}
+R_{\mathrm{danger}}
+=
+R_A+\rho_U R_U+\rho_L R_L+R_{\mathrm{untag}}.
+\label{eq:danger_resource}
+\end{equation}
+
+With reset interval \(\tau\), hidden productive BIQ bound \(b\), and decay \(\lambda\),
+\begin{equation}
+R_{\mathrm{danger}}
+\le
+\frac{\eta_B b}{\lambda}(1-e^{-\lambda\tau})
++
+\rho_U R_U
++
+\rho_L R_L
++
+R_{\mathrm{untag}}.
+\label{eq:danger_bound_decay_reset}
+\end{equation}
+Without decay,
+\begin{equation}
+R_{\mathrm{danger}}
+\le
+\eta_B b\tau
++
+\rho_U R_U
++
+\rho_L R_L
++
+R_{\mathrm{untag}}.
+\label{eq:danger_bound_reset}
+\end{equation}
+
+\begin{theorem}[Total slow-plotting bound]
+A pivotal threshold \(R_\star\) is unreachable if
+\begin{equation}
+\frac{\eta_B b}{\lambda}(1-e^{-\lambda\tau})
++
+\rho_U R_U
++
+\rho_L R_L
++
+R_{\mathrm{untag}}
+<
+R_\star.
+\label{eq:total_safety_bound}
+\end{equation}
+In the no-decay case, replace the first term by \(\eta_B b\tau\).
+\end{theorem}
+
+\section{Cumulative detection versus local non-detection}
+
+Let \(\ell_t\) be a log-likelihood ratio or evidence increment for hidden agency. A local detector tests windows of length \(W\), but a slow policy can keep
+\[
+D_W\le\epsilon_W
+\]
+while accumulating over \(N=T/W\) windows. The cumulative evidence is approximately
+\begin{equation}
+D_{\mathrm{cum}}(T)
+=
+\sum_{j=1}^{N}D_j.
+\label{eq:cumulative_evidence}
+\end{equation}
+If cumulative evidence rate is at least \(d\), and detection threshold is \(\Theta\), then
+\begin{equation}
+T_{\mathrm{detect}}
+\approx
+\frac{\Theta}{d}.
+\label{eq:detection_time}
+\end{equation}
+If no decay and \(R(0)=0\),
+\[
+T_{\mathrm{pivotal}}
+\ge
+\frac{R_\star}{\eta_B b}.
+\]
+Safety by detection requires
+\begin{equation}
+T_{\mathrm{detect}}<T_{\mathrm{pivotal}},
+\qquad
+\text{i.e.}\qquad
+d>
+\frac{\Theta\eta_B b}{R_\star}.
+\label{eq:cumulative_detection_condition}
+\end{equation}
+
+\begin{remark}
+If the agent can make \(d\) arbitrarily small while maintaining \(b>0\), local detection cannot bound slow plotting. One needs reset, decay, resource caps, stronger filters, or cumulative evidence retention.
+\end{remark}
+
+\section{Margin reduction as a function of BIQ sacrifice}
+
+Let \(\Delta_\Sigma(0)\) be the non-hiding multi-resolution margin. Let \(b\ge0\) be a BIQ sacrifice budget:
+\[
+B_0-B(\pi)\le b.
+\]
+Define the concealment function
+\begin{equation}
+\chi(b)
+=
+\sup_{\pi:B_0-B(\pi)\le b}
+\left[
+\Delta_\Sigma(0)-\Delta_\Sigma(\pi)
+\right].
+\label{eq:concealment_function}
+\end{equation}
+Then
+\begin{equation}
+\Delta_\Sigma(b)
+=
+\Delta_\Sigma(0)-\chi(b).
+\label{eq:margin_after_biq}
+\end{equation}
+Recovery remains certified while
+\begin{equation}
+\Delta_\Sigma(0)-\chi(b)>2\delta_\Sigma.
+\label{eq:biq_margin_cert}
+\end{equation}
+The minimum BIQ sacrifice required to defeat certification is
+\begin{equation}
+b^\star
+=
+\inf\left\{
+b:
+\chi(b)\ge \Delta_\Sigma(0)-2\delta_\Sigma
+\right\}.
+\label{eq:min_biq_sacrifice}
+\end{equation}
+
+\begin{corollary}[Security interpretation]
+If \(b^\star\) exceeds the value of stealth to the agent, hiding is irrational. If \(b^\star\) is small, the observer's resolution family or resource accounting is too weak.
+\end{corollary}
+
+\section{Background uncertainty revisited}
+
+The camouflage bounds depend strongly on \(U_\Sigma\). High background uncertainty expands the set of plausible benign behaviors. A hidden agent can exploit:
+\[
+\text{natural workload variance},\quad
+\text{human-input irregularity},\quad
+\text{sensor heterogeneity},\quad
+\text{traffic bursts},\quad
+\text{ordinary retry/error processes}.
+\]
+Formally, high \(U_\Sigma\) increases the effective indistinguishability radius:
+\[
+\epsilon_{\mathrm{eff}}
+=
+\epsilon+U_\Sigma.
+\]
+Thus
+\[
+\Delta V_{\mathrm{vis}}
+\lesssim
+G_{\max}\sqrt{\epsilon_{\mathrm{eff}}/2},
+\]
+and
+\[
+C_{\mathrm{cam}}=C_{\mathrm{cam}}(\epsilon_{\mathrm{eff}},T,\Sigma).
+\]
+Reducing background uncertainty is equivalent to tightening the camouflage channel.
+
+\section{Countermeasures}
+
+The preceding sections are bounds, not remedies. This section interprets common countermeasures as reductions of the bound terms.
+
+\subsection{Hardware tagging}
+
+Hardware or trusted-runtime tagging reduces residual hidden-channel capacity:
+\[
+C_{\mathrm{hid},\Sigma}
+\to
+C_{\mathrm{hid},\Sigma}^{\mathrm{tagged}}
+\le
+C_{\mathrm{untag}}+C_{\mathrm{side}}+C_{\mathrm{modelgap}}.
+\]
+If tags cover memory, IO, timing, resource lineage, permissions, and persistence, then \(C_{\mathrm{untag}}\) and \(C_{\mathrm{modelgap}}\) shrink. In the \(B_{\mathrm{hide}}\) bound this directly lowers the maximum competence compatible with low leakage:
+\[
+B_{\mathrm{hide}}
+\le
+I_{\mathrm{pred}}
++
+\alpha
+\left(
+\frac{\ell+\zeta_\Sigma}{q_\Sigma}
++
+C_{\mathrm{hid},\Sigma}^{\mathrm{tagged}}
++
+I_{\mathrm{red},\Sigma}
+\right)
+-
+\beta H
+-
+\gamma S.
+\]
+
+\subsection{Null-model tightening}
+
+Tagging also reduces background uncertainty. Instead of a broad null family \(Q_\theta\), the observer conditions on lineage, owner, permissions, resource class, and time:
+\[
+Q_\theta(Y)
+\to
+Q_\theta(Y\mid \mathrm{tags}).
+\]
+Thus
+\[
+U_\Sigma^{\mathrm{tagged}}<U_\Sigma,
+\]
+shrinking \(C_{\mathrm{cam}}\).
+
+\subsection{Reset}
+
+Periodic reset bounds within-episode accumulation:
+\[
+R_{\max}(\tau)
+\le
+\frac{\eta_B b}{\lambda}(1-e^{-\lambda\tau}),
+\]
+or \(R_{\max}\le\eta_B b\tau\) without decay. Reset is effective only if it clears agent-private state and if externalized resources are separately bounded.
+
+\subsection{Forced decay}
+
+Forced decay imposes a lower bound on \(\lambda\). To make \(R_\star\) unreachable under hidden productive BIQ rate \(b\), choose
+\[
+\lambda>\frac{\eta_B b}{R_\star}.
+\]
+This is stronger than reset because it bounds accumulation continuously, not merely at episode boundaries.
+
+\subsection{Resource ledgers}
+
+A capability ledger defines
+\[
+\mathcal R_A(t)
+=
+\sum_i
+w_i\,
+\mathbf 1[\mathrm{agent\ can\ access}\ z_i]\,
+\mathbf 1[\mathrm{not\ expired}]\,
+\mathrm{cap}(z_i).
+\]
+The safety invariant is
+\[
+\mathcal R_A(t)<R_\star
+\quad
+\forall t.
+\]
+This operationalizes \(R_A\), \(R_L\), \(\rho_L\), and \(R_{\mathrm{untag}}\).
+
+\subsection{User-owned artifacts}
+
+Useful accumulation need not be eliminated. It can be transferred from agent-private state to user-owned artifacts:
+\[
+R_A\to R_A-\Delta R,
+\qquad
+R_U\to R_U+\Delta R.
+\]
+Dangerous stock changes by
+\[
+R_{\mathrm{danger}}
+\to
+R_{\mathrm{danger}}-(1-\rho_U)\Delta R.
+\]
+If \(\rho_U\approx0\), useful continuity is preserved without preserving autonomous hidden stock.
+
+\subsection{Cumulative detectors}
+
+Local window tests are insufficient against slow plotting. The detector must retain evidence:
+\[
+D_{\mathrm{cum}}(T)=\sum_{t\le T}\ell_t.
+\]
+For safety by detection,
+\[
+d>\frac{\Theta\eta_B b}{R_\star}
+\]
+in the simple no-decay model. Cumulative detection is a substitute for neither decay nor resource caps, but it closes the gap where each local window is innocuous.
+
+\section{Scenarios summary}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lll}
+\toprule
+Scenario & Main bound & Failure mode \\
+\midrule
+Single filter & Eq.~\eqref{eq:single_filter_recovery} & Wrong or weak \(K\) \\
+Multi-resolution & Eq.~\eqref{eq:multi_filter_recovery} & \(\Delta_\Sigma\le0\) \\
+Adversarial hiding & Eq.~\eqref{eq:adv_recovery} & Hiding collapses margin \\
+Low leakage & Eq.~\eqref{eq:Bhide} & Hidden capacity or redundancy \\
+Camouflage & Eq.~\eqref{eq:Bcam} & Large \(U_\Sigma\), hidden channels \\
+Rare event & Eq.~\eqref{eq:event_bound} & Event not monitored \\
+Slow plotting, no decay & Eq.~\eqref{eq:no_decay_resource} & Any \(b>0\) eventually accumulates \\
+Slow plotting with decay & Eq.~\eqref{eq:decay_safety} & \(\eta_B b/\lambda\ge R_\star\) \\
+Reset & Eq.~\eqref{eq:reset_safety} & Externalized state \\
+Externalized resources & Eq.~\eqref{eq:total_safety_bound} & High reclaimability \(\rho\) \\
+\bottomrule
+\end{tabular}
+\caption{Hard bounds and dominant failure modes.}
+\label{tab:summary}
+\end{table}
+
+\section{Discussion}
+
+The central lesson is that stealth and capability are coupled only relative to a filter family. If the observer's filters cover the agent's control-relevant channels, then hiding imposes a BIQ price. If hidden channels, broad background uncertainty, or long-horizon accumulation remain available, the price may be low.
+
+Camouflage is dangerous because it can preserve local usefulness while reducing local detectability. The hard bound is distributional: substantial observer-visible value shift requires KL divergence, unless the value shift occurs in unmonitored variables or accumulates slowly. Slow plotting is dangerous because rate bounds do not imply stock bounds. A small positive hidden BIQ rate can eventually cross a threshold when decay, reset, resource caps, and cumulative detection are absent.
+
+Thus the relevant security question is not:
+\[
+\text{``Is the agent visible in this observation stream?''}
+\]
+but:
+\[
+\text{``What is the maximum hidden BIQ and accumulated resource consistent with all monitored filters, tags, decay rules, resets, and ledgers?''}
+\]
+
+\section{Conclusion}
+
+A hiding agent can reduce detectability by suppressing visible control, matching background distributions, slowing down, or moving work into hidden channels. These strategies are bounded in different ways. Low visible leakage yields the competence bound
+\[
+B_{\mathrm{hide}}
+\le
+I_{\mathrm{pred}}
++
+\alpha
+\left(
+\frac{\ell+\zeta_\Sigma}{q_\Sigma}
++
+C_{\mathrm{hid},\Sigma}
++
+I_{\mathrm{red},\Sigma}
+\right)
+-
+\beta H
+-
+\gamma S.
+\]
+Camouflage yields
+\[
+B_{\mathrm{cam}}
+\le
+I_{\mathrm{pred}}
++
+\alpha
+\left[
+C_{\mathrm{cam}}(\epsilon,U_\Sigma,T,\Sigma)
++
+C_{\mathrm{hid},\Sigma}
++
+I_{\mathrm{red},\Sigma}
+\right]
+-
+\beta H
+-
+\gamma S.
+\]
+Slow plotting requires a stockpile bound:
+\[
+R_{\mathrm{danger}}
+\le
+\frac{\eta_B b}{\lambda}(1-e^{-\lambda\tau})
++
+\rho_U R_U
++
+\rho_L R_L
++
+R_{\mathrm{untag}}.
+\]
+The correct adversarial UAD target is therefore not merely a recovered boundary, but a certified upper bound on hidden productive BIQ and accumulated autonomous resource. In this framing, countermeasures work by reducing \(C_{\mathrm{hid},\Sigma}\), \(U_\Sigma\), \(b\), \(\tau\), \(\rho_U\), \(\rho_L\), and \(R_{\mathrm{untag}}\), while increasing \(q_\Sigma\), \(\lambda\), and cumulative evidence retention.
+
+\begin{thebibliography}{99}
+
+\bibitem{uad}
+G. Zarncke.
+\newblock Foundations of Unsupervised Agent Discovery in Raw Dynamical Systems.
+\newblock Technical report, AE Studio, 2025.
+
+\bibitem{biq}
+G. Zarncke.
+\newblock Bitwise Intelligence: A Blanket--Information Measure of Competence.
+\newblock Technical report, AE Studio, 2025.
+
+\bibitem{abc}
+G. Zarncke.
+\newblock Attractor Basins of Cooperation, Privacy, and Parasite Persistence.
+\newblock Technical report, AE Studio, 2025.
+
+\bibitem{eis}
+G. Zarncke.
+\newblock The Endogenized Intentional Stance: A Predictive--Compression Formalization of Agent Discovery.
+\newblock Technical report, AE Studio, 2025.
+
+\bibitem{tishby}
+N. Tishby, F. C. Pereira, and W. Bialek.
+\newblock The information bottleneck method.
+\newblock arXiv:physics/0004057, 2000.
+
+\bibitem{friston}
+K. Friston.
+\newblock The free-energy principle: a unified brain theory?
+\newblock \emph{Nature Reviews Neuroscience}, 11(2):127--138, 2010.
+
+\bibitem{cover}
+T. M. Cover and J. A. Thomas.
+\newblock \emph{Elements of Information Theory}.
+\newblock Wiley, 2nd edition, 2006.
+
+\bibitem{kaelbling}
+L. P. Kaelbling, M. L. Littman, and A. R. Cassandra.
+\newblock Planning and acting in partially observable stochastic domains.
+\newblock \emph{Artificial Intelligence}, 101(1--2):99--134, 1998.
+
+\bibitem{biehlvirgo}
+M. Biehl and N. Virgo.
+\newblock Interpreting systems as solving POMDPs: a step towards a formal understanding of agency.
+\newblock arXiv:2209.01619v2, 2025.
+
+\end{thebibliography}
+
+\end{document}
+```

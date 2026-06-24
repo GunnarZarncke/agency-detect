@@ -4,6 +4,7 @@ LaTeX sources and built PDFs for each paper. Rebuild with the corresponding `bui
 
 | Paper | Source | PDF | Build |
 |-------|--------|-----|-------|
+| Handles Before Interventions: Access-Model UAD | [access-uad.tex](access-uad/access-uad.tex) | [PDF](access-uad/access-uad.pdf) | `access-uad/build.sh` — toy benchmark: [`uad_handles/README.md`](../../uad_handles/README.md) |
 | Foundations of Unsupervised Agent Discovery | [unsupervised-agent-discovery.tex](unsupervised-agent-discovery/unsupervised-agent-discovery.tex) | [PDF](unsupervised-agent-discovery/unsupervised-agent-discovery.pdf) | `unsupervised-agent-discovery/build.sh` |
 | Formalization of Acausal Trade atop UAD | [acausal_trade_uad_formalization.tex](acausal-trade-uad-formalization/acausal_trade_uad_formalization.tex) | [PDF](acausal-trade-uad-formalization/acausal_trade_uad_formalization.pdf) | `acausal-trade-uad-formalization/build.sh` |
 | Attractor Basins of Cooperation, Privacy, and Parasite Persistence | [attractor-basins.tex](attractor-basins/attractor-basins.tex) | [PDF](attractor-basins/attractor-basins.pdf) | `attractor-basins/build.sh` |
@@ -17,6 +18,7 @@ LaTeX sources and built PDFs for each paper. Rebuild with the corresponding `bui
 Build from the repo root:
 
 ```bash
+docs/papers/access-uad/build.sh
 docs/papers/acausal-trade-uad-formalization/build.sh
 docs/papers/applications-uad-loops/build.sh
 docs/papers/attractor-basins/build.sh

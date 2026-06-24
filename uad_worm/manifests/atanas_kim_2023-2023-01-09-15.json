@@ -1,0 +1,23 @@
+{
+  "archive_sha256": "61a38a741426184c8226dcc1bd009c3e7541d807962ad682f575da630560618f",
+  "dataset_id": "atanas_kim_2023-2023-01-09-15",
+  "dataset_type": [
+    "heat",
+    "neuropal"
+  ],
+  "fetched_at": "2026-06-06T02:13:22.337839+00:00",
+  "max_t": 1615,
+  "mean_timestep": 0.6015692435183633,
+  "n_labeled": 101,
+  "n_neuron": 147,
+  "paper_id": "atanas_kim_2023",
+  "source_filename": "2023-01-09-15-data.h5",
+  "uid": "2023-01-09-15",
+  "upstream_checksums": {
+    "blake3_analysis_dict": "b6e66580cfae784a81e5a9fcc757eaeec88e61c4f0d271d803fafe0321c18c31",
+    "blake3_fit_results": "1c4bf00c535d814e851a03170542fc30082958f4c063d16789505c6c83989681",
+    "blake3_neuropal_dict": "490da6fe15c58c099edea3f6cbc9d790882c8cf27b4193499667306cf69dff05",
+    "blake3_relative_encoding_strength": "c28384748008c66b4178cc3afaa909263f4d4b4e983763d27442499ee59c77a1",
+    "checksum_h5": "52636bd88195bce0619e4eef9555a27a61f27f0c88a2666badfc6f6e5458d0d6"
+  }
+}

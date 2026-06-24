@@ -16,6 +16,7 @@ digraph paper_dependencies {
     APP  [label="Empirical Detection of\nFree-Energy Loops", fillcolor="#A8D0F0"];
 
     // Extension / integrative papers
+    ACC  [label="Access-Model\nUAD", fillcolor="#D4E8C2"];
     PCC  [label="Preference-Conditioned\nCapability", fillcolor="#D4E8C2"];
     CWU  [label="Construction Without\nUnderstanding", fillcolor="#D4E8C2"];
     LIT  [label="UAD Literature\nReview", fillcolor="#E8E8E8"];
@@ -52,4 +53,8 @@ digraph paper_dependencies {
     CWU -> BIQ;
     CWU -> ABC;
     CWU -> ACT;
+
+    ACC -> UAD;
+    ACC -> EIS;
+    ACC -> BIQ;
 }
