@@ -1,0 +1,615 @@
+\documentclass[10pt]{article}
+
+\usepackage[a4paper,margin=0.8in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools,bm}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{microtype}
+\usepackage{cite}
+\usepackage{hyperref}
+\usepackage{enumitem}
+
+\title{\vspace{-1.5em}Recoverability of Smoothed Agent Boundaries in Unsupervised Agent Discovery}
+\author{Gunnar Zarncke\\AE Studio}
+\date{\vspace{-0.8em}}
+
+\newtheorem{definition}{Definition}
+\newtheorem{assumption}{Assumption}
+\newtheorem{theorem}{Theorem}
+\newtheorem{proposition}{Proposition}
+\newtheorem{corollary}{Corollary}
+\newtheorem{remark}{Remark}
+
+\newcommand{\MI}{I}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Prob}{\mathbb{P}}
+\newcommand{\cC}{\mathcal{C}}
+\newcommand{\cX}{\mathcal{X}}
+\newcommand{\cY}{\mathcal{Y}}
+\newcommand{\KL}{D_{\mathrm{KL}}}
+\newcommand{\eff}{\mathrm{eff}}
+\newcommand{\obs}{\mathrm{obs}}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Unsupervised Agent Discovery (UAD)~\cite{uad2025} identifies candidate agents in raw dynamical systems by searching for approximately Markov-blanketed clusters whose internal and external futures are conditionally independent given sensory and active boundary variables. In realistic measurement regimes, however, the available observables are rarely raw. Neural calcium imaging, low-frequency behavioral logging, spatially averaged sensors, segmentation pipelines, and economic or organizational aggregates all impose temporal smoothing, variable mixing, coarse-graining, and measurement noise. This paper gives a compact recoverability theory for such settings. We model the measured process as an observation-channel transform \(Y_t=K(X_{t-r:t})+\eta_t\) of an underlying dynamical process \(X_t\). We show that an \(\varepsilon\)-blanket is recoverable only up to the equivalence class induced by \(K\), and derive a finite-sample lower bound of the form
+\[
+\Prob[\hat C\in[C^\star]_K]
+\ge
+1-
+2|\cC|
+\exp\!\left(
+-\frac{T_{\eff}(\Delta-2\delta_K)^2}{8B^2}
+\right),
+\]
+where \(C^\star\) is the true agent, \(\Delta\) is its blanket-separation margin, \(\delta_K\) is observation-channel distortion, \(T_{\eff}\) is autocorrelation-adjusted effective sample size, and \(B\) controls estimator scale. We then report a minimal finite-state-machine experiment with known internal state, known sensor/action channels, noisy environment, and distractor variables. Temporal smoothing mainly reduces \(T_{\eff}\) and inflates apparent memory; variable smoothing directly increases \(\delta_K\) and can destroy identifiability by mixing internal and external variables. Empirically, the bound is conservative but directionally correct: recovery remains high until the margin is eaten by smoothing distortion or effective sample size collapses.
+\end{abstract}
+
+\section{Problem}
+
+UAD~\cite{uad2025} begins with timestamped variables
+\[
+X_t=(X_1(t),\ldots,X_n(t))
+\]
+and seeks clusters \(C\subseteq\{1,\ldots,n\}\) admitting a partition
+\[
+C=I^C\cup S^C\cup A^C
+\]
+such that internal and external futures are screened off by sensory and active boundary variables:
+\begin{equation}
+J_X(C)
+\coloneqq
+\MI_X(I^C_{t+1};E^C_{t+1}\mid S^C_t,A^C_t)
+\le \varepsilon.
+\label{eq:uad_score}
+\end{equation}
+Here \(E^C\) denotes variables outside \(C\). A perfect blanket would have \(J_X(C)=0\), but realistic systems require \(\varepsilon\)-blankets: finite data, overlapping controllers, hidden variables, and measurement noise make exact conditional independence implausible.
+
+The difficulty considered here is sharper. In empirical settings, UAD rarely observes \(X_t\) directly. It observes
+\begin{equation}
+Y_t = K(X_{t-r:t})+\eta_t,
+\label{eq:obs_channel}
+\end{equation}
+where \(K\) may smooth over time, mix variables, coarse-grain states, apply segmentation, or impose a calcium-imaging kernel. Thus UAD estimates
+\[
+J_Y(C)
+=
+\MI_Y(I^C_{t+1};E^C_{t+1}\mid S^C_t,A^C_t),
+\]
+not \(J_X(C)\). The question is therefore not whether smoothing adds ordinary noise. It changes the graphical object being discovered.
+
+The target guarantee has the shape:
+\begin{align*}
+&\text{if an agent is present and its sensors/actions are known up to smoothing }K, \\
+&\text{then it is recovered with likelihood }p.
+\end{align*}
+The central claim of this paper is that such a guarantee is possible only for the \(K\)-equivalence class of the agent, not generally for its exact raw boundary.
+
+\section{Observation-channel equivalence}
+
+\begin{definition}[UAD blanket score]
+For a candidate cluster \(C\), define the raw and observed blanket violations
+\[
+J_X(C)=\MI_X(I^C_{t+1};E^C_{t+1}\mid S^C_t,A^C_t),
+\qquad
+J_K(C)=J_Y(C).
+\]
+The UAD estimator returns
+\[
+\hat C
+\in
+\arg\min_{C\in\cC}\hat J_K(C),
+\]
+where \(\cC\) is a finite candidate class.
+\end{definition}
+
+\begin{definition}[\(K\)-equivalence]
+Two clusters \(C,C'\in\cC\) are observationally equivalent under \(K\), written \(C\sim_K C'\), if they induce the same conditional distribution over the observed process relevant to the blanket test:
+\[
+P(Y_{t+1}^{C},Y_{t+1}^{\neg C},Y_t^{S^C},Y_t^{A^C})
+=
+P(Y_{t+1}^{C'},Y_{t+1}^{\neg C'},Y_t^{S^{C'}},Y_t^{A^{C'}}),
+\]
+up to the chosen coarse-graining and candidate representation. The recoverable target is
+\[
+[C^\star]_K=\{C\in\cC:C\sim_K C^\star\}.
+\]
+\end{definition}
+
+\begin{remark}
+If \(K\) is invertible on the variables and timescales relevant to the blanket, then \([C^\star]_K\) can collapse to the exact raw cluster. If \(K\) is many-to-one, only the induced coarse-grained boundary can be recovered. If \(K\) mixes internal and external variables strongly enough, two different raw agent structures can induce the same observed process; no unsupervised method can distinguish them without extra assumptions or interventions.
+\end{remark}
+
+\section{Recoverability theorem}
+
+Let \(C^\star\) be the true agent cluster or true recoverable coarse-grained cluster.
+
+\begin{assumption}[Approximate blanket]
+\[
+J_X(C^\star)\le \varepsilon_0.
+\]
+\end{assumption}
+
+\begin{assumption}[Separation margin]
+There is a margin \(\Delta>0\) such that every non-equivalent candidate has larger raw blanket violation:
+\begin{equation}
+\inf_{C\notin[C^\star]_K}
+\left[J_X(C)-J_X(C^\star)\right]
+\ge \Delta.
+\label{eq:margin}
+\end{equation}
+\end{assumption}
+
+\begin{assumption}[Observation distortion]
+The observation channel perturbs blanket scores by at most
+\begin{equation}
+\sup_{C\in\cC}|J_K(C)-J_X(C)|\le \delta_K.
+\label{eq:distortion}
+\end{equation}
+We decompose
+\[
+\delta_K
+=
+\delta_{\mathrm{time}}
++
+\delta_{\mathrm{var}}
++
+\delta_{\mathrm{coarse}}
++
+\delta_{\mathrm{noise}}.
+\]
+\end{assumption}
+
+\begin{assumption}[Uniform concentration]
+For some estimator scale \(B>0\), effective sample size \(T_{\eff}\), and all \(\epsilon>0\),
+\begin{equation}
+\Prob\!\left[
+\sup_{C\in\cC}|\hat J_K(C)-J_K(C)|>\epsilon
+\right]
+\le
+2|\cC|\exp\!\left(-\frac{T_{\eff}\epsilon^2}{2B^2}\right).
+\label{eq:concentration}
+\end{equation}
+\end{assumption}
+
+\begin{theorem}[Finite-sample recovery under smoothing]
+If
+\[
+\Delta>2\delta_K,
+\]
+then
+\begin{equation}
+\Prob[\hat C\in[C^\star]_K]
+\ge
+1-
+2|\cC|
+\exp\!\left(
+-\frac{T_{\eff}(\Delta-2\delta_K)^2}{8B^2}
+\right).
+\label{eq:main_bound}
+\end{equation}
+If \(\Delta\le 2\delta_K\), the bound gives no nontrivial recovery guarantee.
+\end{theorem}
+
+\begin{proof}
+For \(C\notin[C^\star]_K\), Assumptions \ref{eq:margin} and \ref{eq:distortion} imply
+\[
+J_K(C)-J_K(C^\star)
+\ge
+J_X(C)-J_X(C^\star)-2\delta_K
+\ge
+\Delta-2\delta_K.
+\]
+Thus the observed population score has positive separation
+\[
+g_K\coloneqq \Delta-2\delta_K>0.
+\]
+If
+\[
+\sup_{C\in\cC}|\hat J_K(C)-J_K(C)|<g_K/2,
+\]
+then for every \(C\notin[C^\star]_K\),
+\[
+\hat J_K(C)-\hat J_K(C^\star)
+\ge
+g_K-2(g_K/2)=0,
+\]
+so no non-equivalent candidate beats the true equivalence class. Applying the concentration bound with \(\epsilon=g_K/2\) yields Eq.~\eqref{eq:main_bound}.
+\end{proof}
+
+\begin{remark}[The bound is intentionally conservative]
+The theorem protects against the worst candidate in \(\cC\), the worst score perturbation under \(K\), and the worst estimator deviation. Empirical recovery can remain high even when \(\Delta-2\delta_K<0\), but in that regime recovery is not guaranteed by the available margin argument.
+\end{remark}
+
+\section{Temporal smoothing}
+
+Consider a temporal observation channel
+\begin{equation}
+Y_t=\sum_{\ell=0}^r h_\ell X_{t-\ell}+\eta_t.
+\label{eq:temporal_smoothing}
+\end{equation}
+Even if \(X_t\) is Markov of order \(m\), \(Y_t\) need not be Markov of order \(m\). Smoothing stores information from the past in the present observable. Thus a first-order blanket test can falsely report residual coupling:
+\[
+\MI(Y^{I}_{t+1};Y^{E}_{t+1}\mid Y^{S}_t,Y^{A}_t)>0
+\]
+because the conditioning set omits latent filter state.
+
+The standard repair is delay embedding:
+\[
+\bar Y_t=(Y_t,Y_{t-1},\ldots,Y_{t-L}).
+\]
+A sufficient condition is approximate delay sufficiency:
+\begin{equation}
+\MI(X_{t+1};X_{<t-L}\mid \bar Y_t)\le \delta_{\mathrm{delay}}.
+\label{eq:delay_suff}
+\end{equation}
+For finite-memory dynamics and finite-memory filters, one expects \(L\gtrsim r+m\). If this holds,
+\[
+\delta_{\mathrm{time}}\lesssim \delta_{\mathrm{delay}}+\delta_{\mathrm{deconv}},
+\]
+where \(\delta_{\mathrm{deconv}}\) captures non-invertible loss in the temporal kernel.
+
+Temporal smoothing also reduces effective sample size. For an approximately stationary scalar trace with autocorrelation \(\rho_k\),
+\begin{equation}
+T_{\eff}
+\approx
+\frac{T}{1+2\sum_{k\ge 1}\rho_k}.
+\label{eq:teff}
+\end{equation}
+Thus temporal smoothing harms recovery through two channels:
+\[
+\delta_K\uparrow,
+\qquad
+T_{\eff}\downarrow.
+\]
+Conceptually, it inflates apparent memory, blurs causal ordering, and makes fast sensorimotor blankets less visible. But it may improve recovery of slow behavioral-state agents by suppressing irrelevant high-frequency noise.
+
+\begin{corollary}[Temporal smoothing]
+Under delay sufficiency and weak temporal information loss, recovery remains likely if
+\[
+\Delta
+>
+2(\delta_{\mathrm{delay}}+\delta_{\mathrm{deconv}}+\delta_{\mathrm{noise}})
++
+2\epsilon_{\mathrm{est}}(T_{\eff}),
+\]
+where
+\[
+\epsilon_{\mathrm{est}}(T_{\eff})
+=
+O\!\left(
+B\sqrt{\frac{\log |\cC|+\log(1/\alpha)}{T_{\eff}}}
+\right).
+\]
+\end{corollary}
+
+\section{Variable smoothing}
+
+Variable smoothing has the form
+\begin{equation}
+Y_t=M X_t+\eta_t.
+\label{eq:variable_smoothing}
+\end{equation}
+Let the true partition be ordered as \((I,S,A,E)\). Decompose
+\[
+M
+=
+\begin{pmatrix}
+M_I & 0 & 0 & 0\\
+0 & M_S & 0 & 0\\
+0 & 0 & M_A & 0\\
+0 & 0 & 0 & M_E
+\end{pmatrix}
++
+R,
+\label{eq:block_diag}
+\]
+where \(R\) contains cross-boundary leakage. If \(R=0\), variable smoothing only coarse-grains within the relevant parts. Recovery of a coarse-grained blanket can still be possible. If \(R\ne0\), internal variables may contain external information and external variables may contain internal information. Then the observed conditional independence relation is not the raw one.
+
+In smooth sub-Gaussian or Gaussian regimes, a schematic perturbation estimate is
+\[
+\delta_{\mathrm{var}}
+=
+O\!\left(\frac{\|R\|^2}{\sigma_{\min}^2}\right),
+\]
+where \(\sigma_{\min}\) is the smallest singular value of the within-block observation map relevant to the blanket variables. This expression should not be read as universal; it gives the correct qualitative dependence. Cross-boundary mixing is dangerous when it is large relative to within-boundary signal strength.
+
+\begin{corollary}[Variable smoothing]
+If \(M\) is approximately block-diagonal relative to the true blanket partition and the within-block maps preserve the sufficient sensory/action variables, UAD can recover the corresponding coarse-grained blanket. If \(R\) is large enough that
+\[
+\delta_{\mathrm{var}}\ge \Delta/2,
+\]
+no margin-based recovery guarantee is available.
+\end{corollary}
+
+\section{Agenthood beyond boundaryhood}
+
+A low conditional-mutual-information boundary is not sufficient for agency. Rocks, vortices, and stable chemical aggregates can have boundaries~\cite{kirchhoff2018markov}. UAD-style agent discovery therefore benefits from coupling blanketness to predictive and control information~\cite{biq2025}. A generic competence score is
+\[
+B(C)
+=
+\MI(I_t^C;S^C_{t+1})
++
+\MI(A_t^C;E^C_{t+1})
+-
+\beta H(I_t^C)
+-
+\gamma S_C,
+\]
+where \(S_C=\E[-\log P(S^C_{t+1}\mid I^C_t)]\) is residual sensory surprise. One may instead use an intentional-compression score~\cite{eis2025}
+\[
+\Delta L_C
+=
+L_{\mathrm{intentional}}(C)
+-
+L_{\mathrm{mechanistic}}(C)
+-
+\lambda DL(r_C).
+\]
+The mature recovery objective is not simply
+\[
+\arg\min_C J(C),
+\]
+but something like
+\[
+\arg\min_C
+\left[
+J(C)-\lambda_B B(C)-\lambda_L\Delta L_C
+\right].
+\]
+The same theorem applies with \(J\) replaced by any score \(F\) that has a separation margin and a smoothing perturbation bound.
+
+\section{Minimal FSM experiment}
+
+We tested the bound on a controlled binary finite-state system with known agent structure. The latent process contains
+\[
+X_t=(I_t,S_t,A_t,E_t,D_t),
+\]
+where \(I_t\) is the true internal FSM state, \(S_t\) is the known sensor, \(A_t\) is the known action, \(E_t\) is the environment, and \(D_t\) is an environment-correlated distractor. The transition structure is
+\[
+S_t=E_t\oplus \xi^S_t,
+\qquad
+A_t=I_t\oplus S_t,
+\]
+\[
+I_{t+1}=I_t\oplus S_t,
+\qquad
+E_{t+1}=A_t\oplus \xi^E_t,
+\qquad
+D_{t+1}=E_{t+1}\oplus \xi^D_t.
+\]
+The true recoverable internal candidate is \(I\). Competing candidates are \(E\) and \(D\). Recovery succeeds when
+\[
+\hat C
+=
+\arg\min_{C\in\{I,E,D\}}
+\hat \MI(C_{t+1};E^C_{t+1}\mid S_t,A_t)
+\]
+equals \(I\).
+
+The raw margin was estimated from a long reference run:
+\[
+\Delta \approx 0.240447.
+\]
+We then evaluated two observation-channel families.
+
+\paragraph{Temporal smoothing.}
+\[
+Y_t=(1-\alpha)X_t+\alpha Y_{t-1}+\eta_t.
+\]
+The smoothing parameter \(\alpha\in[0,1)\) controls low-pass memory.
+
+\paragraph{Variable smoothing.}
+\[
+Y_t=M_\lambda X_t+\eta_t,
+\]
+where \(\lambda\) controls cross-boundary leakage between internal and external variables.
+
+For each smoothing setting, the experiment estimated:
+\[
+\delta_K\approx \max_{C\in\{I,E,D\}}|J_K(C)-J_X(C)|,
+\]
+\[
+T_{\eff}\approx
+\frac{T}{1+2\sum_{k\ge1}\rho_k},
+\]
+and the lower bound
+\[
+p_{\mathrm{bound}}
+=
+\max\left\{
+0,\,
+1-
+2|\cC|
+\exp\!\left(
+-\frac{T_{\eff}(\Delta-2\delta_K)^2}{8B^2}
+\right)
+\right\}.
+\]
+The empirical recovery probability \(p_{\mathrm{emp}}\) was estimated over repeated trials.
+
+\section{Results}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{llrrrrr}
+\toprule
+Type & Strength & \(\delta_K\) & \(\Delta-2\delta_K\) & \(T_{\eff}\) & \(p_{\mathrm{bound}}\) & \(p_{\mathrm{emp}}\) \\
+\midrule
+Temporal & 0.000 & 0.000 & 0.240 & 2431 & 0.999 & 1.000 \\
+Temporal & 0.200 & 0.001 & 0.239 & 1649 & 0.987 & 1.000 \\
+Temporal & 0.400 & 0.073 & 0.095 & 1047 & 0.000 & 1.000 \\
+Temporal & 0.600 & 0.057 & 0.127 & 631  & 0.000 & 1.000 \\
+Temporal & 0.800 & 0.047 & 0.147 & 300  & 0.000 & 1.000 \\
+Temporal & 0.920 & 0.139 & -0.038 & 125 & 0.000 & 1.000 \\
+Temporal & 0.985 & 0.195 & -0.150 & 45  & 0.000 & 0.983 \\
+Temporal & 0.995 & 0.227 & -0.214 & 29  & 0.000 & 0.683 \\
+\midrule
+Variable & 0.000 & 0.000 & 0.240 & 2435 & 0.999 & 1.000 \\
+Variable & 0.050 & 0.000 & 0.240 & 2346 & 0.999 & 1.000 \\
+Variable & 0.100 & 0.000 & 0.240 & 2189 & 0.998 & 1.000 \\
+Variable & 0.150 & 0.000 & 0.240 & 2140 & 0.998 & 1.000 \\
+Variable & 0.200 & 0.012 & 0.217 & 2039 & 0.988 & 1.000 \\
+Variable & 0.250 & 0.128 & -0.016 & 1961 & 0.000 & 1.000 \\
+Variable & 0.300 & 0.298 & -0.355 & 1889 & 0.000 & 1.000 \\
+Variable & 0.400 & 0.320 & -0.399 & 1799 & 0.000 & 0.783 \\
+\bottomrule
+\end{tabular}
+\caption{Finite-sample recovery under temporal and variable smoothing. The bound is a lower bound and becomes vacuous when \(\Delta-2\delta_K\le0\). Empirical recovery may remain high beyond the guaranteed regime.}
+\label{tab:results}
+\end{table}
+
+\begin{figure}[h]
+\centering
+\fbox{
+\begin{minipage}[c][2.2in][c]{0.85\linewidth}
+\centering
+\textbf{Placeholder for Figure 1}\\[0.6em]
+Temporal smoothing: empirical recovery probability and theoretical lower bound versus smoothing strength \(\alpha\).\\[0.4em]
+Expected pattern: \(T_{\eff}\) collapses as \(\alpha\to1\); empirical recovery remains high until extreme low-pass smoothing.
+\end{minipage}}
+\caption{Temporal smoothing mainly harms recovery by increasing autocorrelation and reducing effective sample size, with eventual margin collapse at extreme smoothing.}
+\label{fig:temporal}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\fbox{
+\begin{minipage}[c][2.2in][c]{0.85\linewidth}
+\centering
+\textbf{Placeholder for Figure 2}\\[0.6em]
+Variable smoothing: empirical recovery probability and theoretical lower bound versus cross-boundary mixing strength \(\lambda\).\\[0.4em]
+Expected pattern: recovery remains strong while leakage is weak; strong cross-boundary mixing makes candidate scores nearly indistinguishable.
+\end{minipage}}
+\caption{Variable smoothing directly attacks identifiability by increasing \(\delta_K\), rather than merely reducing effective sample size.}
+\label{fig:variable}
+\end{figure}
+
+\section{Interpretation}
+
+The experiment supports four claims.
+
+First, the margin term is the right conceptual object. When
+\[
+\Delta-2\delta_K>0,
+\]
+the bound can be nontrivial and recovery is robust. When
+\[
+\Delta-2\delta_K\le0,
+\]
+the bound becomes silent. This does not imply empirical failure; it means the theorem no longer certifies success.
+
+Second, temporal smoothing is usually less structurally destructive than cross-variable smoothing. It mainly modifies time scale:
+\[
+T_{\eff}\downarrow,
+\qquad
+\text{apparent memory}\uparrow,
+\qquad
+\text{causal timing resolution}\downarrow.
+\]
+An FSM whose relevant dynamics survive low-pass filtering can still be recovered, but fast blankets disappear first.
+
+Third, variable smoothing can destroy the target itself. Once internal and external variables are strongly mixed, the observed process may no longer contain enough information to decide which raw variable was the internal state. In the experiment, strong variable smoothing pushed
+\[
+J(I)\approx J(E)\approx J(D),
+\]
+which is precisely the finite-candidate version of observational non-identifiability.
+
+Fourth, the bound is conservative. At several smoothing values the lower bound is zero while empirical recovery remains one. This is expected because the proof uses the worst-case uniform deviation and worst-case score perturbation. Its role is certification, not prediction of the exact recovery curve.
+
+\section{Implications for smoothed biological observables}
+
+In calcium imaging, population calcium traces are not raw neural activity. They are temporally convolved, spatially mixed, segmented, motion-corrected, and often postprocessed~\cite{friston2010free,kaelbling1998pomdp}:
+\[
+Y_t
+=
+K_{\mathrm{seg}}
+K_{\mathrm{spatial}}
+K_{\mathrm{calcium}}
+X_t+\eta_t.
+\]
+The theory predicts:
+\[
+\text{temporal calcium kernel}
+\Rightarrow
+\text{inflated apparent memory and slower inferred agency},
+\]
+\[
+\text{spatial/segmentation mixing}
+\Rightarrow
+\text{over-merged variables and shifted boundaries}.
+\]
+Thus UAD on calcium data should generally be interpreted as recovering coarse behavioral-state or neural-population blankets, not spike-level agent boundaries, unless the result is stable under delay embedding, deconvolution, segmentation perturbations, and cross-neuron leakage controls.
+
+\section{Practical recovery protocol}
+
+A practical smoothed-UAD protocol should not run UAD on one preprocessed trace and declare the resulting cluster an agent. It should construct a family of observation channels:
+\[
+\{K_\sigma\}_{\sigma\in\Sigma},
+\]
+including different temporal lags, deconvolution strengths, bin widths, masks, and leakage controls, then estimate
+\[
+C^\star
+=
+\arg\min_C
+\E_{\sigma\in\Sigma}J_{K_\sigma}(C)
++
+\lambda\operatorname{Var}_{\sigma}(J_{K_\sigma}(C)).
+\]
+A credible recovered agent is one whose boundary is stable under moderate perturbations of the observation channel. A boundary that appears only at one smoothing scale is more plausibly a filter artifact.
+
+The empirical diagnostic is:
+\[
+\widehat{\Delta}_K
+=
+\min_{C\notin[\hat C]_K}
+\hat J_K(C)-\hat J_K(\hat C).
+\]
+Recovery is credible when
+\[
+\widehat{\Delta}_K
+\gg
+2\widehat{\delta}_K
++
+2\widehat{\epsilon}_{\mathrm{est}}.
+\]
+It is fragile when this inequality fails.
+
+\section{Conclusion}
+
+The recoverability of agents under smoothed observables is governed by a simple ratio:
+\[
+\text{recoverability}
+\sim
+\frac{
+\text{blanket separation margin}
+-
+\text{observation distortion}
+}{
+\text{estimation noise}
+}.
+\]
+Temporal smoothing primarily creates hidden filter memory and reduces effective sample size. Variable smoothing changes the observable ontology and can eliminate identifiability. The finite-sample theorem formalizes this by requiring
+\[
+\Delta>2\delta_K
+\]
+and then giving an explicit lower bound on recovery probability. The FSM experiment confirms the predicted qualitative structure: recovery is robust under weak smoothing, certification disappears when smoothing eats the margin, and empirical failure appears when extreme smoothing collapses candidate distinctions.
+
+The appropriate claim is therefore not:
+\[
+\text{``UAD recovers the true raw agent despite smoothing.''}
+\]
+The correct claim is:
+\begin{align*}
+&\text{``UAD can recover the }K\text{-observable equivalence class of an agent} \\
+&\text{when the blanket margin exceeds observation distortion and finite-sample error.''}
+\end{align*}
+This distinction is especially important for biological and social data, where the measurement process is often a large part of the apparent system dynamics~\cite{ConantAshby1970,biehl2022pomdp,Tishby2000IB}.
+
+\bibliographystyle{IEEEtran}
+\bibliography{refs}
+
+\end{document}

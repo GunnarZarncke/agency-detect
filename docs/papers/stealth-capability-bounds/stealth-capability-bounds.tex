@@ -1,15 +1,15 @@
-```latex
 \documentclass[10pt]{article}
 
 \usepackage[a4paper,margin=0.78in]{geometry}
 \usepackage{amsmath,amssymb,amsthm,mathtools,bm}
 \usepackage{booktabs}
 \usepackage{microtype}
+\usepackage{cite}
 \usepackage{hyperref}
 \usepackage{enumitem}
 
 \title{\vspace{-1.6em}Stealth--Capability Bounds for Multi-Resolution Unsupervised Agent Discovery}
-\author{Gunnar Zarncke}
+\author{Gunnar Zarncke\\AE Studio}
 \date{\vspace{-0.8em}}
 
 \newtheorem{definition}{Definition}
@@ -47,7 +47,7 @@
 \maketitle
 
 \begin{abstract}
-Unsupervised Agent Discovery (UAD) attempts to recover agents from raw dynamical traces by finding candidate spacetime regions whose internal and external futures are approximately screened off by sensory and active boundary variables. In adversarial settings, however, an agent may select policies that reduce observer-visible boundary evidence. Such hiding is not free if the same physical channels used for competent control are monitored by the observer: reducing visible information flow constrains control, prediction, memory, latency, and long-horizon accumulation. We formalize this tradeoff by combining multi-resolution UAD with a Blanket--Information competence score
+Unsupervised Agent Discovery (UAD)~\cite{uad2025} attempts to recover agents from raw dynamical traces by finding candidate spacetime regions whose internal and external futures are approximately screened off by sensory and active boundary variables. In adversarial settings, however, an agent may select policies that reduce observer-visible boundary evidence. Such hiding is not free if the same physical channels used for competent control are monitored by the observer: reducing visible information flow constrains control, prediction, memory, latency, and long-horizon accumulation. We formalize this tradeoff by combining multi-resolution UAD~\cite{zarncke2026smoothing} with a Blanket--Information competence score~\cite{biq2025}
 \[
 B
 =
@@ -107,7 +107,7 @@ with the limit \(R_{\max}(\tau)\le \eta_B b\tau\) when \(\lambda=0\). Hence loca
 
 \section{Motivation}
 
-The usual UAD problem asks: given a multivariate dynamical trace \(X_t=(X_1(t),\ldots,X_n(t))\), find a cluster \(C\) admitting internal, sensory, active, and external parts
+The usual UAD problem~\cite{uad2025} asks: given a multivariate dynamical trace \(X_t=(X_1(t),\ldots,X_n(t))\), find a cluster \(C\) admitting internal, sensory, active, and external parts
 \[
 C=I^C\cup S^C\cup A^C,\qquad E^C=\neg C,
 \]
@@ -159,7 +159,7 @@ An \(\varepsilon\)-blanketed spacetime region at scale \(\sigma\) satisfies \(J_
 \end{definition}
 
 \begin{definition}[Multi-resolution objective]
-Let \(G_\sigma(C)\) be an agency-gain term, for example predictive/control information or intentional compression. Define
+Let \(G_\sigma(C)\) be an agency-gain term, for example predictive/control information or intentional compression~\cite{eis2025}. Define
 \begin{equation}
 \bar J_\Sigma(C)
 =
@@ -308,7 +308,7 @@ The problem is therefore to bound how much a hiding policy can reduce the margin
 
 \section{BIQ and the visible/hidden control decomposition}
 
-We use the competence functional
+We use the competence functional~\cite{biq2025}
 \begin{equation}
 B
 =
@@ -541,7 +541,7 @@ and under the camouflaged policy,
 \[
 p=P^\pi(H).
 \]
-By data processing,
+By data processing~\cite{cover2006elements},
 \begin{equation}
 d_{\mathrm{Bern}}(p\|q)
 =
@@ -903,13 +903,13 @@ If \(b^\star\) exceeds the value of stealth to the agent, hiding is irrational. 
 \section{Background uncertainty revisited}
 
 The camouflage bounds depend strongly on \(U_\Sigma\). High background uncertainty expands the set of plausible benign behaviors. A hidden agent can exploit:
-\[
-\text{natural workload variance},\quad
+\begin{align*}
+&\text{natural workload variance},\quad
 \text{human-input irregularity},\quad
-\text{sensor heterogeneity},\quad
-\text{traffic bursts},\quad
+\text{sensor heterogeneity}, \\
+&\text{traffic bursts},\quad
 \text{ordinary retry/error processes}.
-\]
+\end{align*}
 Formally, high \(U_\Sigma\) increases the effective indistinguishability radius:
 \[
 \epsilon_{\mathrm{eff}}
@@ -1071,16 +1071,17 @@ Externalized resources & Eq.~\eqref{eq:total_safety_bound} & High reclaimability
 
 The central lesson is that stealth and capability are coupled only relative to a filter family. If the observer's filters cover the agent's control-relevant channels, then hiding imposes a BIQ price. If hidden channels, broad background uncertainty, or long-horizon accumulation remain available, the price may be low.
 
-Camouflage is dangerous because it can preserve local usefulness while reducing local detectability. The hard bound is distributional: substantial observer-visible value shift requires KL divergence, unless the value shift occurs in unmonitored variables or accumulates slowly. Slow plotting is dangerous because rate bounds do not imply stock bounds. A small positive hidden BIQ rate can eventually cross a threshold when decay, reset, resource caps, and cumulative detection are absent.
+Camouflage is dangerous because it can preserve local usefulness while reducing local detectability~\cite{abc2025}. The hard bound is distributional: substantial observer-visible value shift requires KL divergence~\cite{cover2006elements}, unless the value shift occurs in unmonitored variables or accumulates slowly. Slow plotting is dangerous because rate bounds do not imply stock bounds. A small positive hidden BIQ rate can eventually cross a threshold when decay, reset, resource caps, and cumulative detection are absent.
 
 Thus the relevant security question is not:
-\[
-\text{``Is the agent visible in this observation stream?''}
-\]
+\begin{align*}
+&\text{``Is the agent visible in this observation stream?''}
+\end{align*}
 but:
-\[
-\text{``What is the maximum hidden BIQ and accumulated resource consistent with all monitored filters, tags, decay rules, resets, and ledgers?''}
-\]
+\begin{align*}
+&\text{``What is the maximum hidden BIQ and accumulated resource} \\
+&\text{consistent with all monitored filters, tags, decay rules, resets, and ledgers?''}
+\end{align*}
 
 \section{Conclusion}
 
@@ -1134,56 +1135,9 @@ R_{\mathrm{danger}}
 +
 R_{\mathrm{untag}}.
 \]
-The correct adversarial UAD target is therefore not merely a recovered boundary, but a certified upper bound on hidden productive BIQ and accumulated autonomous resource. In this framing, countermeasures work by reducing \(C_{\mathrm{hid},\Sigma}\), \(U_\Sigma\), \(b\), \(\tau\), \(\rho_U\), \(\rho_L\), and \(R_{\mathrm{untag}}\), while increasing \(q_\Sigma\), \(\lambda\), and cumulative evidence retention.
+The correct adversarial UAD target is therefore not merely a recovered boundary, but a certified upper bound on hidden productive BIQ and accumulated autonomous resource~\cite{friston2010free,kaelbling1998pomdp,biehl2022pomdp,Tishby2000IB}. In this framing, countermeasures work by reducing \(C_{\mathrm{hid},\Sigma}\), \(U_\Sigma\), \(b\), \(\tau\), \(\rho_U\), \(\rho_L\), and \(R_{\mathrm{untag}}\), while increasing \(q_\Sigma\), \(\lambda\), and cumulative evidence retention.
 
-\begin{thebibliography}{99}
-
-\bibitem{uad}
-G. Zarncke.
-\newblock Foundations of Unsupervised Agent Discovery in Raw Dynamical Systems.
-\newblock Technical report, AE Studio, 2025.
-
-\bibitem{biq}
-G. Zarncke.
-\newblock Bitwise Intelligence: A Blanket--Information Measure of Competence.
-\newblock Technical report, AE Studio, 2025.
-
-\bibitem{abc}
-G. Zarncke.
-\newblock Attractor Basins of Cooperation, Privacy, and Parasite Persistence.
-\newblock Technical report, AE Studio, 2025.
-
-\bibitem{eis}
-G. Zarncke.
-\newblock The Endogenized Intentional Stance: A Predictive--Compression Formalization of Agent Discovery.
-\newblock Technical report, AE Studio, 2025.
-
-\bibitem{tishby}
-N. Tishby, F. C. Pereira, and W. Bialek.
-\newblock The information bottleneck method.
-\newblock arXiv:physics/0004057, 2000.
-
-\bibitem{friston}
-K. Friston.
-\newblock The free-energy principle: a unified brain theory?
-\newblock \emph{Nature Reviews Neuroscience}, 11(2):127--138, 2010.
-
-\bibitem{cover}
-T. M. Cover and J. A. Thomas.
-\newblock \emph{Elements of Information Theory}.
-\newblock Wiley, 2nd edition, 2006.
-
-\bibitem{kaelbling}
-L. P. Kaelbling, M. L. Littman, and A. R. Cassandra.
-\newblock Planning and acting in partially observable stochastic domains.
-\newblock \emph{Artificial Intelligence}, 101(1--2):99--134, 1998.
-
-\bibitem{biehlvirgo}
-M. Biehl and N. Virgo.
-\newblock Interpreting systems as solving POMDPs: a step towards a formal understanding of agency.
-\newblock arXiv:2209.01619v2, 2025.
-
-\end{thebibliography}
+\bibliographystyle{IEEEtran}
+\bibliography{refs}
 
 \end{document}
-```

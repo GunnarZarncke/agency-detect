@@ -13,6 +13,8 @@ LaTeX sources and built PDFs for each paper. Rebuild with the corresponding `bui
 | Construction Without Understanding | [construction_without_understanding.tex](construction-without-understanding/construction_without_understanding.tex) | [PDF](construction-without-understanding/construction_without_understanding.pdf) | `construction-without-understanding/build.sh` |
 | The Endogenized Intentional Stance | [endogenized-intentional-stance.tex](endogenized-intentional-stance/endogenized-intentional-stance.tex) | [PDF](endogenized-intentional-stance/endogenized-intentional-stance.pdf) | `endogenized-intentional-stance/build.sh` |
 | Preference-Conditioned Capability | [preference-capability.tex](preference-capability/preference-capability.tex) | [PDF](preference-capability/preference-capability.pdf) | `preference-capability/build.sh` |
+| Recoverability of Smoothed Agent Boundaries | [smooth-uad.tex](smooth-uad/smooth-uad.tex) | [PDF](smooth-uad/smooth-uad.pdf) | `smooth-uad/build.sh` |
+| Stealth--Capability Bounds | [stealth-capability-bounds.tex](stealth-capability-bounds/stealth-capability-bounds.tex) | [PDF](stealth-capability-bounds/stealth-capability-bounds.pdf) | `stealth-capability-bounds/build.sh` |
 | Prior and Related Work on UAD | [uad_literature_review.tex](uad-literature-review/uad_literature_review.tex) | [PDF](uad-literature-review/uad_literature_review.pdf) | `uad-literature-review/build.sh` |
 
 Build from the repo root:
@@ -26,6 +28,8 @@ docs/papers/bitwise-iq/build.sh
 docs/papers/construction-without-understanding/build.sh
 docs/papers/endogenized-intentional-stance/build.sh
 docs/papers/preference-capability/build.sh
+docs/papers/smooth-uad/build.sh
+docs/papers/stealth-capability-bounds/build.sh
 docs/papers/uad-literature-review/build.sh
 docs/papers/unsupervised-agent-discovery/build.sh
 ```
