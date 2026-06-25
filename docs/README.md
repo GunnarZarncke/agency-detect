@@ -12,7 +12,8 @@ paper sources.
 | `conversations/` | Session summaries and historical context |
 
 Experiment-specific instructions live next to the relevant package when they are
-closer to code than prose:
+closer to code than prose. Each package has `src/`, `tests/`, `scripts/`, and
+`pyproject.toml` at the repository root (sibling to `agency_detect/`).
 
 | Package README | Topic |
 |----------------|-------|

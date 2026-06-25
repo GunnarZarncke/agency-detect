@@ -11,25 +11,33 @@ Complex systems—from neural networks to multi-agent simulations—often contai
 
 ## Repository Layout
 
-This repository uses top-level Python packages plus thin runner scripts:
+Each research line is a **standalone package** at the repository root with its own
+`src/`, `tests/`, `scripts/`, `pyproject.toml`, and `README.md`:
 
-| Path | Role |
-|------|------|
-| `agency_detect/` | Core UAD package: simulators, clustering, Markov-blanket validation, CLI |
+| Package | Role |
+|---------|------|
+| `agency_detect/` | Core UAD: simulators, clustering, Markov-blanket validation, CLI |
 | `learn_agents/` | Main telemetry simulator and latent/refinement experiment substrate |
-| `agent_spotlight/`, `hierarchical_spotlight/` | Serial and hierarchical discovery experiments |
+| `agent_spotlight/`, `hierarchical_spotlight/` | Serial and hierarchical discovery tools |
 | `amortized_agency/` | Amortized same-agent affinity models and benchmarks |
 | `intention_detect/`, `data_collect/` | Outcome-influence and real-machine intention probes |
 | `uad_handles/` | Handle-aware UAD toy benchmarks for the access-model UAD paper |
 | `uad_worm/` | WormWideWeb / C. elegans UAD application |
-| `scripts/<line>/` | Command-line runners for each research line |
-| `tests/<line>/` | Tests grouped by package or research line |
 | `docs/` | Experiment log, findings, paper sources, and documentation index |
 | `results/` | Gitignored experiment artifacts with an index README |
+| `scripts/research/` | Cross-cutting research scripts (e.g. CMI estimator studies) |
 
-The repo intentionally keeps research packages at the top level for now. See
-`docs/README.md`, `tests/README.md`, and `results/README.md` for the navigation
-map.
+Install packages for development (from repo root):
+
+```bash
+pip install -e agency_detect -e learn_agents -e agent_spotlight \
+  -e hierarchical_spotlight -e amortized_agency -e intention_detect \
+  -e data_collect -e uad_handles -e uad_worm
+pytest
+```
+
+Runners live beside each package under `<package>/scripts/`. See `docs/README.md`
+and `results/README.md` for the navigation map.
 
 ## Key Concepts
 

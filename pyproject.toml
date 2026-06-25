@@ -3,31 +3,14 @@ requires = ["setuptools>=45", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "agency-detect"
+name = "agency-detect-workspace"
 version = "0.1.0"
-description = "A principled framework for discovering autonomous agents within raw dynamical systems"
+description = "Monorepo workspace for unsupervised agent discovery research packages"
 readme = "README.md"
 requires-python = ">=3.8"
 license = {file = "LICENSE.md"}
 authors = [
     {name = "Agency Detection Research Team"}
-]
-keywords = ["machine-learning", "agent-detection", "markov-blankets", "information-theory", "clustering"]
-classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Intended Audience :: Science/Research",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-]
-dependencies = [
-    "numpy>=1.20.0",
-    "scikit-learn>=1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -43,34 +26,12 @@ docs = [
     "sphinx-rtd-theme>=1.0",
 ]
 
-[project.urls]
-"Homepage" = "https://github.com/your-org/agency-detect"
-"Bug Reports" = "https://github.com/your-org/agency-detect/issues"
-"Source" = "https://github.com/your-org/agency-detect"
-
-[project.scripts]
-agency-detect = "agency_detect.cli:main"
-detect-agents = "agency_detect.cli:main"
-
-[tool.setuptools.packages.find]
-include = [
-    "agency_detect*",
-    "agent_spotlight*",
-    "amortized_agency*",
-    "data_collect*",
-    "hierarchical_spotlight*",
-    "intention_detect*",
-    "uad_handles*",
-    "uad_worm*",
-]
-
 [tool.black]
 line-length = 88
 target-version = ['py38']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
-  # directories
   \.eggs
   | \.git
   | \.hg
@@ -86,7 +47,24 @@ extend-exclude = '''
 minversion = "6.0"
 addopts = "-ra -q --strict-markers"
 testpaths = [
-    "tests",
+    "agency_detect/tests",
+    "learn_agents/tests",
+    "agent_spotlight/tests",
+    "amortized_agency/tests",
+    "intention_detect/tests",
+    "uad_worm/tests",
+]
+pythonpath = [
+    ".",
+    "agency_detect/src",
+    "learn_agents/src",
+    "agent_spotlight/src",
+    "hierarchical_spotlight/src",
+    "amortized_agency/src",
+    "intention_detect/src",
+    "data_collect/src",
+    "uad_handles/src",
+    "uad_worm/src",
 ]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
@@ -97,4 +75,3 @@ python_version = "3.8"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
-

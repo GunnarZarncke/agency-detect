@@ -8,48 +8,33 @@ downstream agglomerative clustering → comparable ARI / Jaccard.
 
 ## Layout
 
-| Module | Role |
-|--------|------|
-| `kinds.py` | Agent kind definitions; train vs held-out split; `EXTENDED_*` pool (E16) |
-| `worlds.py` | Episodes from sim or external traces (`backend=external`) |
-| `siamese.py` | Pairwise Siamese baseline (per-channel encoder) |
-| `slot_model.py` | Slot attention + `CrossChannelEncoder` (documented negative result for the slot readout) |
-| `context_model.py` | Cross-channel encoder → direct pairwise affinity (best learned method) |
-| `cluster.py` | Affinity → labels; MI baseline wrapper |
-| `metrics.py` | ARI, mean best-Jaccard |
-| `evaluate.py` | Cross-method evaluation on kinds / windows |
-
-## Benchmark protocol
-
-1. **MI ceiling is frozen** (E13, `benchmark.MI_REFERENCE_ARI`): hard8 @ W=250 → **0.964**.
-   Routine sweeps **do not run MI** (~300× slower); report `gap_to_mi` vs this table.
-2. **Primary work:** learned model sweeps — larger context encoders (`base` / `large` / `xl`),
-   more training worlds, epochs — to close the gap at W ∈ {250, 500}.
-3. **MI scripts** (`baseline_window_breaking_point.py`, `--run-mi`) are for occasional
-   re-validation only.
-4. **Breaking band** (W=125, 60): secondary; amortization may beat weak MI there.
+| Path | Role |
+|------|------|
+| `src/amortized_agency/` | Package source |
+| `tests/` | Pytest suite |
+| `scripts/` | Command-line runners |
 
 ## Scripts
 
 ```bash
 # Main loop: context scale × train worlds × epochs (no MI)
-.venv/bin/python scripts/amortized/run_learned_sweep.py --device cpu \
+.venv/bin/python amortized_agency/scripts/run_learned_sweep.py --device cpu \
   --scales base,large,xl --train-worlds 40,80 --context-epochs 40,60
 
 # Reference eval (learned only; frozen MI gaps) — add --run-mi to re-check live MI
-.venv/bin/python scripts/amortized/run_reference_benchmark.py --device cpu
+.venv/bin/python amortized_agency/scripts/run_reference_benchmark.py --device cpu
 
 # Extended pool wiring check (builds episodes only; no training)
-.venv/bin/python scripts/amortized/check_extended_pool.py
+.venv/bin/python amortized_agency/scripts/check_extended_pool.py
 
 # Extended pool benchmark (when ready; not part of default E13 protocol yet)
-# .venv/bin/python scripts/amortized/run_reference_benchmark.py --device cpu --extended-pool
+# .venv/bin/python amortized_agency/scripts/run_reference_benchmark.py --device cpu --extended-pool
 
 # One-off MI ceiling curve (slow)
-.venv/bin/python scripts/amortized/baseline_window_breaking_point.py
+.venv/bin/python amortized_agency/scripts/baseline_window_breaking_point.py
 
 # Pooled train + eval (learned only by default)
-.venv/bin/python scripts/amortized/run_pooled_experiment.py --device cpu \
+.venv/bin/python amortized_agency/scripts/run_pooled_experiment.py --device cpu \
   --train-windows 500,1000 --context-epochs 40
 ```
 

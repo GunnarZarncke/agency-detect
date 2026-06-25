@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "intention-detect"
+version = "0.1.0"
+description = "Outcome-influence and intention probes on agent telemetry"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {file = "../LICENSE.md"}
+dependencies = [
+    "numpy>=1.20.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

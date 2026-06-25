@@ -19,7 +19,7 @@ This is a proof-of-concept scaffold, not production UAD. It complements the main
 | `scaling.py` | Sweep alias count, passive sample size, intervention rounds; **full rescore** after each test |
 | `scaling_fast.py` | Same sweep; **targeted** score updates (faster first scaling pass) |
 
-Runners live in `scripts/handles/`. Artifacts go to `results/handles/` (gitignored).
+Runners live in `uad_handles/scripts/`. Artifacts go to `results/handles/` (gitignored).
 
 ## Dependencies
 
@@ -34,13 +34,13 @@ From the repo root (needs `pandas`; optional `matplotlib` for plots):
 **Minimal demo** (one seed, default 800 passive steps, 3 active rounds):
 
 ```bash
-PYTHONPATH=. .venv/bin/python scripts/handles/run_minimal.py
+PYTHONPATH=. .venv/bin/python uad_handles/scripts/run_minimal.py
 ```
 
 **Fast scaling sweep** (recommended first benchmark):
 
 ```bash
-PYTHONPATH=. .venv/bin/python scripts/handles/run_scaling_fast.py \
+PYTHONPATH=. .venv/bin/python uad_handles/scripts/run_scaling_fast.py \
   --alias-counts 0,1,2,4,8 \
   --passive-ns 600 \
   --seeds 1 \
@@ -53,7 +53,7 @@ PYTHONPATH=. .venv/bin/python scripts/handles/run_scaling_fast.py \
 **Full rescore scaling** (slower, more faithful to rescore-after-each-intervention):
 
 ```bash
-PYTHONPATH=. .venv/bin/python scripts/handles/run_scaling.py \
+PYTHONPATH=. .venv/bin/python uad_handles/scripts/run_scaling.py \
   --alias-counts 0,1,2,4,8 \
   --passive-ns 300,600 \
   --seeds 4 \

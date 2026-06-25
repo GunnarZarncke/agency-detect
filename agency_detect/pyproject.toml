@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agency-detect"
+version = "0.1.0"
+description = "Core unsupervised agent discovery via Markov blankets and lagged MI clustering"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {file = "../LICENSE.md"}
+dependencies = [
+    "numpy>=1.20.0",
+    "scikit-learn>=1.0.0",
+]
+
+[project.scripts]
+agency-detect = "agency_detect.cli:main"
+detect-agents = "agency_detect.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

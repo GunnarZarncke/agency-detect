@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "uad-worm"
+version = "0.1.0"
+description = "WormWideWeb / C. elegans UAD application"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {file = "../LICENSE.md"}
+dependencies = [
+    "numpy>=1.20.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
