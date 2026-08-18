@@ -36,7 +36,7 @@ point for the goal role measured at ~1–2% twin noise; access premium = total f
 exactly the two theorem-hard cases, zero elsewhere. Discoveries: the twin-channel
 (disconnected goals still sign through their recordings — instrument correct, control
 spec refined) and the lag-2 visibility of the slow puppet's intake (multi-horizon now
-evidenced). Write-up + E23 shipped (external repo https://github.com/SJ-Beard/value-detect); open items listed in the write-up.
+evidenced). Write-up + log entry (E21 in `docs/EXPERIMENTS.md`) shipped (external repo https://github.com/SJ-Beard/value-detect); open items listed in the write-up.
 
 ## Follow-up ideas
 
