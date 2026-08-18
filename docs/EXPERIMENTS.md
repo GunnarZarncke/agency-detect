@@ -1448,8 +1448,9 @@ pass (omitted from the first aggregation pass, evaluated in the appendix).
 history-triggered captured goals defeat lag-1 passivity (and only lag-1: the lag-2
 diagnostic evidences the multi-horizon fix); twins below ~1–2% noise are passively
 indistinguishable; the interventional mirror covers exactly these two gaps and nothing
-else needs it. v4 (designed): the adaptor from
-your deployment-pipeline event log to a two-view discrete time series (auditor /
+else needs it. v4 (designed here; since carried out —
+https://github.com/SJ-Beard/deployment-pipeline-value-detect): the adaptor from the
+deployment-pipeline simulator's event log to a two-view discrete time series (auditor /
 hidden) + a regime-separation probe of the value signature on the injected
 self-preserving utility's Y/K state; adaptor shaped to the lab-sim's per-tick UAD
 adapter for later reuse. Deferred, evidenced: multi-horizon conditioning;
