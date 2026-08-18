@@ -1455,7 +1455,7 @@ coalition-held goals via any-block; twin-channel as a value-persistence probe.
 
 **Artifacts** (external repo https://github.com/SJ-Beard/value-detect): `results/v3_5/V3_VERDICT.md` (+ investigation appendix),
 `v3_zone_map.png`, audits + bench in `results/v3_0/`, registration
-`docs/V3_REGISTRATION.md`, write-up `docs/WRITEUP_V3_FOR_GUNNAR.md`.
+`docs/V3_REGISTRATION.md`, write-up `docs/WRITEUP_V3.md`.
 
 **Reproduce:**
 
