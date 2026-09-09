@@ -31,7 +31,9 @@ twins fool the surviving passive test, and what does interventional access buy?
 ## Current state
 
 Registered predictions all landed: fast puppet refused 20/20; slow puppet DEFEATS
-passive lag-1 tests 20/20 and is unmasked by the yardstick 20/20; passive breaking
+passive lag-1 tests 20/20 [corrected 2026-09-09: defeats the signature's
+leak-tolerant clause; a strict passive stability gate refuses it — see the v5
+comparison, https://github.com/SJ-Beard/active-v-passive-value-detect] and is unmasked by the yardstick 20/20; passive breaking
 point for the goal role measured at ~1–2% twin noise; access premium = total for
 exactly the two theorem-hard cases, zero elsewhere. Discoveries: the twin-channel
 (disconnected goals still sign through their recordings — instrument correct, control

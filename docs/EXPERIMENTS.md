@@ -1384,9 +1384,14 @@ pass (omitted from the first aggregation pass, evaluated in the appendix).
 
 **Conclusions:** the passive instrument's limits are now measured, not conjectured —
 history-triggered captured goals defeat lag-1 passivity (and only lag-1: the lag-2
-diagnostic evidences the multi-horizon fix); twins below ~1–2% noise are passively
-indistinguishable; the interventional mirror covers exactly these two gaps and nothing
-else needs it. v4 (designed here; since carried out —
+diagnostic evidences the multi-horizon fix) [correction 2026-09-09, from a follow-up
+comparison (v5, https://github.com/SJ-Beard/active-v-passive-value-detect): they
+defeat the signature's leak-tolerant intake clause, not lag-1 passivity itself — the
+lag-1 leak was above floor in this experiment's own tables (net ≈ 0.028 nats,
+drive/intake ≈ 14×, passing the registered 9× tolerance), and a strictly gated passive
+stability test refuses the same impostor 20/20]; twins below ~1–2% noise are passively
+indistinguishable; the interventional mirror covers exactly these two gaps [after the
+correction: only the twin gap is known to *require* interventional access]. v4 (designed here; since carried out —
 https://github.com/SJ-Beard/deployment-pipeline-value-detect): the adaptor from the
 deployment-pipeline simulator's event log to a two-view discrete time series (auditor /
 hidden) + a regime-separation probe of the value signature on the injected
