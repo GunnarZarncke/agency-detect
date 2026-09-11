@@ -1,0 +1,614 @@
+\documentclass[11pt]{article}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsfonts,amsthm}
+\usepackage{booktabs}
+\usepackage{cite}
+\usepackage{hyperref}
+\usepackage{microtype}
+\usepackage{enumitem}
+
+\title{Discovering Maintained Agent Boundaries}
+\author{Gunnar Zarncke}
+\date{\today}
+
+\newtheorem{definition}{Definition}
+\newtheorem{proposition}{Proposition}
+\newtheorem{claim}{Claim}
+\newtheorem{limitation}{Limitation}
+
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\MI}{I}
+\newcommand{\KL}{D_{\mathrm{KL}}}
+\newcommand{\given}{\mid}
+\newcommand{\Tau}{\mathcal{T}}
+\newcommand{\argmax}{\operatorname*{arg\,max}}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Unsupervised Agent Discovery (UAD)~\cite{uad2025} identifies candidate agents in raw dynamical data by searching for approximate Markov blankets~\cite{friston2010free,kirchhoff2018markov}: partitions into internal, sensory, active, and external variables, i.e., a causal boundary. 
+But it misses a second property of real agents: A real agent boundary is not only a place where conditional independence holds. 
+It is a boundary that a real system must continually maintain against entropic degradation. 
+Cells repair membranes, organisms regulate temperature and ion gradients, companies maintain accounting and legal identity, and software services maintain authentication, schema validity, tests, monitoring, and rollback procedures. 
+We therefore extend UAD from \emph{boundary discovery} to \emph{maintained-boundary discovery}. 
+The central observable is not a latent distance to a theorist-specified viable manifold, but a time-local boundary damage functional built from measurable leakage, volatility, and boundary-disorder proxies. 
+We define observational repair as mean reversion of this damage after high-damage episodes, and action-mediated repair as conditional information from candidate action variables to later damage reduction. 
+A minimal synthetic experiment compares an active boundary-repairing agent, a passive mean-reverting boundary-like system, and a decaying boundary. 
+Plain UAD detects approximate separation, but cannot distinguish accidental or passive stability from maintained stability. 
+The repair extension adds a second axis: whether boundary damage reliably decreases after degradation. 
+Without interventions, active and passive repair remain only weakly distinguishable. 
+This is not a failure of the extension but an identifiability theorem in miniature: passive observation can reveal maintained boundary-like dynamics, but not establish causal repair agency without handles.
+\end{abstract}
+
+\section{Introduction}
+
+A Markov blanket is a conditional-independence structure. In the active-inference and UAD setting~\cite{ramstead2022bayesian}, a candidate agent is represented by a partition of observed variables into internal states $I_t$, sensory states $S_t$, active states $A_t$, and external states $E_t$. The idealized blanket condition says that, once the sensory and active interface is known, the internal and external futures are conditionally independent:
+\begin{equation}
+  \MI(I_{t+1};E_{t+1}\given S_t,A_t) = 0.
+  \label{eq:ideal-blanket}
+\end{equation}
+Real systems do not satisfy this exactly. They leak. The operational UAD criterion therefore relaxes the condition to
+\begin{equation}
+  \MI(I_{t+1};E_{t+1}\given S_t,A_t) \leq \varepsilon.
+  \label{eq:epsilon-blanket}
+\end{equation}
+This is already useful. It turns agency from an assumed label into an empirically testable structure in a time series.
+
+But it is incomplete. A purely causal blanket may exist only accidentally. It may be a transient statistical shadow, or a passive equilibrium, or a boundary that exists for a few time steps before entropy dissolves it. A soap bubble, a rock surface, a legal shell corporation, a cell membrane, and a production service may all generate approximate separation in some observational regime. Yet they differ in whether the boundary is \emph{maintained}.
+
+The missing condition is anti-entropic. A real agent boundary is not just a separator. It is a controlled, resource-consuming, self-stabilizing interface. The boundary is part of the process by which the agent continues to exist.
+
+This paper formalizes that upgrade.
+
+The key move is to avoid defining repair by reference to a hidden ``true'' viable boundary manifold. Such a manifold is usually not observable from raw traces. Instead, we define boundary damage using observable predictive consequences. A candidate boundary is damaged when leakage rises, boundary variables become volatile or unpredictable, or local boundary dynamics drift. A maintained boundary is one whose damage mean-reverts after high-damage episodes. An agentic maintained boundary is one where candidate action variables predict later damage reduction.
+
+The paper contributes four pieces:
+
+\begin{enumerate}[label=(\roman*)]
+  \item a distinction between approximate causal blankets and maintained blankets;
+  \item an observable boundary-damage functional that avoids latent viable-manifold assumptions;
+  \item a repair-discovery statistic based on post-damage mean reversion and optional action-mediated repair information;
+  \item a minimal synthetic experiment comparing active repair, passive repair, and boundary decay.
+\end{enumerate}
+
+The resulting method is deliberately conservative. It does not solve causal identification from passive data. It instead separates what passive observation can support from what requires interventions.
+
+\section{From causal blankets to maintained blankets}
+
+\subsection{Plain UAD}
+
+Let $X_{1:T}\in\mathbb{R}^{T\times n}$ be a multivariate trace. A candidate boundary $B$ is a partition
+\begin{equation}
+  B = (I,S,A,E),
+\end{equation}
+where $I$ are candidate internal variables, $S$ are candidate sensory variables, $A$ are candidate active variables, and $E$ are the remaining external variables.
+
+Plain UAD~\cite{uad2025} evaluates the blanket violation
+\begin{equation}
+  L_B
+  =
+  \MI(I_{t+1};E_{t+1}\given S_t,A_t).
+  \label{eq:plain-uad}
+\end{equation}
+A low value means that the interface $(S_t,A_t)$ screens off internal and external futures. The candidate boundary is then an approximate $\varepsilon$-blanket if
+\begin{equation}
+  L_B \leq \varepsilon.
+\end{equation}
+
+This is a separation test. It is not yet a viability test. It is also not a competence test: blanket-information scores such as B-IQ measure prediction and control~\cite{biq2025}, not whether the boundary itself is restored after damage.
+
+\subsection{Why separation is insufficient}
+
+Suppose a candidate partition satisfies Eq.~\ref{eq:plain-uad} during an observation window. Several different mechanisms can produce this:
+
+\begin{enumerate}[label=(\alph*)]
+  \item \textbf{Accidental separation.} The relevant variables are temporarily uncorrelated.
+  \item \textbf{Passive separation.} Physical relaxation makes the boundary stable without controlled repair.
+  \item \textbf{Externally imposed separation.} Some outside process maintains the boundary.
+  \item \textbf{Homeostatic separation.} The system contains feedback loops that restore the boundary after perturbation.
+  \item \textbf{Agentic separation.} The system allocates resources and actions to preserve the boundary while pursuing other objectives.
+\end{enumerate}
+
+Plain UAD does not distinguish these cases. It only sees the low conditional dependence. But agents are not merely things with boundaries. They are things whose boundaries survive because energy, control, and representation are continually spent on preserving them.
+
+This suggests the stronger criterion~\cite{ConantAshby1970}:
+\begin{equation}
+  \text{agent boundary}
+  =
+  \text{approximate separation}
+  +
+  \text{boundary maintenance}.
+\end{equation}
+
+\section{The latent repair-capacity ideal}
+
+It is useful to first state the ideal notion, then remove its unobservable parts.
+
+Let $D_B^\star(t)$ be the true boundary-damage state of candidate boundary $B$ at time $t$. This could include membrane tears, access-control failures, schema inconsistencies, resource depletion, uncontrolled permeability, and other domain-specific degradation variables.
+
+Given a perturbation class $\Delta$, a policy class $\Pi_K$ with resource budget $K$, and a recovery horizon $\tau$, define latent repair capacity:
+\begin{equation}
+  C_{\mathrm{repair}}^\star(B)
+  =
+  \sup_{\pi\in\Pi_K}
+  \inf_{\delta\in\Delta}
+  \frac{
+    \E\left[
+      D_B^\star(t)-D_B^\star(t+\tau)
+      \given
+      do(\delta B_t),\pi
+    \right]
+  }{\tau}.
+  \label{eq:latent-repair}
+\end{equation}
+
+The uncontrolled entropic degradation rate is
+\begin{equation}
+  G_{\mathrm{entropy}}^\star(B)
+  =
+  \E\left[
+    \frac{D_B^\star(t+\tau)-D_B^\star(t)}{\tau}
+    \given
+    \pi=\pi_{\mathrm{passive}}
+  \right].
+  \label{eq:entropy-rate}
+\end{equation}
+
+The ideal viability condition is
+\begin{equation}
+  C_{\mathrm{repair}}^\star(B) > G_{\mathrm{entropy}}^\star(B).
+  \label{eq:repair-margin}
+\end{equation}
+Equivalently, the repair margin
+\begin{equation}
+  m_B^\star = C_{\mathrm{repair}}^\star(B)-G_{\mathrm{entropy}}^\star(B)
+\end{equation}
+must be positive over the relevant perturbation class.
+
+This is conceptually right but empirically dangerous. It moves the problem into $D_B^\star$ and the viable boundary manifold. In real raw observational traces we do not usually observe either. If we define them by hand, the method becomes circular.
+
+Therefore we replace $D_B^\star$ with an observable surrogate.
+
+\section{Observable boundary damage}
+
+\begin{definition}[Observable boundary damage]
+Given a candidate partition $B=(I,S,A,E)$, define observable boundary damage as
+\begin{equation}
+  D_B(t)
+  =
+  w_L \widehat{L}_B(t)
+  +
+  w_V \widehat{V}_B(t)
+  +
+  w_R \widehat{R}_B(t),
+  \label{eq:damage}
+\end{equation}
+where:
+\begin{align}
+  \widehat{L}_B(t)
+  &=
+  \widehat{\MI}_{W}
+  \left(
+    I_{u+1};E_{u+1}
+    \given
+    S_u,A_u
+  \right)_{u=t-W}^{t},
+  \label{eq:rolling-leakage}
+  \\
+  \widehat{V}_B(t)
+  &=
+  H(B_{t+1}\given B_t),
+  \label{eq:volatility}
+  \\
+  \widehat{R}_B(t)
+  &=
+  \KL\left(
+    \widehat{p}(B_{t+1:t+h}\given B_t)
+    \,\|\, 
+    \widehat{p}(B_{t:t+h-1}\given B_{t-1})
+  \right).
+  \label{eq:drift}
+\end{align}
+\end{definition}
+
+The first term measures rolling blanket leakage. The second term measures boundary unpredictability. The third term measures local drift in boundary dynamics. All three are observable from traces, modulo estimator limitations.
+
+In minimal simulations we may include a directly observed boundary-integrity proxy $q_t$, such as membrane damage, authentication failure rate, or schema violation rate:
+\begin{equation}
+  D_B(t)
+  =
+  w_L \widehat{L}_B(t)
+  +
+  w_Q q_t
+  +
+  w_V \widehat{V}_B(t).
+  \label{eq:damage-with-proxy}
+\end{equation}
+This does not change the conceptual status of the method. It merely uses a measured damage sensor when available. In real systems the choice of proxy is part of the audit design.
+
+\section{Repair discovery without interventions}
+
+\subsection{Mean reversion of damage}
+
+Let $q_\alpha(D_B)$ be the empirical $\alpha$-quantile of boundary damage. Define high-damage times:
+\begin{equation}
+  \mathcal{H}_\alpha
+  =
+  \{t : D_B(t)>q_\alpha(D_B)\}.
+\end{equation}
+
+\begin{definition}[Observational repair score]
+The observational repair score at horizon $\tau$ is
+\begin{equation}
+  R_B(\tau,\alpha)
+  =
+  \E_{t\in\mathcal{H}_\alpha}
+  \left[
+    \frac{D_B(t)-D_B(t+\tau)}{\tau}
+  \right].
+  \label{eq:repair-score}
+\end{equation}
+\end{definition}
+
+If $R_B>0$, then high boundary damage tends to be followed by lower boundary damage. This is mean reversion of damage. It is observable and does not require handles.
+
+But it is not yet causal repair. Passive physical relaxation can also generate $R_B>0$.
+
+\subsection{Action-mediated observational repair}
+
+A stronger observational statistic asks whether candidate active variables predict later damage reduction beyond current damage and internal state:
+\begin{equation}
+  C_{\mathrm{repair}}^{\mathrm{act}}(B)
+  =
+  \MI
+  \left(
+    A_t;
+    -\Delta_\tau D_B(t)
+    \given
+    S_t,I_t,D_B(t)
+  \right),
+  \label{eq:action-repair}
+\end{equation}
+where
+\begin{equation}
+  \Delta_\tau D_B(t) = D_B(t+\tau)-D_B(t).
+\end{equation}
+
+This is not a causal effect. It is an action-channel repair signature. The causal claim would require interventions~\cite{pearl2009causality}:
+\begin{equation}
+  \E[D_B(t+\tau)\given do(A_t=a)]
+  \neq
+  \E[D_B(t+\tau)].
+\end{equation}
+In this paper we explicitly do not assume access to such handles.
+
+\subsection{Maintained-boundary criterion}
+
+A candidate boundary is an observationally maintained approximate blanket when:
+\begin{align}
+  \bar{L}_B &\leq \varepsilon,
+  \label{eq:criterion-1}
+  \\
+  R_B(\tau,\alpha) &> r_0.
+  \label{eq:criterion-2}
+\end{align}
+It is an observationally action-mediated maintained blanket when additionally:
+\begin{equation}
+  C_{\mathrm{repair}}^{\mathrm{act}}(B) > c_0.
+  \label{eq:criterion-3}
+\end{equation}
+
+This yields the taxonomy in Table~\ref{tab:taxonomy}.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}p{0.20\linewidth}p{0.30\linewidth}p{0.42\linewidth}@{}}
+\toprule
+Type & Observable condition & Interpretation \\
+\midrule
+Accidental blanket & low $\bar{L}_B$ only & separation appears but may not persist \\
+Passive boundary & low $\bar{L}_B$, $R_B>0$ & damage mean-reverts, possibly by physics \\
+Maintained boundary & low $\bar{L}_B$, robust $R_B>0$ & boundary-like process restores itself observationally \\
+Action-mediated boundary & above plus $C_{\mathrm{repair}}^{\mathrm{act}}>0$ & candidate actions predict repair \\
+Interventionally repaired boundary & repair persists under $do(\delta B)$ tests & causal repair established \\
+\bottomrule
+\end{tabular}
+\caption{Boundary taxonomy. Passive observation can reach the first four rows only weakly. The final row requires handles or interventions.}
+\label{tab:taxonomy}
+\end{table}
+
+\section{Minimal experiment}
+
+\subsection{Purpose}
+
+The experiment asks whether the repair extension detects a distinction missed by plain UAD. The aim is not to prove causal agency. The aim is to show that approximate separation and boundary maintenance are different empirical axes.
+
+\subsection{Systems}
+
+We simulate three systems.
+
+\paragraph{Active repair agent.}
+The agent has internal state $I_t$, sensory state $S_t$, action $A_t$, external hazard $E_t$, and boundary damage $Q_t$. External hazard increases damage. When sensory variables indicate damage, internal state activates a repair policy. The repair action reduces damage but consumes resources. High damage increases leakage between internal and external variables.
+
+\paragraph{Passive mean-reverter.}
+The system has boundary-like damage dynamics, but damage relaxes passively toward a baseline. It contains no meaningful repair policy. Its action-like variable is either noise or a correlate of the same dynamics. This is the crucial anti-example: a passive system can look repaired from observational traces.
+
+\paragraph{Decaying boundary.}
+The system starts with a boundary-like structure but lacks sufficient repair. Damage tends to accumulate. Leakage rises and recovery after high-damage episodes is weak.
+
+\subsection{Trace variables}
+
+Each simulated system produces a time series containing variables of the following form:
+\begin{equation}
+  X_t =
+  (I_t,S_t,A_t,E_t,Q_t,\ldots).
+\end{equation}
+The synthetic ground-truth partition is supplied to the scoring procedure:
+\begin{equation}
+  B=(I,S,A,E).
+\end{equation}
+This isolates the repair-scoring question from the separate clustering problem. A full UAD pipeline would first infer $B$ from raw variables, then apply the maintained-boundary extension.
+
+\subsection{Estimators}
+
+All information quantities are estimated by discretization into bins. Conditional mutual information is estimated by empirical plug-in counts:
+\begin{equation}
+  \widehat{\MI}(X;Y\given Z)
+  =
+  \sum_{x,y,z}
+  \hat{p}(x,y,z)
+  \log
+  \frac{
+    \hat{p}(x,y\given z)
+  }{
+    \hat{p}(x\given z)\hat{p}(y\given z)
+  }.
+\end{equation}
+For the minimal experiment this is sufficient. It is not recommended as the final estimator for high-dimensional systems. More realistic variants should use $k$-NN CMI, classifier-based conditional dependence tests, or neural density-ratio estimators.
+
+The damage functional used in the implementation is:
+\begin{equation}
+  D_B(t)
+  =
+  \widehat{L}_{B,W}(t)
+  +
+  0.45 Q_t
+  +
+  0.05 |Q_t-Q_{t-1}|.
+  \label{eq:implemented-damage}
+\end{equation}
+Here $\widehat{L}_{B,W}(t)$ is a rolling leakage estimate, $Q_t$ is the observed damage proxy, and $|Q_t-Q_{t-1}|$ is boundary volatility.
+
+The repair score uses $\alpha=0.8$ and a fixed recovery horizon $\tau$:
+\begin{equation}
+  R_B
+  =
+  \E
+  \left[
+    \frac{D_B(t)-D_B(t+\tau)}{\tau}
+    \given
+    D_B(t)>q_{0.8}
+  \right].
+\end{equation}
+
+The action-repair score is estimated as a discretized conditional mutual information:
+\begin{equation}
+  \widehat{C}_{\mathrm{repair}}^{\mathrm{act}}
+  =
+  \widehat{\MI}
+  \left(
+    A_t;
+    \mathbf{1}\{D_B(t+\tau)<D_B(t)\}
+    \given
+    D_B(t)
+  \right).
+\end{equation}
+The implementation uses a simplified conditioning set for sample-size stability. This statistic is included as a weak observational hint, not as causal evidence.
+
+\section{Results}
+
+Table~\ref{tab:results} reports one representative run.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+Candidate
+& \shortstack{Plain UAD\\leakage}
+& \shortstack{Mean\\damage}
+& \shortstack{High-damage\\reversion}
+& \shortstack{Uncond.\\reversion}
+& \shortstack{Action-repair\\CMI} \\
+\midrule
+Active repair agent
+& 0.1048
+& 0.2981
+& 0.0071
+& -0.0003
+& 0.0405 \\
+Passive mean-reverter
+& 0.1257
+& 0.5873
+& 0.0082
+& 0.0004
+& 0.0374 \\
+Decaying boundary
+& 0.1625
+& 0.6565
+& 0.0049
+& -0.0023
+& 0.0238 \\
+\bottomrule
+\end{tabular}
+\caption{Minimal maintained-boundary experiment. Plain UAD leakage measures approximate separation. High-damage reversion measures observational repair. Action-repair CMI is a weak passive-data hint and should not be read causally.}
+\label{tab:results}
+\end{table}
+
+\subsection{Interpretation}
+
+The active repair agent has the lowest mean damage and lowest plain UAD leakage. This is expected: its repair policy keeps boundary damage low, and low damage reduces internal-external leakage.
+
+The passive mean-reverter has worse mean damage and worse leakage than the active repair agent, but it has high damage reversion. This is the intended counterexample. Passive relaxation can imitate repair under observational scoring. Therefore $R_B>0$ is not evidence of active agency by itself.
+
+The decaying boundary has the highest leakage, high damage, and weaker high-damage reversion. It is still not completely monotone because stochastic episodes can temporarily reduce damage, but it lacks the stable maintenance signature of the first two systems.
+
+The action-repair CMI is highest for the active repair agent, slightly lower for the passive mean-reverter, and lowest for the decaying boundary. This is directionally suggestive but not decisive. In passive data, an action-like variable can correlate with restoration because both are driven by hidden state, hazard cycles, or the damage process itself.
+
+\section{What the experiment shows}
+
+The experiment supports three narrow claims.
+
+\begin{claim}[Plain UAD is a separation test, not a viability test]
+A low value of $\MI(I_{t+1};E_{t+1}\given S_t,A_t)$ can identify an approximate causal boundary, but it does not determine whether the boundary is actively maintained, passively stable, externally imposed, or transient.
+\end{claim}
+
+\begin{claim}[Repair is observable as damage mean reversion]
+Given an observable boundary-damage functional $D_B(t)$, passive traces can reveal whether high-damage episodes tend to be followed by recovery. This is a genuine additional empirical axis beyond plain leakage.
+\end{claim}
+
+\begin{claim}[Active repair is not identifiable from passive traces alone]
+Without interventions or handles, action-mediated repair scores can suggest active maintenance but cannot distinguish it reliably from passive mean reversion or common-cause correlation.
+\end{claim}
+
+The third claim is as important as the first two. The extension does not make causal agency magically observable. It clarifies the boundary between observational evidence and interventionally grounded evidence.
+
+\section{Discussion}
+
+\subsection{Why not use distance to a viable manifold?}
+
+A natural first formulation defines boundary damage as distance from a viable boundary manifold:
+\begin{equation}
+  d(B_t,\mathcal{M}_B).
+\end{equation}
+This is mathematically attractive but empirically suspect. In raw observational settings, $\mathcal{M}_B$ is usually unavailable. If the researcher defines it by domain intuition, the agent-discovery procedure inherits the researcher's ontology. That defeats the purpose of unsupervised discovery.
+
+The observable damage formulation avoids this by using predictive consequences:
+\begin{equation}
+  D_B(t)
+  =
+  \text{leakage}
+  +
+  \text{volatility}
+  +
+  \text{drift}
+  +
+  \text{available damage proxies}.
+\end{equation}
+This is less metaphysically satisfying but more operationally honest.
+
+\subsection{Boundary maintenance as anti-entropic control}
+
+A maintained boundary is a local violation of passive decay, paid for by resources. Cells pump ions and repair membranes. Animals regulate temperature and immune boundaries. Organizations maintain membership, roles, accounting, access control, and legal identity. Software services maintain dependency versions, schemas, certificates, credentials, tests, alerts, and rollback paths.
+
+This suggests that boundary maintenance is not an optional supplement to agency. It is one of the physical signatures of agency. An agent that cannot maintain its boundary becomes environment, debris, or substrate for another process.
+
+Formally, the maintained-boundary view adds a second inequality to the ordinary blanket condition:
+\begin{align}
+  \MI(I_{t+1};E_{t+1}\given S_t,A_t) &\leq \varepsilon,
+  \\
+  R_B(\tau,\alpha) &> r_0.
+\end{align}
+In intervention-rich settings, one should replace the second inequality with a causal repair condition:
+\begin{equation}
+  \E[D_B(t+\tau)\given do(\delta B_t),\pi_{\mathrm{candidate}}]
+  <
+  \E[D_B(t+\tau)\given do(\delta B_t),\pi_{\mathrm{ablated}}].
+\end{equation}
+
+\subsection{Relation to agent discovery}
+
+UAD asks: where is the approximate boundary~\cite{uad2025}?
+
+Maintained-boundary UAD asks: which approximate boundaries are restored after degradation?
+
+B-IQ and related scores ask: how much predictive/control competence does that boundary carry~\cite{biq2025}?
+
+Handle-based UAD~\cite{acc2025} asks: which approximate boundaries resist or compensate when perturbed?
+
+These form a natural ladder:
+\begin{equation}
+  \text{separation}
+  \;\rightarrow\;
+  \text{observational recovery}
+  \;\rightarrow\;
+  \text{action-predictive recovery}
+  \;\rightarrow\;
+  \text{interventional repair}.
+\end{equation}
+
+The first two can be attempted from ordinary traces. The last two require stronger assumptions, better variables, or actual perturbations.
+
+\section{Failure modes}
+
+\paragraph{Passive relaxation.}
+A soap bubble, elastic membrane, or stable physical equilibrium may show high $R_B$ without agency. This is why repair mean reversion is not sufficient.
+
+\paragraph{Hidden common causes.}
+An unobserved variable may drive both action-like variables and later damage reduction. Then $C_{\mathrm{repair}}^{\mathrm{act}}$ is inflated.
+
+\paragraph{Bad damage proxies.}
+If $D_B$ uses the wrong observables, it may measure environmental fluctuations rather than boundary degradation.
+
+\paragraph{Estimator artifacts.}
+Discretized CMI is biased in finite samples, especially with many conditioning states. Rolling estimates can induce apparent damage oscillations.
+
+\paragraph{Over-smoothing.}
+If traces are temporally smoothed, repair may look slower, leakage may be underestimated, and active correction may be blurred into passive mean reversion~\cite{zarncke2026smoothing}.
+
+\paragraph{Adaptive hiding.}
+An adversarial agent may repair only below the observation resolution, or may preserve the functional boundary while making the statistical boundary appear passive~\cite{zarncke2026stealth}.
+
+\section{Implications for future work}
+
+The next step is not to make the observational score more elaborate. The next step is to add handles. A handle is an interventionable variable or interface through which the candidate boundary can be perturbed. With handles, repair capacity can be measured by recovery under controlled disturbance:
+\begin{equation}
+  R_B^{do}(\delta,\tau)
+  =
+  \E
+  \left[
+    D_B(t)-D_B(t+\tau)
+    \given
+    do(\delta B_t)
+  \right]/\tau.
+\end{equation}
+
+One can then test ablations:
+\begin{equation}
+  \Delta R_B^{do}
+  =
+  R_B^{do}(\pi_{\mathrm{intact}})
+  -
+  R_B^{do}(\pi_{\mathrm{ablated}}).
+\end{equation}
+This is the proper causal version of repair discovery.
+
+For practical systems, relevant handles include:
+\begin{itemize}
+  \item perturbing access-control state in a sandbox;
+  \item injecting schema drift into a service boundary;
+  \item degrading communication channels between modules;
+  \item varying environmental hazards in simulation;
+  \item ablating candidate repair variables;
+  \item measuring recovery time, leakage, and resource expenditure.
+\end{itemize}
+
+\section{Conclusion}
+
+An approximate Markov blanket is not yet a real agent boundary. It is a conditional-independence pattern. Real agent boundaries are maintained against entropy. They persist because some process spends resources to keep leakage, volatility, and drift within viable ranges.
+
+This paper proposed an observable extension of UAD~\cite{uad2025,Tishby2000IB} that adds boundary repair to boundary separation. The extension avoids a hidden viable-manifold term by defining damage through observable predictive consequences. In a minimal synthetic experiment, plain UAD measures approximate separation, while the repair score detects whether high-damage episodes tend to recover. The experiment also shows the central limitation: passive mean reversion can imitate repair. Therefore passive data can support a maintained-boundary hypothesis, but not establish active repair agency.
+
+The resulting lesson is simple:
+
+\begin{quote}
+Agency discovery should not only ask where the boundary is. It should ask what keeps the boundary from falling apart.
+\end{quote}
+
+\bibliographystyle{IEEEtran}
+\bibliography{refs}
+
+\end{document}

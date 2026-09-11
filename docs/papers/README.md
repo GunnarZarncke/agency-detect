@@ -14,6 +14,7 @@ LaTeX sources and built PDFs for each paper. Rebuild with the corresponding `bui
 | The Endogenized Intentional Stance | [endogenized-intentional-stance.tex](endogenized-intentional-stance/endogenized-intentional-stance.tex) | [PDF](endogenized-intentional-stance/endogenized-intentional-stance.pdf) | `endogenized-intentional-stance/build.sh` |
 | Preference-Conditioned Capability | [preference-capability.tex](preference-capability/preference-capability.tex) | [PDF](preference-capability/preference-capability.pdf) | `preference-capability/build.sh` |
 | Recoverability of Smoothed Agent Boundaries | [smooth-uad.tex](smooth-uad/smooth-uad.tex) | [PDF](smooth-uad/smooth-uad.pdf) | `smooth-uad/build.sh` |
+| Discovering Maintained Agent Boundaries | [maintained-blanket.tex](maintained-blanket/maintained-blanket.tex) | [PDF](maintained-blanket/maintained-blanket.pdf) | `maintained-blanket/build.sh` |
 | Stealth--Capability Bounds | [stealth-capability-bounds.tex](stealth-capability-bounds/stealth-capability-bounds.tex) | [PDF](stealth-capability-bounds/stealth-capability-bounds.pdf) | `stealth-capability-bounds/build.sh` |
 | Prior and Related Work on UAD | [uad_literature_review.tex](uad-literature-review/uad_literature_review.tex) | [PDF](uad-literature-review/uad_literature_review.pdf) | `uad-literature-review/build.sh` |
 
@@ -29,6 +30,7 @@ docs/papers/construction-without-understanding/build.sh
 docs/papers/endogenized-intentional-stance/build.sh
 docs/papers/preference-capability/build.sh
 docs/papers/smooth-uad/build.sh
+docs/papers/maintained-blanket/build.sh
 docs/papers/stealth-capability-bounds/build.sh
 docs/papers/uad-literature-review/build.sh
 docs/papers/unsupervised-agent-discovery/build.sh
@@ -38,6 +40,23 @@ LaTeX build artifacts (`*.aux`, `*.log`, etc.) are gitignored. Paper PDFs are tr
 
 ## Paper dependency graph
 
-Arrows point from citing paper to cited paper. [DOT source](paper-dependencies.dot).
+Arrows point from citing paper to cited paper. [DOT source](paper-dependencies.dot). Rebuild the figure with `dot -Tpng paper-dependencies.dot -o paper-dependencies.png`.
 
 ![Paper dependencies](paper-dependencies.png)
+
+| Node | Paper | Role in the graph |
+|------|-------|-------------------|
+| UAD | Foundations of Unsupervised Agent Discovery | Core ε-blanket discovery |
+| ABC | Attractor Basins | Persistence / cooperation / parasites atop UAD |
+| BIQ | Bitwise Intelligence | Competence score (prediction, control, memory) |
+| EIS | Endogenized Intentional Stance | Compression-based agency, not a UAD child |
+| ACT | Acausal Trade Formalization | Decision theory on UAD + ABC |
+| APP | Empirical Detection of Free-Energy Loops | Empirical ABC; dashed edges to the brain-to-values repo |
+| ACC | Access-Model UAD | Handles / interventions; identifiability under access |
+| SMU | Smoothed Agent Recoverability | Observation-channel recoverability of blankets |
+| SCB | Stealth--Capability Bounds | Adversarial hiding vs BIQ under a filter family |
+| MBU | Discovering Maintained Agent Boundaries | Viability/repair axis on UAD, distinct from B-IQ competence; observational rung before ACC handles; constrained by SMU and SCB |
+| PCC | Preference-Conditioned Capability | Capability relative to inferred preferences |
+| CWU | Construction Without Understanding | Construction vs reflective control |
+| LIT | UAD Literature Review | Survey |
+| FEL / LHV / LHV2 | brain-to-values papers | External (dashed) |
